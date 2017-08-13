@@ -87,9 +87,6 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
   for (int i = 0; i < flow->nlinks; i++) {
     struct link_t *link = flow->links[i];
     link->used += remaining_demand(flow);
-    if (link->id == 16) {
-      info("fixing flow==%d on link->id == 16, active_flows=%d", flow->id, link->nactive_flows);
-    }
     if (link->nactive_flows==0)
       panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d",
             link->id, flow->id,
