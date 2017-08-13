@@ -51,7 +51,7 @@ void network_free(struct network_t *network) {
 // network->links are in the same order that you passed. To see what the
 // structures have take a look at types.h
 void network_print_flows(struct network_t *network) {
-  printf(">>> NETWORK \n");
+  printf("----------------------------------------\n");
   struct flow_t *flow = 0;
   for (int i = 0; i < network->num_flows; ++i) {
     flow = &network->flows[i];
@@ -59,29 +59,51 @@ void network_print_flows(struct network_t *network) {
   }
 
   printf("----------------------------------------\n");
-
   for (int i = 0; i < network->num_links; ++i) {
     struct link_t *link = &network->links[i];
     printf("link %d: %.2f/%.2f (%.2f%%)\n", i, link->used, link->capacity, link->used/link->capacity * 100);
   }
+  printf("----------------------------------------\n");
 }
 
+const char *usage_message = "" \
+  "usage: %s <routing-file>\n" \
+  "routing-file has the following format:\n\n" \
+  "\tr\n"\
+  "\t[num-flows]\n"\
+  "\t[links on path of flow 0]\n"\
+  "\t[links on path of flow 1]\n"\
+  "\t[...]\n"\
+  "\t[links on path of flow n]\n"\
+  "\tl\n"\
+  "\t[link capacities, space separated]\n"\
+  "\tf\n"\
+  "\t[flow demands, space separated]\n\n";
+
+void usage(const char *fname) {
+  printf(usage_message, fname);
+  exit(EXIT_FAILURE);
+}
 
 int main(int argc, char **argv) {
   char *output = 0;
   int err = 0;
+
+  if (argc < 2) {
+    usage(argv[0]);
+  }
 
   info("reading data file.");
   read_file(argv[1], &output);
   struct network_t network = {0};
   if ((err = parse_input(output, &network)) != E_OK) {
     error("failed to read the data file: %d.", err);
-    return -1;
+    return EXIT_FAILURE;
   };
 
   bw_t *flows = 0;
   maxmin(&network);
   network_print_flows(&network);
   network_free(&network);
-  return 0;
+  return EXIT_SUCCESS;
 }
