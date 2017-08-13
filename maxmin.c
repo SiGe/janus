@@ -47,12 +47,32 @@ void network_free(struct network_t *network) {
 }
 
 
+// TODO jiaqi: you can change the output format here. both network->flows and
+// network->links are in the same order that you passed. To see what the
+// structures have take a look at types.h
+void network_print_flows(struct network_t *network) {
+  printf(">>> NETWORK \n");
+  struct flow_t *flow = 0;
+  for (int i = 0; i < network->num_flows; ++i) {
+    flow = &network->flows[i];
+    printf("flow %d: %.2f/%.2f (%.2f%%)\n", i, flow->bw, flow->demand, flow->bw/flow->demand * 100);
+  }
+
+  printf("----------------------------------------\n");
+
+  for (int i = 0; i < network->num_links; ++i) {
+    struct link_t *link = &network->links[i];
+    printf("link %d: %.2f/%.2f (%.2f%%)\n", i, link->used, link->capacity, link->used/link->capacity * 100);
+  }
+}
+
+
 int main(int argc, char **argv) {
   char *output = 0;
   int err = 0;
 
   info("reading data file.");
-  read_file("data/test_input_02.dat", &output);
+  read_file(argv[1], &output);
   struct network_t network = {0};
   if ((err = parse_input(output, &network)) != E_OK) {
     error("failed to read the data file: %d.", err);
@@ -61,7 +81,7 @@ int main(int argc, char **argv) {
 
   bw_t *flows = 0;
   maxmin(&network);
-  //network_print_flows(&network);
+  network_print_flows(&network);
   network_free(&network);
   return 0;
 }

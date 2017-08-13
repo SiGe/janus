@@ -16,14 +16,18 @@ static inline bw_t max(bw_t a, bw_t b) {
   return  (a > b) ? a : b;
 }
 
+// returns the remaining_demand of a flow
 static inline bw_t remaining_demand(struct flow_t *flow) {
   return flow->demand - flow->bw ;
 }
 
+// returns the capacity that a link can spare for each active flow (i.e., flows
+// that are not bottlenecked in other parts of the network)
 static inline bw_t per_flow_capacity(struct link_t *link) {
   return max((link->capacity - link->used) / link->nactive_flows, 0);
 }
 
+// finds the flow with the smallest remaining demand
 static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
   bw_t min_remaining_demand = INFINITY;
   struct flow_t *ret = 0;
@@ -40,6 +44,7 @@ static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t 
   return ret;
 }
 
+// finds a link that gets saturated first
 static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct network_t *network) {
   bw_t min_remaining_capacity = INFINITY;
   struct link_t *ret = 0;
@@ -60,6 +65,7 @@ static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct netwo
   return ret;
 }
 
+// marks a flow as fixed--i.e., his bw cannot be upgraded anymore
 static void mark_flow_as_fixed(struct network_t *network, int flow_id) {
   pair_id_t *ptr = network->flow_ids + network->fixed_flow_end;
   for (int i = network->fixed_flow_end; i < network->num_flows; ++i) {
@@ -76,6 +82,7 @@ static void mark_flow_as_fixed(struct network_t *network, int flow_id) {
   panic("flow was already fixed : %d, network->fixed_flow_end == %d", flow_id, network->fixed_flow_end);
 }
 
+// fixes a flow by updating the links on its path
 static int fix_flow(struct network_t *network, struct flow_t *flow) {
   for (int i = 0; i < flow->nlinks; i++) {
     struct link_t *link = flow->links[i];
@@ -99,6 +106,7 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
   return 1;
 }
 
+// fixes a link by fixing the flows on itself and distributing the spare capacity that it has.
 static int fix_link(struct network_t *network, struct link_t *link) {
   bw_t spare_capacity = per_flow_capacity(link);
 
@@ -126,22 +134,6 @@ static int fix_link(struct network_t *network, struct link_t *link) {
 }
 
 
-int network_print_flows(struct network_t *network) {
-  printf(">>> NETWORK \n");
-  struct flow_t *flow = 0;
-  for (int i = 0; i < network->num_flows; ++i) {
-    flow = &network->flows[i];
-    printf("flow %d: %.2f/%.2f (%.2f%%)\n", i, flow->bw, flow->demand, flow->bw/flow->demand * 100);
-  }
-
-  printf("----------------------------------------");
-
-  for (int i = 0; i < network->num_links; ++i) {
-    struct link_t *link = &network->links[i];
-    printf("link %d: %.2f/%.2f (%.2f%%)\n", i, link->used, link->capacity, link->used/link->capacity * 100);
-  }
-}
-
 /* calculate the max-min fairness of the network flows. This is a destructive
    operation---i.e., the network structure will change */
 int maxmin(struct network_t *network) {
@@ -159,6 +151,5 @@ int maxmin(struct network_t *network) {
       info("Fixing link: %d (@%.2f)", link->id, per_flow_capacity(link));
       fix_link(network, link);
     }
-    //network_print_flows(network);
   }
 }
