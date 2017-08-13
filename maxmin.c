@@ -101,7 +101,6 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   };
 
-  bw_t *flows = 0;
   maxmin(&network);
   network_print_flows(&network);
   network_free(&network);

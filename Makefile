@@ -1,8 +1,8 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
 
-CFLAGS=-g -O3
-LDFLAGS = -lm -O3
+CFLAGS=-O3 -Wall -Werror
+LDFLAGS = -lm -O3 -Wall -Werror
 
 maxmin: $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS)
