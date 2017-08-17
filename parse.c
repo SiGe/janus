@@ -9,67 +9,105 @@
 #include "parse.h"
 #include "types.h"
 
-
 char const *strip(char const* input) {
   for (;*input == '\t' || *input == ' '; input++){}
   return input;
 }
 
-int read_uint32(char const *input, uint32_t *output) {
-    uint32_t ret = 0;
-    char const *begin = input;
-
-    while (isdigit(*input)) {
-        ret = ret * 10 + (*input - '0');
-        input++;
-    }
-    *output = ret;
-    return (input - begin);
+char const *strip_space(char const *input) {
+  for (;isspace(*input); input++){}
+  return input;
 }
 
-int read_bw(char const *input, bw_t *output) {
-    char const *begin = input;
-    uint32_t whole = 0;
-    int pos = read_uint32(input, &whole);
-    input += pos;
-    *output = (bw_t)(whole);
-    if (*input != '.')
-      return (input - begin);
+#ifdef WITH_SCANF
+int read_uint32(char const *input, uint32_t *value, int *pos) {
+  return sscanf(input, "%d%n", value, pos);
+}
+
+int read_link_id(char const *input, link_id_t *value, int *pos) {
+  return sscanf(input, "%hd%n", value, pos);
+}
+
+int read_bw(char const *input, bw_t *value, int *pos) {
+  return sscanf(input, "%lf%n", value, pos);
+}
+#else
+int eat_uint32(char const *input, uint32_t *value) {
+  char const *begin = input;
+  input = strip_space(input);
+  uint32_t result = 0;
+  for(;isdigit(*input);input++){
+    result = (result * 10) + ((*input) - '0');
+  }
+  *value = result;
+  return (input - begin);
+}
+
+int eat_link_id(char const *input, link_id_t *value) {
+  char const *begin = input;
+  input = strip_space(input);
+  uint32_t result = 0;
+  for(;isdigit(*input);input++){
+    result = (result * 10) + ((*input) - '0');
+  }
+  *value = result;
+  return (input - begin);
+}
+
+int eat_bw(char const *input, bw_t *value) {
+  char const *begin = input;
+  input = strip_space(input);
+  bw_t result = 0;
+  for(;isdigit(*input);input++){
+    result = (result * 10) + ((*input) - '0');
+  }
+  *value = (bw_t)result;
+
+  bw_t fraction = 0;
+  bw_t power = 1.0;
+  if (*input == '.'){
     input++;
-    bw_t power = 1;
-    bw_t fraction = 0;
-    while (isdigit(*input)) {
-        fraction = fraction + (*input - '0')/power;
-        power *= 10;
-        input++;
-    }
-    *output += fraction;
-    return (input - begin);
+  }
+  for (;isdigit(*input); input++){
+    fraction += (((*input) - '0') / power);
+    power *= 10;
+  }
+  *value += fraction;
+  return (input - begin);
 }
 
-int read_link_id(char const *input, link_id_t *output) {
-    char const *begin = input;
-    link_id_t ret = 0;
-    while (isdigit(*input)) {
-        ret = ret * 10 + (*input - '0');
-        input++;
-    }
-    *output = ret;
-    return (input - begin);
+int read_uint32(char const *input, uint32_t *value, int *pos) {
+  *pos = eat_uint32(input, value);
+  if (*pos == 0) return 0;
+  return 1;
 }
+
+int read_link_id(char const *input, link_id_t *value, int *pos) {
+  *pos = eat_link_id(input, value);
+  if (*pos == 0) return 0;
+  return 1;
+}
+
+int read_bw(char const *input, bw_t *value, int *pos) {
+  *pos = eat_bw(input, value);
+  if (*pos == 0) return 0;
+  return 1;
+}
+#endif
 
 char const *parse_routing_matrix(char const *input, struct network_t *network) {
   info("parsing routing.");
   uint32_t num_lines = 0;
-  int pos = 0;
+  int result = 0, pos = 0;
 
   /* read number of lines */
-  pos = read_uint32(input, &num_lines);
-  input += pos;
-  input = strip(input);
+  result = read_uint32(input, &num_lines, &pos);
+  if (result == 0) {
+    return input;
+  }
 
-  /* bypass newline */
-  input++;
+  /* move the pointer forward */
+  input += pos;
 
   /* allocate space for saving the matrix */
   link_id_t *out = malloc(sizeof(link_id_t) * (MAX_PATH_LENGTH+1) * num_lines);
@@ -84,25 +122,36 @@ char const *parse_routing_matrix(char const *input, struct network_t *network) {
     input = strip(input);
 
     /* read a link id */
-    link_id_t link;
+    link_id_t link; result = read_link_id(input, &link, &pos);
+    if (result <= 0) {
+      network->num_links = 0;
+      network->num_flows = 0;
 
-    pos = read_link_id(input, &link);
+      // Free the space and return 0;
+      free(network->routing);
+      network->routing = 0;
+      return input;
+    }
+
     input += pos;
     input = strip(input);
 
+
     /* Save the link id */
-    /* remember the max link id seen */
-    if (pos > 0) {
+    if (result >= 1) {
+      /* remember the max link id seen */
       if (num_links < link) {
         num_links = link;
       }
 
       /* keep the first position for number of elements, hence the + 1 */
       *(out + index + 1) = link;
+
+      /* move index forward */
       index += 1;
     }
 
-    /* Bypass white lines */
+    /* By pass white lines */
     while (*input == '\n' || *input == 0) {
       /* save the number of links read */
       *out = index;
@@ -145,14 +194,19 @@ char const *parse_flows(char const *input, struct network_t *network) {
   network->flows = flows;
   int parsed_flows = 0;
 
-  bw_t bandwidth; int pos;
+  bw_t bandwidth; int pos, result;
   for (pair_id_t i = 0; i < network->num_flows; i++) {
-    pos = read_bw(input, &bandwidth);
-    input += pos;
-    input = strip(input);
+    result = read_bw(input, &bandwidth, &pos);
+    if (result <= 0) {
+      error("expected %d flows, got %d flows (input: %s).", network->num_flows, parsed_flows, input);
+      free(network->flows);
+      network->flows = 0;
+      return input;
+    }
 
     /* save the bandwidth and move the input pointer forward */
     flows->id = i; flows->demand = bandwidth; flows++;
+    input += pos;
     parsed_flows++;
   }
 
@@ -170,21 +224,25 @@ char const *parse_links(char const *input, struct network_t *network) {
   struct link_t *links = malloc(sizeof(struct link_t) * network->num_links);
   memset(links, 0, sizeof(struct link_t) * network->num_links);
   network->links = links;
-  
-  bw_t bandwidth; int pos;
+
+  bw_t bandwidth; int pos, result;
   for (link_id_t i = 0; i < network->num_links; i++) {
-    pos = read_bw(input, &bandwidth);
-    input += pos;
-    input = strip(input);
+    result = read_bw(input, &bandwidth, &pos);
+    if (result <= 0) {
+      error("error reading input: %s", input);
+      free(network->links);
+      network->links = 0;
+      return input;
+    }
 
     /* save the bandwidth and move the input pointer forward */
     links->id = i; links->capacity = bandwidth; links->used = 0; links++;
+    input += pos;
   }
 
   if (*input != 0) input = strip(input)+1;
   return strip(input);
 }
-
 
 int parse_input(char const *input, struct network_t *network) {
   char const *ptr = input;

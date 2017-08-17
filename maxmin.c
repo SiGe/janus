@@ -46,26 +46,6 @@ void network_free(struct network_t *network) {
   }
 }
 
-
-// TODO jiaqi: you can change the output format here. both network->flows and
-// network->links are in the same order that you passed. To see what the
-// structures have take a look at types.h
-void network_print_flows(struct network_t *network) {
-  printf("----------------------------------------\n");
-  struct flow_t *flow = 0;
-  for (int i = 0; i < network->num_flows; ++i) {
-    flow = &network->flows[i];
-    printf("flow %d: %.2f/%.2f (%.2f%%)\n", i, flow->bw, flow->demand, flow->bw/flow->demand * 100);
-  }
-
-  printf("----------------------------------------\n");
-  for (int i = 0; i < network->num_links; ++i) {
-    struct link_t *link = &network->links[i];
-    printf("link %d: %.2f/%.2f (%.2f%%)\n", i, link->used, link->capacity, link->used/link->capacity * 100);
-  }
-  printf("----------------------------------------\n");
-}
-
 const char *usage_message = "" \
   "usage: %s <routing-file>\n" \
   "routing-file has the following format:\n\n" \
@@ -96,20 +76,16 @@ int main(int argc, char **argv) {
   info("reading data file.");
   read_file(argv[1], &output);
 
-  for (int i = 0; i < 100; ++i) {
-      struct network_t network = {0};
-      if ((err = parse_input(output, &network)) != E_OK) {
-          error("failed to read the data file: %d.", err);
-          return EXIT_FAILURE;
-      };
+  struct network_t network = {0};
+  if ((err = parse_input(output, &network)) != E_OK) {
+    error("failed to read the data file: %d.", err);
+    return EXIT_FAILURE;
+  };
 
-      //network_print_flows(&network);
-      maxmin(&network);
-      //network_print_flows(&network);
-      network_free(&network);
-  }
 
-  printf("successfully completed maxmin calculations.\n");
+  maxmin(&network);
+  //network_print_flows(&network);
+  network_free(&network);
 
   return EXIT_SUCCESS;
 }

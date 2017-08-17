@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "log.h"
+#include "types.h"
 
 #define LOG(level, color) {\
   char format[MAX_FORMAT_LENGTH] = {0};\
@@ -36,3 +37,25 @@ void info(const char *fmt, ...) LOG(INFO, "32");
 void info(const char *fmt, ...) {}
 #endif
 
+// TODO jiaqi: you can change the output format here. both network->flows and
+// network->links are in the same order that you passed. To see what the
+// structures have take a look at types.h
+void network_print_flows(struct network_t *network) {
+  printf("----------------------------------------\n");
+  struct flow_t *flow = 0;
+  for (int i = 0; i < network->num_flows; ++i) {
+    flow = &network->flows[i];
+    printf("flow %d: %.2f/%.2f (%.2f%%).  Links:\n\t", i, flow->bw, flow->demand, flow->bw/flow->demand * 100);
+    for (int j = 0; j < flow->nlinks; ++j) {
+      printf("%d\t", flow->links[j]->id);
+    }
+    printf("\n");
+  }
+
+  printf("----------------------------------------\n");
+  for (int i = 0; i < network->num_links; ++i) {
+    struct link_t *link = &network->links[i];
+    printf("link %d: %.2f/%.2f (%.2f%%)\n", i, link->used, link->capacity, link->used/link->capacity * 100);
+  }
+  printf("----------------------------------------\n");
+}

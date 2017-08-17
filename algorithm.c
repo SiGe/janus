@@ -279,7 +279,7 @@ static void populate_and_sort_links(struct network_t *network) {
     struct link_t *prev = 0;
     network->smallest_link = 0;
 
-    for (int i = 0; i < network->num_links; ++i, ++link) {
+    for (int i = 0; i < network->num_links; ++i) {
       link = links[i];
       link->next = link->prev = 0;
       if (link->nactive_flows == 0) {
@@ -296,7 +296,6 @@ static void populate_and_sort_links(struct network_t *network) {
       }
     }
     link->next = 0;
-
     free(links);
   }
 }

@@ -1,6 +1,8 @@
 #ifndef _LOG_H_
 #define _LOG_H_
 
+#include "types.h"
+
 #define MAX_FORMAT_LENGTH 256
 
 #ifndef LOG_LEVEL
@@ -13,5 +15,6 @@
 void info(char const *fmt, ...);
 void error(char const *fmt, ...);
 void panic(char const *fmt, ...);
+void network_print_flows(struct network_t *);
 
 #endif
