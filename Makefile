@@ -2,8 +2,8 @@ SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
 CC=gcc
 
-OPT=-O3
-EXTRA=
+OPT=-O0
+EXTRA=-g -pg -p
 
 CFLAGS=-Wall -Werror $(OPT) $(EXTRA)
 LDFLAGS = -lm -Wall -Werror $(OPT) $(EXTRA)

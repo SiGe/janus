@@ -2,7 +2,7 @@ FILES=$(wildcard acu_test.h test_*.c ../*.c)
 SRC=$(filter-out ../maxmin.c, $(FILES))
 
 OBJ=$(SRC:.c=.o)
-CC=clang
+CC=gcc
 
 CFLAGS=-g -O0
 LDFLAGS = -g -O0

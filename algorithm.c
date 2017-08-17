@@ -296,7 +296,6 @@ static void populate_and_sort_links(struct network_t *network) {
     }
     link->next = 0;
 
-    printf("smallest link : %.2f\n", per_flow_capacity(network->smallest_link));
     free(links);
   }
 }
