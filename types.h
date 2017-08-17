@@ -58,6 +58,7 @@ struct network_t {
   link_id_t *link_ids;
 
   struct flow_t *smallest_flow;
+  struct link_t *smallest_link;
 };
 
 #endif

@@ -2,10 +2,11 @@ SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
 CC=gcc
 
-OPT=-O1
+OPT=-O3
+EXTRA=
 
-CFLAGS=-Wall -Werror $(OPT) -pg -g
-LDFLAGS = -lm -Wall -Werror $(OPT) -pg -g
+CFLAGS=-Wall -Werror $(OPT) $(EXTRA)
+LDFLAGS = -lm -Wall -Werror $(OPT) $(EXTRA)
 
 maxmin: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^
