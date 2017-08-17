@@ -240,6 +240,5 @@ int parse_input(char const *input, struct network_t *network) {
     }
   }
 
-  _build_network(network);
   return E_OK;
 }

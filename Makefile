@@ -1,11 +1,12 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
+CC=/usr/local/bin/gcc-7
 
-CFLAGS=-O3 -Wall -Werror
-LDFLAGS = -lm -O3 -Wall -Werror
+CFLAGS=-p -pg -Wall -Werror -g
+LDFLAGS = -lm -p -pg -Wall -Werror -g
 
 maxmin: $(OBJ)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) $(LDFLAGS) -o $@ $^
 
 .PHONY: clean
 clean:

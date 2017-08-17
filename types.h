@@ -22,6 +22,9 @@ struct link_t {
   bw_t used;
 
   struct flow_t **flows;
+
+  /* next and prev point in the linked list */
+  struct link_t *next, *prev;
 };
 
 struct flow_t {
@@ -34,6 +37,9 @@ struct flow_t {
   bw_t demand;
 
   struct link_t *links[MAX_PATH_LENGTH];
+
+  /* next and prev point in the linked list */
+  struct flow_t *next, *prev;
 };
 
 /* Network representation */
@@ -50,6 +56,8 @@ struct network_t {
 
   int fixed_link_end;
   link_id_t *link_ids;
+
+  struct flow_t *smallest_flow;
 };
 
 #endif
