@@ -1,9 +1,11 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
-CC=/usr/local/bin/gcc-7
+CC=gcc
 
-CFLAGS=-p -pg -Wall -Werror -g
-LDFLAGS = -lm -p -pg -Wall -Werror -g
+OPT=-O1
+
+CFLAGS=-Wall -Werror $(OPT) -pg -g
+LDFLAGS = -lm -Wall -Werror $(OPT) -pg -g
 
 maxmin: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^

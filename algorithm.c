@@ -12,28 +12,28 @@
 
 #define EPS 1e-6
 
-static inline bw_t max(bw_t a, bw_t b) {
+/* static */ inline bw_t max(bw_t a, bw_t b) {
   return  (a > b) ? a : b;
 }
 
 // returns the remaining_demand of a flow
-static inline bw_t remaining_demand(struct flow_t *flow) {
+/* static */ inline bw_t remaining_demand(struct flow_t *flow) {
   return flow->demand - flow->bw ;
 }
 
 // returns the capacity that a link can spare for each active flow (i.e., flows
 // that are not bottlenecked in other parts of the network)
-static inline bw_t per_flow_capacity(struct link_t *link) {
+/* static */ inline bw_t per_flow_capacity(struct link_t *link) {
   return max((link->capacity - link->used) / link->nactive_flows, 0);
 }
 
 // finds the flow with the smallest remaining demand
-static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
+/* static */ struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
   return network->smallest_flow;
 }
 
 // finds a link that gets saturated first
-static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct network_t *network) {
+/* static */ struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct network_t *network) {
   bw_t min_remaining_capacity = INFINITY;
   struct link_t *ret = 0;
 
@@ -53,24 +53,7 @@ static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct netwo
   return ret;
 }
 
-// marks a flow as fixed--i.e., his bw cannot be upgraded anymore
-static void mark_flow_as_fixed(struct network_t *network, int flow_id) {
-  pair_id_t *ptr = network->flow_ids + network->fixed_flow_end;
-  for (int i = network->fixed_flow_end; i < network->num_flows; ++i) {
-    if (*ptr == flow_id) {
-      pair_id_t tmp = network->flow_ids[network->fixed_flow_end];
-      info("swapping: [%d]==%d with [%d]==%d", network->fixed_flow_end, tmp, i, *ptr);
-      network->flow_ids[network->fixed_flow_end] = *ptr;
-      *ptr = tmp;
-      network->fixed_flow_end++;
-      return;
-    }
-    ptr++;
-  }
-  panic("flow was already fixed : %d, network->fixed_flow_end == %d", flow_id, network->fixed_flow_end);
-}
-
-static void linked_list_remove_flow(struct flow_t *flow) {
+/* static */ void linked_list_remove_flow(struct flow_t *flow) {
   if (flow->prev)
     flow->prev->next = flow->next;
 
@@ -79,7 +62,7 @@ static void linked_list_remove_flow(struct flow_t *flow) {
 }
 
 // fixes a flow by updating the links on its path
-static int fix_flow(struct network_t *network, struct flow_t *flow) {
+/* static */ int fix_flow(struct network_t *network, struct flow_t *flow) {
   for (int i = 0; i < flow->nlinks; i++) {
     struct link_t *link = flow->links[i];
     link->used += remaining_demand(flow);
@@ -93,7 +76,6 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
   }
 
   flow->fixed = 1;
-  mark_flow_as_fixed(network, flow->id);
   flow->bw = flow->demand;
 
   /* remove the flow from the chain of good flows */
@@ -103,7 +85,7 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
 }
 
 // fixes a link by fixing the flows on itself and distributing the spare capacity that it has.
-static int fix_link(struct network_t *network, struct link_t *link) {
+/* static */ int fix_link(struct network_t *network, struct link_t *link) {
   bw_t spare_capacity = per_flow_capacity(link);
 
   struct flow_t *flow = 0;
@@ -122,7 +104,6 @@ static int fix_link(struct network_t *network, struct link_t *link) {
 
 
     flow->fixed = 1;
-    mark_flow_as_fixed(network, flow->id);
     flow->bw += spare_capacity;
 
     /* take it out of the loop */
@@ -136,21 +117,21 @@ static int fix_link(struct network_t *network, struct link_t *link) {
   return 1;
 }
 
-static int flow_cmp(void const *v1, void const *v2) {
+/* static */ int flow_cmp(void const *v1, void const *v2) {
   struct flow_t const *f1 = (struct flow_t const*)v1;
   struct flow_t const *f2 = (struct flow_t const*)v2;
 
   return (int)(f1->demand - f2->demand);
 }
 
-static __attribute__((unused)) int link_cmp(void const *v1, void const *v2) {
+/* static */ __attribute__((unused)) int link_cmp(void const *v1, void const *v2) {
   struct link_t const *l1 = (struct link_t const*)v1;
   struct link_t const *l2 = (struct link_t const*)v2;
 
   return (int)(l1->capacity - l2->capacity);
 }
 
-static void populate_and_sort_flows(struct network_t *network) {
+/* static */ void populate_and_sort_flows(struct network_t *network) {
   /* populate the link and flow structures */
   link_id_t *ptr = network->routing;
   struct flow_t *flow = network->flows;
@@ -178,7 +159,7 @@ static void populate_and_sort_flows(struct network_t *network) {
   network->smallest_flow = flow;
 }
 
-static void populate_links(struct network_t *network) {
+/* static */ void populate_links(struct network_t *network) {
   /* populate the links with non-zero flows */
   struct flow_t *flow = network->flows;
   struct flow_t *prev = 0;
@@ -210,21 +191,13 @@ static void populate_links(struct network_t *network) {
     prev = flow;
   }
   flow->next = 0;
+
+  struct link_t *links = malloc(sizeof(struct link_t *) * network->num_links);
 }
 
-static void populate_flow_fixed_data_structure(struct network_t *network) {
-  pair_id_t *flow_ids = malloc(sizeof(pair_id_t) * network->num_flows);
-  for (int i = 0; i < network->num_flows; ++i) {
-    flow_ids[i] = i;
-  }
-  network->flow_ids = flow_ids;
-  network->fixed_flow_end = 0;
-}
-
-static void network_prepare(struct network_t *network) {
+/* static */ void network_prepare(struct network_t *network) {
   populate_and_sort_flows(network);
-  populate_links(network);
-  populate_flow_fixed_data_structure(network);
+  populate_and_sort_links(network);
 }
 
 
