@@ -212,6 +212,7 @@ static void populate_and_sort_flows(struct network_t *network) {
     if (flow->demand < EPS) {
       continue;
     }
+    info("flow %d [link %d]", i, *ptr);
 
     for (int j = 0; j < *ptr; ++j) {
       struct link_t *link = &network->links[*(ptr+j+1)];
