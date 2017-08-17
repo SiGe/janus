@@ -45,17 +45,13 @@ void network_print_flows(struct network_t *network) {
   struct flow_t *flow = 0;
   for (int i = 0; i < network->num_flows; ++i) {
     flow = &network->flows[i];
-    printf("flow %d: %.2f/%.2f (%.2f%%).  Links:\n\t", i, flow->bw, flow->demand, flow->bw/flow->demand * 100);
-    for (int j = 0; j < flow->nlinks; ++j) {
-      printf("%d\t", flow->links[j]->id);
-    }
+    printf("flow %d: %.2f/%.2f (%.2f%%) -- %.2f.", i, flow->bw, flow->demand, flow->bw/flow->demand * 100, (flow->demand - flow->bw));
     printf("\n");
   }
-
   printf("----------------------------------------\n");
   for (int i = 0; i < network->num_links; ++i) {
     struct link_t *link = &network->links[i];
-    printf("link %d: %.2f/%.2f (%.2f%%)\n", i, link->used, link->capacity, link->used/link->capacity * 100);
+    printf("link %d: %.2f/%.2f (%.2f%%) -- %.2f\n", i, link->used, link->capacity, link->used/link->capacity * 100, (link->capacity - link->used)/link->nactive_flows);
   }
   printf("----------------------------------------\n");
 }

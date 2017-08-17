@@ -4,6 +4,7 @@ CC=gcc
 
 OPT=-O3
 EXTRA=-g -pg
+EXTRA=
 
 CFLAGS=-Wall -Werror $(OPT) $(EXTRA)
 LDFLAGS = -lm -Wall -Werror $(OPT) $(EXTRA)

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +11,7 @@
 
 #include "algorithm.h"
 
-#define EPS 1e-6
+#define EPS 1e-3
 
 static inline bw_t max(bw_t a, bw_t b) {
   return  (a > b) ? a : b;
@@ -42,6 +43,15 @@ static __attribute__((unused)) void ensure_consistency_of_links(struct network_t
   }
 }
 
+static __attribute__((unused)) void network_smallest(struct network_t *network) {
+  printf("smallest link chain: \n");
+  struct link_t *link = network->smallest_link;
+  while (link) {
+    printf("(%d: %.2f) ~> \n", link->id, per_flow_capacity(link));
+    link = link->next;
+  }
+  printf("\n");
+}
 
 // finds the flow with the smallest remaining demand
 static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
@@ -72,10 +82,7 @@ static void linked_list_remove_link(struct link_t *link) {
 static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
   if (l->nactive_flows == 0) {
     if (network->smallest_link == l) {
-      if (l->prev)
-        network->smallest_link = l->prev;
-      else
-        network->smallest_link = l->next;
+      network->smallest_link = l->next;
     }
 
     linked_list_remove_link(l);
@@ -110,6 +117,10 @@ static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
   }
 
   if (l->next && (per_flow_capacity(l) > per_flow_capacity(l->next))) {
+    if (network->smallest_link == l) {
+      network->smallest_link = l->next;
+    }
+
     // move l forwards
     while (l->next && per_flow_capacity(l) > per_flow_capacity(l->next)) {
       struct link_t *nxt = l->next;
@@ -136,6 +147,13 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
   for (int i = 0; i < flow->nlinks; i++) {
     struct link_t *link = flow->links[i];
     link->used += remaining_demand(flow);
+    if (link->used > link->capacity) {
+      network_smallest(network);
+      panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d, %.2f",
+            link->id, flow->id,
+            link->used, link->capacity, link->nflows, link->nactive_flows, remaining_demand(flow));
+    }
+
     if (link->nactive_flows==0)
       panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d",
             link->id, flow->id,
@@ -160,6 +178,8 @@ static int fix_link(struct network_t *network, struct link_t *link) {
 
   struct flow_t *flow = 0;
   pair_id_t nflows = link->nflows;
+
+  // fix all the flows on the link
   for (int i = 0; i < nflows; ++i) {
     flow = link->flows[i];
     // TODO omida: maybe this shouldn't happen?
@@ -170,6 +190,13 @@ static int fix_link(struct network_t *network, struct link_t *link) {
       l = flow->links[j];
       l->nactive_flows -= 1;
       l->used += spare_capacity;
+
+      if ((l->used - l->capacity) > EPS) {
+        network_smallest(network);
+        panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d, %.2f",
+              l->id, flow->id,
+              l->used, l->capacity, l->nflows, l->nactive_flows, remaining_demand(flow));
+      }
 
       recycle_link_if_fixed(network, l);
     }
@@ -196,7 +223,7 @@ static int flow_cmp(void const *v1, void const *v2) {
   return (int)(f1->demand - f2->demand);
 }
 
-static int link_cmp(void const *v1, void const *v2) {
+static int link_cmp_ptr(void const *v1, void const *v2) {
   struct link_t const *l1 = *(struct link_t const**)v1;
   struct link_t const *l2 = *(struct link_t const**)v2;
 
@@ -212,7 +239,6 @@ static void populate_and_sort_flows(struct network_t *network) {
     if (flow->demand < EPS) {
       continue;
     }
-    info("flow %d [link %d]", i, *ptr);
 
     for (int j = 0; j < *ptr; ++j) {
       struct link_t *link = &network->links[*(ptr+j+1)];
@@ -264,8 +290,9 @@ static void populate_and_sort_links(struct network_t *network) {
 
       prev = flow;
     }
-    flow->next = 0;
+    prev->next = 0;
   }
+
 
   {
     /* create sortable links */
@@ -274,8 +301,7 @@ static void populate_and_sort_links(struct network_t *network) {
     for (int i = 0; i < network->num_links; ++i, ++link) {
       links[i] = link;
     }
-
-    qsort(links, network->num_links, sizeof(struct link_t *), link_cmp);
+    qsort(links, network->num_links, sizeof(struct link_t *), link_cmp_ptr);
     struct link_t *prev = 0;
     network->smallest_link = 0;
 
@@ -294,8 +320,9 @@ static void populate_and_sort_links(struct network_t *network) {
       if (!network->smallest_link) {
         network->smallest_link = link;
       }
+      //printf("building ...\n");
     }
-    link->next = 0;
+    prev->next = 0;
     free(links);
   }
 }
@@ -319,10 +346,13 @@ int maxmin(struct network_t *network) {
       return 1;
 
     if (remaining_demand(flow) < per_flow_capacity(link)) {
+      //info("fixing flow: %d", flow->id);
       fix_flow(network, flow);
       network->smallest_flow = flow->next;
     } else {
+      info("> fixing link: %d", link->id);
       fix_link(network, link);
+      info("> done fixing link: %d", link->id);
     }
   }
 }

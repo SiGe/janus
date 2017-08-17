@@ -189,6 +189,7 @@ char const *parse_flows(char const *input, struct network_t *network) {
   }
 
   /* create space for flows */
+  info("allocating: %d flows", network->num_flows);
   struct flow_t *flows = malloc(sizeof(struct flow_t) * network->num_flows);
   memset(flows, 0, sizeof(struct flow_t) * network->num_flows);
   network->flows = flows;
@@ -221,6 +222,7 @@ char const *parse_links(char const *input, struct network_t *network) {
   }
 
   /* create space for links */
+  info("allocating: %d links", network->num_links);
   struct link_t *links = malloc(sizeof(struct link_t) * network->num_links);
   memset(links, 0, sizeof(struct link_t) * network->num_links);
   network->links = links;
