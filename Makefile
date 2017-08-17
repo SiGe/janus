@@ -1,8 +1,13 @@
 SRC=$(wildcard *.c)
 OBJ=$(SRC:.c=.o)
 
-CFLAGS=-O3 -Wall -Werror
-LDFLAGS = -lm -O3 -Wall -Werror
+PROFILE=-O1 -pg -g
+SPEED=-O3
+
+MODE=$(SPEED)
+
+CFLAGS=$(MODE) -Wall -Werror
+LDFLAGS =$(MODE) -lm -Wall -Werror
 
 maxmin: $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS)

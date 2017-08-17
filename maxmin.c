@@ -95,14 +95,16 @@ int main(int argc, char **argv) {
 
   info("reading data file.");
   read_file(argv[1], &output);
+
   struct network_t network = {0};
   if ((err = parse_input(output, &network)) != E_OK) {
-    error("failed to read the data file: %d.", err);
-    return EXIT_FAILURE;
+      error("failed to read the data file: %d.", err);
+      return EXIT_FAILURE;
   };
 
+  //network_print_flows(&network);
   maxmin(&network);
-  network_print_flows(&network);
+  //network_print_flows(&network);
   network_free(&network);
   return EXIT_SUCCESS;
 }

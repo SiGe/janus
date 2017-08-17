@@ -12,31 +12,33 @@
 
 #define EPS 1e-6
 
-static inline bw_t max(bw_t a, bw_t b) {
+inline bw_t max(bw_t a, bw_t b) {
   return  (a > b) ? a : b;
 }
 
 // returns the remaining_demand of a flow
-static inline bw_t remaining_demand(struct flow_t *flow) {
+inline bw_t remaining_demand(struct flow_t *flow) {
   return flow->demand - flow->bw ;
 }
 
 // returns the capacity that a link can spare for each active flow (i.e., flows
 // that are not bottlenecked in other parts of the network)
-static inline bw_t per_flow_capacity(struct link_t *link) {
+inline bw_t per_flow_capacity(struct link_t *link) {
   return max((link->capacity - link->used) / link->nactive_flows, 0);
 }
 
 // finds the flow with the smallest remaining demand
-static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
+struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
   bw_t min_remaining_demand = INFINITY;
   struct flow_t *ret = 0;
 
+  info("looking at %d flows.\n", network->num_flows - network->fixed_flow_end);
   for (int i = network->fixed_flow_end; i < network->num_flows; ++i) {
     struct flow_t *f = &network->flows[network->flow_ids[i]];
+    bw_t rdemand = remaining_demand(f);
 
-    if (min_remaining_demand > f->demand - f->bw) {
-      min_remaining_demand = f->demand - f->bw;
+    if (min_remaining_demand > rdemand) {
+      min_remaining_demand = rdemand;
       ret = f;
     }
   }
@@ -45,7 +47,7 @@ static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t 
 }
 
 // finds a link that gets saturated first
-static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct network_t *network) {
+struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct network_t *network) {
   bw_t min_remaining_capacity = INFINITY;
   struct link_t *ret = 0;
 
@@ -66,7 +68,7 @@ static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct netwo
 }
 
 // marks a flow as fixed--i.e., his bw cannot be upgraded anymore
-static void mark_flow_as_fixed(struct network_t *network, int flow_id) {
+void mark_flow_as_fixed(struct network_t *network, int flow_id) {
   pair_id_t *ptr = network->flow_ids + network->fixed_flow_end;
   for (int i = network->fixed_flow_end; i < network->num_flows; ++i) {
     if (*ptr == flow_id) {
@@ -83,15 +85,16 @@ static void mark_flow_as_fixed(struct network_t *network, int flow_id) {
 }
 
 // fixes a flow by updating the links on its path
-static int fix_flow(struct network_t *network, struct flow_t *flow) {
+int fix_flow(struct network_t *network, struct flow_t *flow) {
   for (int i = 0; i < flow->nlinks; i++) {
     struct link_t *link = flow->links[i];
     link->used += remaining_demand(flow);
     if (link->nactive_flows==0)
-      panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d",
+      panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d, %d, %.2f, %.2f",
             link->id, flow->id,
             link->used, link->capacity,
-            link->nflows, network->fixed_flow_end);
+            link->nflows, network->fixed_flow_end, 
+            flow->fixed, flow->demand, flow->bw);
 
     link->nactive_flows -= 1;
   }
@@ -104,7 +107,7 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
 }
 
 // fixes a link by fixing the flows on itself and distributing the spare capacity that it has.
-static int fix_link(struct network_t *network, struct link_t *link) {
+int fix_link(struct network_t *network, struct link_t *link) {
   bw_t spare_capacity = per_flow_capacity(link);
 
   struct flow_t *flow = 0;
@@ -130,7 +133,6 @@ static int fix_link(struct network_t *network, struct link_t *link) {
   return 1;
 }
 
-
 /* calculate the max-min fairness of the network flows. This is a destructive
    operation---i.e., the network structure will change */
 int maxmin(struct network_t *network) {
@@ -145,7 +147,7 @@ int maxmin(struct network_t *network) {
       info("Fixing flow: %d", flow->id);
       fix_flow(network, flow);
     } else {
-      info("Fixing link: %d (@%.2f)", link->id, per_flow_capacity(link));
+      info("Fixing link: %d (@%.2f), %d, %d", link->id, per_flow_capacity(link), link->nflows, link->nactive_flows);
       fix_link(network, link);
     }
   }

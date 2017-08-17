@@ -8,6 +8,8 @@
 #include "parse.h"
 #include "types.h"
 
+#define EPS 1e-6
+
 
 char const *strip(char const* input) {
   for (;*input == '\t' || *input == ' '; input++){}
@@ -163,10 +165,20 @@ char const *parse_links(char const *input, struct network_t *network) {
   return strip(input);
 }
 
+int flow_comparator(void const* v1, void const *v2) {
+    return (int)((struct flow_t const*)v1)->demand - ((struct flow_t const*)v2)->demand;
+}
+
 void _build_network(struct network_t *network) {
   link_id_t *ptr = network->routing;
   struct flow_t *flow = network->flows;
   for (int i = 0; i < network->num_flows; ++i) {
+    if (flow->demand < EPS) {
+        ptr += (MAX_PATH_LENGTH + 1);
+        flow += 1;
+        continue;
+    }
+
     for (int j = 0; j < *ptr; ++j) {
       struct link_t *link = &network->links[*(ptr+j+1)];
       flow->links[flow->nlinks++] = link;
@@ -177,8 +189,14 @@ void _build_network(struct network_t *network) {
     flow += 1;
   }
 
+  qsort(network->flows, network->num_flows, sizeof(struct flow_t), flow_comparator);
+
   flow = network->flows;
-  for (int i = 0; i < network->num_flows; ++i) {
+  for (int i = 0; i < network->num_flows; ++i, ++flow) {
+    if (flow->demand < EPS) {
+        continue;
+    }
+
     for (int j = 0; j < flow->nlinks; ++j) {
       struct link_t *link = flow->links[j];
       if (link->flows == 0) {
@@ -188,16 +206,21 @@ void _build_network(struct network_t *network) {
 
       link->flows[link->nactive_flows++] = flow;
     }
-    flow += 1;
   }
 
+  network->fixed_flow_end = 0;
   pair_id_t *flow_ids = malloc(sizeof(pair_id_t) * network->num_flows);
   for (int i = 0; i < network->num_flows; ++i) {
     flow_ids[i] = i;
+
+    // renumber the flows after the qsort
+    network->flows[i].id = i;
+    if (network->flows[i].demand < EPS) {
+        network->fixed_flow_end++;
+        network->flows[i].fixed = 1;
+    }
   }
   network->flow_ids = flow_ids;
-  network->fixed_flow_end = 0;
-
 }
 
 int parse_input(char const *input, struct network_t *network) {
