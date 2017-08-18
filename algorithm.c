@@ -48,10 +48,38 @@ static __attribute__((unused)) void network_smallest(struct network_t *network) 
   struct link_t *link = network->smallest_link;
   while (link) {
     printf("(%d: %.2f) ~> \n", link->id, per_flow_capacity(link));
+    if (link->next)
+      if (link->next->prev != link) {
+        assert(link->next->prev == link);
+      }
     link = link->next;
   }
   printf("\n");
 }
+
+static __attribute__((unused)) void network_consistent(struct network_t *network) {
+  struct link_t *link = network->smallest_link;
+  while (link) {
+    if (link->next)
+      if (link->next->prev != link) {
+        printf("inconsistency: %d <-> %d\n", link->id, link->next->id);
+        assert(link->next->prev == link);
+      }
+    link = link->next;
+  }
+  info("network-consistent.");
+}
+
+static __attribute__((unused)) int is_28_there(struct network_t *network) {
+  struct link_t *link = network->smallest_link;
+  while (link) {
+    if (link->id == 28)
+      return 1;
+    link = link->next;
+  }
+  return 0;
+}
+
 
 // finds the flow with the smallest remaining demand
 static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
@@ -79,6 +107,31 @@ static void linked_list_remove_link(struct link_t *link) {
     link->next->prev = link->prev;
 }
 
+static void cut_link(struct link_t *l) {
+  linked_list_remove_link(l);
+}
+
+static void stitch_link_after(struct link_t *l, struct link_t *after) {
+  info("AFTER %4d (%15.2f) after %4d (%15.2f)", l->id, per_flow_capacity(l), after->id, per_flow_capacity(after));
+  l->next = after->next;
+  l->prev = after;
+
+  if (after->next)
+    after->next->prev = l;
+  after->next = l;
+  info("after->next (%d) = l (%d), l->prev (%d) = after->id (%d)", after->next->id, l->id, l->prev->id, after->id);
+}
+
+static void stitch_link_before(struct link_t *l, struct link_t *before) {
+  info("BEFORE %4d (%15.2f) before %4d (%15.2f)", l->id, per_flow_capacity(l), before->id, per_flow_capacity(before));
+  l->next = before;
+  l->prev = before->prev;
+
+  if (before->prev)
+    before->prev->next = l;
+  before->prev = l;
+}
+
 static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
   if (l->nactive_flows == 0) {
     if (network->smallest_link == l) {
@@ -91,23 +144,13 @@ static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
 
   // If l->prev
   if (l->prev && (per_flow_capacity(l) < per_flow_capacity(l->prev))) {
-    // move l backwards
-    while (l->prev && per_flow_capacity(l) < per_flow_capacity(l->prev)) {
-      struct link_t *nxt = l->next;
-      struct link_t *prv = l->prev;
-
-      l->next = prv;
-      l->prev = prv->prev;
-      if (l->prev)
-        l->prev->next = l;
-
-      prv->next = nxt;
-      prv->prev = l;
-
-      if (nxt) {
-        nxt->prev = prv;
-      }
+    // Do surgery to find the correct position of the link
+    struct link_t *prv = l->prev;
+    cut_link(l);
+    while (prv->prev && per_flow_capacity(l) < per_flow_capacity(prv->prev)) {
+      prv = prv->prev;
     }
+    stitch_link_before(l, prv);
 
     if (l->prev == 0 && l->nactive_flows != 0) {
       network->smallest_link = l;
@@ -121,23 +164,15 @@ static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
       network->smallest_link = l->next;
     }
 
-    // move l forwards
-    while (l->next && per_flow_capacity(l) > per_flow_capacity(l->next)) {
-      struct link_t *nxt = l->next;
-      struct link_t *prv = l->prev;
-
-      l->next = nxt->next;
-      if (nxt->next)
-        nxt->next->prev = l;
-
-      l->prev = nxt;
-      nxt->prev = prv;
-      nxt->next = l;
-
-      if (prv) {
-        prv->next = nxt;
-      }
+    // Do surgery to find the correct position of the link
+    struct link_t *nxt = l->next;
+    cut_link(l);
+    while (nxt->next && per_flow_capacity(l) > per_flow_capacity(nxt->next)) {
+      nxt = nxt->next;
     }
+    stitch_link_after(l, nxt);
+
+    //printf("(3) [%d], [m%d] %15.2f vs. smallest, %15.2f\n", is_28_there(network), l->id, per_flow_capacity(l), per_flow_capacity(network->smallest_link));
     return;
   }
 }
@@ -212,7 +247,6 @@ static int fix_link(struct network_t *network, struct link_t *link) {
     }
   }
 
-  recycle_link_if_fixed(network, link);
   return 1;
 }
 
@@ -346,7 +380,7 @@ int maxmin(struct network_t *network) {
       return 1;
 
     if (remaining_demand(flow) < per_flow_capacity(link)) {
-      //info("fixing flow: %d", flow->id);
+      info("fixing flow: %d", flow->id);
       fix_flow(network, flow);
       network->smallest_flow = flow->next;
     } else {
