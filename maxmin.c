@@ -55,7 +55,7 @@ void network_slo_violation(struct network_t *network, double y) {
         vio_num += 1;
     }
     if ((flow->demand < flow->bw)) {
-        printf("Wierd");
+        panic("More bandwith than demand");
     }
   }
   //printf("%d ToR pairs violating %f bandwidth, %d ToR pairs permitted\n", vio_num, y, x);
