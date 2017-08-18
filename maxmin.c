@@ -46,6 +46,22 @@ void network_free(struct network_t *network) {
   }
 }
 
+void network_slo_violation(struct network_t *network, double y) {
+  struct flow_t *flow = 0;
+  int vio_num = 0;
+  for (int i = 0; i < network->num_flows; ++i) {
+    flow = &network->flows[i];
+    if ((flow->demand > flow->bw) && (flow->bw < y)) {
+        vio_num += 1;
+    }
+    if ((flow->demand < flow->bw)) {
+        printf("Wierd");
+    }
+  }
+  //printf("%d ToR pairs violating %f bandwidth, %d ToR pairs permitted\n", vio_num, y, x);
+  printf("%d", vio_num);
+}
+
 const char *usage_message = "" \
   "usage: %s <routing-file>\n" \
   "routing-file has the following format:\n\n" \
@@ -85,6 +101,7 @@ int main(int argc, char **argv) {
 
   maxmin(&network);
   //network_print_flows(&network);
+  network_slo_violation(&network, atof(argv[2]));
   network_free(&network);
 
   return EXIT_SUCCESS;
