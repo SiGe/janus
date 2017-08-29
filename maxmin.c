@@ -10,43 +10,9 @@
 #include "log.h"
 #include "parse.h"
 #include "types.h"
-
-#define MAX_FILE_SIZE (1 << 20) * sizeof(char)
-void read_file(char const *file, char **output) {
-  FILE *f = fopen(file, "r+");
-  if (!f) {
-    return;
-  }
-
-  *output = malloc(MAX_FILE_SIZE);
-  memset(*output, 0, MAX_FILE_SIZE);
-  int nread = fread(*output, 1, MAX_FILE_SIZE, f);
-
-  if (nread >= MAX_FILE_SIZE) {
-    panic("file size too large (> %d bytes).", MAX_FILE_SIZE);
-  }
-  fclose(f);
-}
-
-void network_free(struct network_t *network) {
-  if (network->routing) {
-    free(network->routing);
-    network->routing = 0;
-  }
-
-  if (network->links) {
-    for (int i = 0; i < network->num_links; ++i) {
-      free(network->links[i].flows);
-    }
-    free(network->links);
-    network->links = 0;
-  }
-
-  if (network->flows) {
-    free(network->flows);
-    network->flows = 0;
-  }
-}
+#include "topo.h"
+#include "topo.h"
+#include "traffic.h"
 
 void network_slo_violation(struct network_t *network, double y) {
   struct flow_t *flow = 0;
@@ -102,6 +68,27 @@ int main(int argc, char **argv) {
   double y = -1;
   char *file_name = NULL;
 
+  /* Tests written by Jiaqi */
+  int update_nodes[] = {0, 1, 6, 7, 12, 13, 42, 43, 48, 49};
+  //for (int i = 0; i < test_network->traffic->tm_num; i++)
+  struct network_t *test_network = watchtower_gen(8, 12, 6, 6);
+  update_network(test_network, update_nodes, 10);
+  load_traffic("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
+  for (int i = 0; i < test_network->traffic->tm_num; i++)
+  {
+      reset_network(test_network);
+      build_flow(test_network, i);
+      //printf("C\n");
+      maxmin(test_network);
+      //printf("D\n");
+      network_slo_violation(test_network, 6000000000);
+      printf(" ");
+  }
+  printf("\n");
+  network_free(test_network);
+  exit(0);
+  /* End of tests */
+
   while ((c = getopt(argc, argv, "f:y:m")) != -1)
   {
     switch (c)
@@ -128,7 +115,6 @@ int main(int argc, char **argv) {
     error("failed to read the data file: %d.", err);
     return EXIT_FAILURE;
   };
-
 
   maxmin(&network);
   //network_print_flows(&network);

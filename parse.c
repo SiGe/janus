@@ -9,6 +9,22 @@
 #include "parse.h"
 #include "types.h"
 
+void read_file(char const *file, char **output) {
+  FILE *f = fopen(file, "r+");
+  if (!f) {
+    return;
+  }
+
+  *output = malloc(MAX_FILE_SIZE);
+  memset(*output, 0, MAX_FILE_SIZE);
+  int nread = fread(*output, 1, MAX_FILE_SIZE, f);
+
+  if (nread >= MAX_FILE_SIZE) {
+    panic("file size %d too large (> %d bytes).", nread, MAX_FILE_SIZE);
+  }
+  fclose(f);
+}
+
 char const *strip(char const* input) {
   for (;*input == '\t' || *input == ' '; input++){}
   return input;
@@ -29,6 +45,7 @@ int read_link_id(char const *input, link_id_t *value, int *pos) {
 }
 
 int read_bw(char const *input, bw_t *value, int *pos) {
+  info("READ WITH SCANF");
   return sscanf(input, "%lf%n", value, pos);
 }
 #else

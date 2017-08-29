@@ -8,11 +8,14 @@
 /* Max host count in the data-center */
 #define MAX_HOST_COUNT 100
 
+#define MAX_FILE_SIZE (1 << 27) * sizeof(char)
 
 /* Markers in the input stream for parsing */
 #define MARKER_ROUTING_MATRIX 'r'
 #define MARKER_FLOW 'f'
 #define MARKER_LINK 'l'
+
+void read_file(char const *file, char **output);
 
 /* Parse the input character stream and build three matrices for use in progressive_filling algorithm */
 int parse_input(char const *input, struct network_t *network);
@@ -24,5 +27,7 @@ char const *parse_flows(char const *input, struct network_t *network);
 
 /* ignore whitespaces and tabs */
 char const *strip(char const *input);
+
+int read_bw(char const *input, bw_t *value, int *pos);
 
 #endif /* _PARSE_H_ */

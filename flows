@@ -1,0 +1,62 @@
+maxmin.c:38:        if (link->used / link->capacity > max_link_throughput)
+maxmin.c:39:            max_link_throughput = link->used / link->capacity;
+Binary file maxmin matches
+algorithm.c:28:  if (link->nactive_flows == 0)
+algorithm.c:30:  return max((link->capacity - link->used) / link->nactive_flows, 0);
+algorithm.c:42:    link = link->next;
+algorithm.c:50:    printf("(%d: %.2f) ~> \n", link->id, per_flow_capacity(link));
+algorithm.c:51:    if (link->next)
+algorithm.c:52:      if (link->next->prev != link) {
+algorithm.c:53:        assert(link->next->prev == link);
+algorithm.c:55:    link = link->next;
+algorithm.c:63:    if (link->next)
+algorithm.c:64:      if (link->next->prev != link) {
+algorithm.c:65:        printf("inconsistency: %d <-> %d\n", link->id, link->next->id);
+algorithm.c:66:        assert(link->next->prev == link);
+algorithm.c:68:    link = link->next;
+algorithm.c:76:    if (link->id == 28)
+algorithm.c:78:    link = link->next;
+algorithm.c:103:  if (link->prev)
+algorithm.c:104:    link->prev->next = link->next;
+algorithm.c:106:  if (link->next)
+algorithm.c:107:    link->next->prev = link->prev;
+algorithm.c:184:    link->used += remaining_demand(flow);
+algorithm.c:185:    if (link->used > link->capacity) {
+algorithm.c:188:            link->id, flow->id,
+algorithm.c:189:            link->used, link->capacity, link->nflows, link->nactive_flows, remaining_demand(flow));
+algorithm.c:192:    if (link->nactive_flows==0)
+algorithm.c:194:            link->id, flow->id,
+algorithm.c:195:            link->used, link->capacity,
+algorithm.c:196:            link->nflows, network->fixed_flow_end);
+algorithm.c:198:    link->nactive_flows -= 1;
+algorithm.c:215:  pair_id_t nflows = link->nflows;
+algorithm.c:219:    flow = link->flows[i];
+algorithm.c:280:      link->nflows++;
+algorithm.c:308:        if (link->flows == 0) {
+algorithm.c:309:          link->flows = malloc(link->nflows * sizeof(struct flow_t *));
+algorithm.c:310:          link->nactive_flows = 0;
+algorithm.c:313:        link->flows[link->nactive_flows++] = flow;
+algorithm.c:344:      link->next = link->prev = 0;
+algorithm.c:345:      if (link->nactive_flows == 0) {
+algorithm.c:351:      link->prev = prev;
+algorithm.c:387:      info("> fixing link: %d", link->id);
+algorithm.c:389:      info("> done fixing link: %d", link->id);
+Binary file algorithm.o matches
+topo.c:46:                link->capacity = (a_per_p - capacity_reduce[i]) * LINK_CAPACITY;
+topo.c:48:                link->capacity = (a_per_p - capacity_reduce[i]) * LINK_CAPACITY;
+topo.c:57:            link->capacity = (a_per_p - capacity_reduce[agg]) * (c_num - capacity_reduce[k]) * LINK_CAPACITY;
+topo.c:59:            link->capacity = (a_per_p - capacity_reduce[agg]) * (c_num - capacity_reduce[k]) * LINK_CAPACITY;
+topo.c:79:        link->id = i;
+topo.c:80:        link->capacity = LINK_CAPACITY * a_per_p;
+topo.c:81:        link->used = 0;
+topo.c:86:        link->id = i + tot_tors * 2;
+topo.c:87:        link->capacity = LINK_CAPACITY * a_per_p * c_num;
+topo.c:88:        link->used = 0;
+topo.c:116:        link->id = i;
+topo.c:117:        link->capacity = LINK_CAPACITY * a_per_p;
+topo.c:118:        link->used = 0;
+topo.c:123:        link->id = i + tot_tors * 2;
+topo.c:124:        link->capacity = LINK_CAPACITY * a_per_p * c_num;
+topo.c:125:        link->used = 0;
+topo.c:194:        link->used = 0;
+log.c:54:    printf("link %d: %.2f/%.2f (%.2f%%) -- %.2f\n", i, link->used, link->capacity, link->used/link->capacity * 100, (link->capacity - link->used)/link->nactive_flows);

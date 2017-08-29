@@ -42,6 +42,17 @@ struct flow_t {
   struct flow_t *next, *prev;
 };
 
+struct tm_t {
+  bw_t *tm;
+};
+
+struct traffic_t {
+  int tm_num;
+  
+  /* The traffics vector's order is consistent with flow/routing */
+  struct tm_t *tms;
+};
+
 /* Network representation */
 struct network_t {
   link_id_t *routing;
@@ -59,6 +70,12 @@ struct network_t {
 
   struct flow_t *smallest_flow;
   struct link_t *smallest_link;
+
+  int k;
+  int t_per_p;
+  int a_per_p;
+  int c_num;
+  struct traffic_t *traffic;
 };
 
 #endif
