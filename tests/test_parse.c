@@ -1,38 +1,8 @@
 #include "../parse.h"
 #include "../error.h"
+#include "../topo.h"
 
 #include "acutest.h"
-
-#define MAX_FILE_SIZE (2 << 20) * sizeof(char)
-
-void read_file(char const *file, char **output) {
-  FILE *f = fopen(file, "r+");
-  if (!f) {
-    return;
-  }
-
-  *output = malloc(MAX_FILE_SIZE);
-  memset(*output, 0, MAX_FILE_SIZE);
-  fread(*output, 1, MAX_FILE_SIZE, f);
-  fclose(f);
-}
-
-void network_free(struct network_t *network) {
-  if (network->routing) {
-    free(network->routing);
-    network->routing = 0;
-  }
-
-  if (network->links) {
-    free(network->links);
-    network->links = 0;
-  }
-
-  if (network->flows) {
-    free(network->flows);
-    network->flows = 0;
-  }
-}
 
 void test_parse_input_01(void) {
   char *output = 0; struct network_t network = {0};

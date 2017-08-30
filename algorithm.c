@@ -390,3 +390,31 @@ int maxmin(struct network_t *network) {
     }
   }
 }
+
+int **generate_subplan(int *groups, int groups_len)
+{
+    int plan_nums = 1;
+    for (int i = 0; i < groups_len; i++)
+    {
+        plan_nums *= groups[i] + 1;
+    }
+
+    int **plans = (int **)malloc(sizeof(int *) * plan_nums);
+    for (int i = 0; i < plan_nums; i++)
+    {
+        plans[i] = (int *)malloc(sizeof(int) * groups_len);
+        //memcpy(plans[i], groups, sizeof(int) * groups_len);
+    }
+
+    for (int i = 0; i < plan_nums; i++)
+    {
+        int upgrade_nodes = i;
+        for (int j = 0; j < groups_len; j++)
+        {
+            plans[i][j] = upgrade_nodes % (groups[j] + 1);
+            upgrade_nodes /= (groups[j] + 1);
+        }
+    }
+
+    return plans;
+}

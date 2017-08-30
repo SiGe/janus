@@ -3,7 +3,7 @@ OBJ=$(SRC:.c=.o)
 CC=gcc
 
 OPT=-O3
-EXTRA=-g -pg
+EXTRA=-g -pg -pthread
 
 CFLAGS=-Wall -Werror $(OPT) $(EXTRA)
 LDFLAGS = -lm -Wall -Werror $(OPT) $(EXTRA)
@@ -14,3 +14,5 @@ maxmin: $(OBJ)
 .PHONY: clean
 clean:
 	rm -f $(OBJ) maxmin
+
+new: clean maxmin

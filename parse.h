@@ -8,7 +8,7 @@
 /* Max host count in the data-center */
 #define MAX_HOST_COUNT 100
 
-#define MAX_FILE_SIZE (1 << 27) * sizeof(char)
+#define MAX_FILE_SIZE (1 << 20) * sizeof(char)
 
 /* Markers in the input stream for parsing */
 #define MARKER_ROUTING_MATRIX 'r'

@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "algorithm.h"
 #include "error.h"
@@ -11,10 +13,10 @@
 #include "parse.h"
 #include "types.h"
 #include "topo.h"
-#include "topo.h"
 #include "traffic.h"
+#include "thpool.h"
 
-void network_slo_violation(struct network_t *network, double y) {
+int network_slo_violation(struct network_t *network, double y) {
   struct flow_t *flow = 0;
   int vio_num = 0;
   for (int i = 0; i < network->num_flows; ++i) {
@@ -27,7 +29,8 @@ void network_slo_violation(struct network_t *network, double y) {
     }
   }
   //printf("%d ToR pairs violating %f bandwidth, %d ToR pairs permitted\n", vio_num, y, x);
-  printf("%d", vio_num);
+  return vio_num;
+  //printf("%d", vio_num);
 }
 
 void network_max_link_throughput(struct network_t *network) {
@@ -60,6 +63,106 @@ void usage(const char *fname) {
   exit(EXIT_FAILURE);
 }
 
+struct parallel_param_t {
+  int *symmetric_subplan;
+  int groups_len;
+
+  int *update_groups;
+  struct traffic_t *traffic;
+
+  int *data;
+};
+
+void parallel_calculate(void *vargp)
+{
+    struct parallel_param_t *param = vargp;
+    struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
+
+    int node_num = 0;
+    for (int i = 0; i < param->groups_len; i++)
+        node_num += param->symmetric_subplan[i];
+
+    int *update_nodes = malloc(sizeof(int) * node_num);
+    int update_nodes_pos = 0;
+    for (int i = 0; i < param->groups_len; i++)
+    {
+        for (int j = 0; j < param->symmetric_subplan[i]; j++)
+        {
+            update_nodes[update_nodes_pos] = param->update_groups[i] + j;
+            update_nodes_pos++;
+        }
+    }
+
+    for (int i = 0; i < node_num; i++)
+    {
+        printf("%d ", update_nodes[i]);
+    }
+    printf("\n");
+
+    struct traffic_t *traffic = param->traffic;
+    network_update(test_network, update_nodes, node_num);
+    for (int i = 0; i < traffic->tm_num; i++)
+    {
+        network_reset(test_network);
+        build_flow(test_network, traffic, i);
+        maxmin(test_network);
+        int ret = network_slo_violation(test_network, 6000000000);
+        param->data[i] = ret;
+    }
+    network_free(test_network);
+    free(vargp);
+}
+
+void all_subplan_seq_cost()
+{
+  int symmetric_groups[5] = {3,3,3,3,3};
+  int update_groups[5] = {0, 6, 12, 42, 48};
+  int **symmetric_subplans = generate_subplan(symmetric_groups, 5);
+  threadpool thpool = thpool_init(sysconf(_SC_NPROCESSORS_ONLN) - 1);
+  struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
+  struct traffic_t *traffic = traffic_load("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
+  int **data = malloc(sizeof(int *) * 4*4*4*4*4);
+  for (int i = 0; i < 4*4*4*4*4; i++)
+  {
+      data[i] = malloc(sizeof(int) * traffic->tm_num);
+      struct parallel_param_t *param = malloc(sizeof(struct parallel_param_t));
+      param->symmetric_subplan = symmetric_subplans[i];
+      param->groups_len = 5;
+      param->update_groups = update_groups;
+      param->traffic = traffic;
+      param->data = data[i];
+      thpool_add_work(thpool, parallel_calculate, param);
+  }
+  thpool_wait(thpool);
+  FILE *f = fopen("result.tsv", "w+");
+  for (int i = 0; i < 4*4*4*4*4; i++)
+  {
+      for (int j = 0; j < traffic->tm_num; j++)
+      {
+          fprintf(f, "%d ", data[i][j]);
+      }
+      fprintf(f, "\n");
+  }
+  fclose(f);
+}
+
+void single_plan_seq_cost()
+{
+  int update_nodes[] = {0, 1, 6, 7, 12, 13, 42, 43, 48, 49};
+  struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
+  network_update(test_network, update_nodes, 10);
+  struct traffic_t *traffic = traffic_load("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
+  for (int i = 0; i < traffic->tm_num; i++)
+  {
+      network_reset(test_network);
+      build_flow(test_network, traffic, i);
+      maxmin(test_network);
+      printf("%d ", network_slo_violation(test_network, 6000000000));
+  }
+  printf("\n");
+  network_free(test_network);
+} 
+
 int main(int argc, char **argv) {
   char *output = 0;
   int err = 0;
@@ -68,26 +171,8 @@ int main(int argc, char **argv) {
   double y = -1;
   char *file_name = NULL;
 
-  /* Tests written by Jiaqi */
-  int update_nodes[] = {0, 1, 6, 7, 12, 13, 42, 43, 48, 49};
-  //for (int i = 0; i < test_network->traffic->tm_num; i++)
-  struct network_t *test_network = watchtower_gen(8, 12, 6, 6);
-  update_network(test_network, update_nodes, 10);
-  load_traffic("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
-  for (int i = 0; i < test_network->traffic->tm_num; i++)
-  {
-      reset_network(test_network);
-      build_flow(test_network, i);
-      //printf("C\n");
-      maxmin(test_network);
-      //printf("D\n");
-      network_slo_violation(test_network, 6000000000);
-      printf(" ");
-  }
-  printf("\n");
-  network_free(test_network);
+  single_plan_seq_cost();
   exit(0);
-  /* End of tests */
 
   while ((c = getopt(argc, argv, "f:y:m")) != -1)
   {
@@ -122,7 +207,7 @@ int main(int argc, char **argv) {
   if (max_link_flag)
       network_max_link_throughput(&network);
   else if (y >= 0)
-      network_slo_violation(&network, y);
+      printf("%d", network_slo_violation(&network, y));
   network_free(&network);
 
   return EXIT_SUCCESS;

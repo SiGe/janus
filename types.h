@@ -75,7 +75,6 @@ struct network_t {
   int t_per_p;
   int a_per_p;
   int c_num;
-  struct traffic_t *traffic;
 };
 
 #endif

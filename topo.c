@@ -12,7 +12,7 @@
  * Capacity calculation is based on previous update plan.
  * Node id starts with a0.
  */
-void update_network(struct network_t *network, int *node_ids, int node_nums)
+void network_update(struct network_t *network, int *node_ids, int node_nums)
 {
     int k = network->k; int t_per_p = network->t_per_p;
     int a_per_p = network->a_per_p;
@@ -65,7 +65,7 @@ void update_network(struct network_t *network, int *node_ids, int node_nums)
 /* 
  * Restore the origin capacity of the network
  */
-void restore_network(struct network_t *network)
+void network_restore(struct network_t *network)
 {
     int k = network->k;
     int t_per_p = network->t_per_p;
@@ -92,7 +92,7 @@ void restore_network(struct network_t *network)
 /*
  * Generate Google's watchtower topology based on given parameters.
  */
-struct network_t *watchtower_gen(int k, int t_per_p, int a_per_p, int c_num)
+struct network_t *network_watchtower_gen(int k, int t_per_p, int a_per_p, int c_num)
 {
     /* Initialize network */
     struct network_t *ret_network = (struct network_t *)malloc(sizeof(struct network_t));
@@ -181,7 +181,7 @@ void print_links(struct network_t *network)
     printf("\n");
 }
 
-void reset_network(struct network_t *network)
+void network_reset(struct network_t *network)
 {
     network->fixed_flow_end = 0;
     network->fixed_link_end = 0;

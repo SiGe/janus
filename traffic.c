@@ -61,7 +61,7 @@ int parse_traffic(FILE *f, struct traffic_t *traffics, int tot_tors, int traffic
     return E_OK;
 }
 
-void load_traffic(char const *tracefile, struct network_t *network, int coeff)
+struct traffic_t *traffic_load(char const *tracefile, struct network_t *network, int coeff)
 {
     if (network == NULL)
     {
@@ -101,14 +101,13 @@ void load_traffic(char const *tracefile, struct network_t *network, int coeff)
     }
     info("Load traffic done\n");
 
-    network->traffic = ret_traffic;
     fclose(f);
-    return;
+    return ret_traffic;
 }
 
-void build_flow(struct network_t *network, int time)
+void build_flow(struct network_t *network, struct traffic_t *traffic, int time)
 {
-    struct tm_t *tm = network->traffic->tms + time;
+    struct tm_t *tm = traffic->tms + time;
     int tot_tors = network->k * network->t_per_p;
 
     if (network->flows != NULL)

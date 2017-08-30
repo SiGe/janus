@@ -3,9 +3,9 @@
 
 #include "types.h"
 
-void load_traffic(char const *tracefile, struct network_t *network, int coeff);
+struct traffic_t *traffic_load(char const *tracefile, struct network_t *network, int coeff);
 
-void build_flow(struct network_t *network, int time);
+void build_flow(struct network_t *network, struct traffic_t *traffic, int time);
 
 void print_flows(struct network_t *network);
 
