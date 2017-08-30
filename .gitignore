@@ -1,3 +1,5 @@
+*.tsv
+
 # Prerequisites
 *.d
 
