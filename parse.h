@@ -30,4 +30,6 @@ char const *strip(char const *input);
 
 int read_bw(char const *input, bw_t *value, int *pos);
 
+int parse_error(char const *file_name, struct error_t *errors);
+
 #endif /* _PARSE_H_ */

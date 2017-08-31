@@ -3,6 +3,7 @@
 #include "parse.h"
 #include "error.h"
 #include "log.h"
+#include "algorithm.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,6 +150,20 @@ void build_flow(struct network_t *network, struct traffic_t *traffic, int time)
     update_tm(network, tm);
 }
 
+void write_flows(struct network_t *network)
+{
+    printf("writing flows\n");
+    FILE *fp = fopen("network_traffic.tsv", "w");
+    if (fp == NULL)
+        return;
+    for (int i = 0; i < network->num_flows; i++)
+    {
+        fprintf(fp, "%.0f ", network->flows[i].demand);
+    }
+    fprintf(fp, "\n");
+    printf("write flows done\n");
+    fclose(fp);
+}
 void print_flows(struct network_t *network)
 {
     printf("%d\n", network->num_flows);
@@ -157,4 +172,46 @@ void print_flows(struct network_t *network)
         printf("%.0f ", network->flows[i].demand);
     }
     printf("\n");
+}
+
+void build_flow_error(struct network_t *network, struct tm_t *tm, struct error_t *error, int error_seq, int tm_seq)
+{
+    struct tm_t *new_tm = malloc(sizeof(struct tm_t));
+    new_tm->tm = malloc(sizeof(bw_t) * error->sd_pair_num);
+    bw_t *error_tm = error->error_tms[error_seq][tm_seq];
+    for (int i = 0; i < error->sd_pair_num; i++)
+    {
+        new_tm->tm[i] = max(tm->tm[i] + error_tm[i], 0);
+    }
+    update_tm(network, new_tm);
+    free(new_tm->tm);
+    free(new_tm);
+}
+
+struct tm_t **build_flow_ewma(struct traffic_t *traffic, int time, int sd_pair_num)
+{
+    double alpha = 0.52, beta = 0.25;
+    int seq_len = 10;
+    struct tm_t **ret_tms = malloc(sizeof(struct tm_t*) * 8);
+    //bw_t tms[8] = {0};
+    bw_t *seq = malloc(sizeof(bw_t) * seq_len);
+    for (int i = 0; i < 8; i++)
+    {
+        ret_tms[i] = malloc(sizeof(struct tm_t));
+        ret_tms[i]->tm = malloc(sizeof(bw_t) * sd_pair_num);
+    }
+    for (int i = 0; i < sd_pair_num; i++)
+    {
+        for (int j = 0; j < seq_len; j++)
+        {
+            seq[j] = traffic->tms[time-seq_len+j].tm[i];
+        }
+        bw_t *new_tm = double_ewma(seq, seq_len, alpha, 8, beta);
+        for (int j = 0; j < 8; j++)
+        {
+            ret_tms[j]->tm[i] = new_tm[j];
+        }
+        free(new_tm);
+    }
+    return ret_tms;
 }

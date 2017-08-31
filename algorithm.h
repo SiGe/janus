@@ -8,6 +8,10 @@ int maxmin(struct network_t *network);
 
 int **generate_subplan(int *groups, int groups_len, int *subplan_nums);
 
-int *double_ewma(int *seq, int seq_len, double alpha, int n, double beta);
+bw_t *double_ewma(bw_t *seq, int seq_len, double alpha, int n, double beta);
+
+static inline bw_t max(bw_t a, bw_t b) {
+  return  (a > b) ? a : b;
+}
 
 #endif

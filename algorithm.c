@@ -13,9 +13,6 @@
 
 #define EPS 1e-3
 
-static inline bw_t max(bw_t a, bw_t b) {
-  return  (a > b) ? a : b;
-}
 
 // returns the remaining_demand of a flow
 static inline bw_t remaining_demand(struct flow_t const *flow) {
@@ -421,15 +418,15 @@ int **generate_subplan(int *groups, int groups_len, int *subplan_num)
     return plans;
 }
 
-int *double_ewma(int *seq, int seq_len, double alpha, int n, double beta)
+bw_t *double_ewma(bw_t *seq, int seq_len, double alpha, int n, double beta)
 {
-    int *ret = malloc(sizeof(int) * n);
-    memset(ret, 0, sizeof(int) * n);
-    int s_0 = seq[0];
-    int b_0 = seq[1] - seq[0];
-    int s_old = s_0;
-    int b = b_0;
-    int s = 0;
+    bw_t *ret = malloc(sizeof(bw_t) * n);
+    memset(ret, 0, sizeof(bw_t) * n);
+    bw_t s_0 = seq[0];
+    bw_t b_0 = seq[1] - seq[0];
+    bw_t s_old = s_0;
+    bw_t b = b_0;
+    bw_t s = 0;
 
     for (int i = 1; i < seq_len+1; i++)
     {
@@ -439,6 +436,6 @@ int *double_ewma(int *seq, int seq_len, double alpha, int n, double beta)
     }
 
     for (int i = 0; i < n; i++)
-        ret[i] = (int)max(s+(i+1)*b, 0);
+        ret[i] = (bw_t)max(s+(i+1)*b, 0);
     return ret;
 }

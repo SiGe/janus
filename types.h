@@ -77,4 +77,12 @@ struct network_t {
   int c_num;
 };
 
+struct error_t
+{
+    int tot_samples;
+    int predict_num;
+    int sd_pair_num;
+    bw_t ***error_tms;
+};
+
 #endif

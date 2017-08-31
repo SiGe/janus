@@ -10,6 +10,9 @@ enum {
   E_PARSE_LINK,
   E_PARSE_FLOW,
   E_PARSE_UNEXPECTED,
+
+  /* File read errors */
+  E_FILE_OPEN,
 };
 
 #endif /* _ERROR_H_*/

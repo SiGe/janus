@@ -305,3 +305,42 @@ int parse_input(char const *input, struct network_t *network) {
 
   return E_OK;
 }
+
+int parse_error(char const *file_name, struct error_t *errors)
+{
+    int tot_samples, predic_num, sd_pair_num;
+    FILE *fp = fopen(file_name, "r+");
+    if (!fp)
+        return E_FILE_OPEN;
+    if (fscanf(fp, "%d\n%d\n%d\n", &tot_samples, &predic_num, &sd_pair_num) <= 0)
+        return E_PARSE_UNEXPECTED;
+
+    errors->error_tms = malloc(sizeof(int **) * tot_samples);
+    errors->tot_samples = tot_samples;
+    errors->predict_num = predic_num;
+    errors->sd_pair_num = sd_pair_num;
+
+    printf("%d %d %d\n", tot_samples, predic_num, sd_pair_num);
+    for (int i = 0; i < tot_samples; i++)
+    {
+        errors->error_tms[i] = malloc(sizeof(bw_t*) * predic_num);
+
+        for (int j = 0; j < predic_num; j++)
+        {
+            errors->error_tms[i][j] = malloc(sizeof(bw_t) * sd_pair_num);
+
+            for (int k = 0; k < sd_pair_num; k++)
+            {
+                if (fscanf(fp, "%lf", &errors->error_tms[i][j][k]) <= 0)
+                {
+                    printf("Can't read error file!\n");
+                    return E_PARSE_UNEXPECTED;
+                }
+            }
+        }
+    }
+
+    fclose(fp);
+
+    return E_OK;
+}
