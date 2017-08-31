@@ -68,15 +68,19 @@ struct parallel_param_t {
   int groups_len;
 
   int *update_groups;
+
   struct traffic_t *traffic;
 
   int *data;
+  int idx;
 };
 
 void parallel_calculate(void *vargp)
 {
     struct parallel_param_t *param = vargp;
     struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
+
+    printf("%d\n", param->idx);
 
     int node_num = 0;
     for (int i = 0; i < param->groups_len; i++)
@@ -92,12 +96,6 @@ void parallel_calculate(void *vargp)
             update_nodes_pos++;
         }
     }
-
-    for (int i = 0; i < node_num; i++)
-    {
-        printf("%d ", update_nodes[i]);
-    }
-    printf("\n");
 
     struct traffic_t *traffic = param->traffic;
     network_update(test_network, update_nodes, node_num);
@@ -117,12 +115,14 @@ void all_subplan_seq_cost()
 {
   int symmetric_groups[5] = {3,3,3,3,3};
   int update_groups[5] = {0, 6, 12, 42, 48};
-  int **symmetric_subplans = generate_subplan(symmetric_groups, 5);
+  int tot_subplans = 0;
+  int **symmetric_subplans = generate_subplan(symmetric_groups, 5, &tot_subplans);
   threadpool thpool = thpool_init(sysconf(_SC_NPROCESSORS_ONLN) - 1);
   struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
   struct traffic_t *traffic = traffic_load("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
-  int **data = malloc(sizeof(int *) * 4*4*4*4*4);
-  for (int i = 0; i < 4*4*4*4*4; i++)
+  int **data = malloc(sizeof(int *) * tot_subplans);
+
+  for (int i = 0; i < tot_subplans; i++)
   {
       data[i] = malloc(sizeof(int) * traffic->tm_num);
       struct parallel_param_t *param = malloc(sizeof(struct parallel_param_t));
@@ -131,11 +131,12 @@ void all_subplan_seq_cost()
       param->update_groups = update_groups;
       param->traffic = traffic;
       param->data = data[i];
+      param->idx = i;
       thpool_add_work(thpool, parallel_calculate, param);
   }
   thpool_wait(thpool);
   FILE *f = fopen("result.tsv", "w+");
-  for (int i = 0; i < 4*4*4*4*4; i++)
+  for (int i = 0; i < tot_subplans; i++)
   {
       for (int j = 0; j < traffic->tm_num; j++)
       {
@@ -148,7 +149,7 @@ void all_subplan_seq_cost()
 
 void single_plan_seq_cost()
 {
-  int update_nodes[] = {0, 1, 6, 7, 12, 13, 42, 43, 48, 49};
+  int update_nodes[] = {0, 6, 7};
   struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
   network_update(test_network, update_nodes, 10);
   struct traffic_t *traffic = traffic_load("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
@@ -163,6 +164,21 @@ void single_plan_seq_cost()
   network_free(test_network);
 } 
 
+void plan_debug()
+{
+    int update_nodes[] = {0, 6, 7};
+    struct network_t *test_network = network_watchtower_gen(8, 12, 6, 6);
+    network_update(test_network, update_nodes, 3);
+    struct traffic_t *traffic = traffic_load("../traffic/webserver_traffic_30s_8p_12t_sorted.tsv", test_network, 2500);
+    int time = 944;
+    network_reset(test_network);
+    print_links(test_network);
+    build_flow(test_network, traffic, time);
+    maxmin(test_network);
+    printf("%d\n", network_slo_violation(test_network, 6000000000));
+    network_free(test_network);
+}
+
 int main(int argc, char **argv) {
   char *output = 0;
   int err = 0;
@@ -171,7 +187,9 @@ int main(int argc, char **argv) {
   double y = -1;
   char *file_name = NULL;
 
-  single_plan_seq_cost();
+  all_subplan_seq_cost();
+  //single_plan_seq_cost();
+  //plan_debug();
   exit(0);
 
   while ((c = getopt(argc, argv, "f:y:m")) != -1)

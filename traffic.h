@@ -7,6 +7,8 @@ struct traffic_t *traffic_load(char const *tracefile, struct network_t *network,
 
 void build_flow(struct network_t *network, struct traffic_t *traffic, int time);
 
+void update_tm(struct network_t *network, struct tm_t *tm);
+
 void print_flows(struct network_t *network);
 
 #endif

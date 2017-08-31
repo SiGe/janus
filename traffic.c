@@ -105,9 +105,8 @@ struct traffic_t *traffic_load(char const *tracefile, struct network_t *network,
     return ret_traffic;
 }
 
-void build_flow(struct network_t *network, struct traffic_t *traffic, int time)
+void update_tm(struct network_t *network, struct tm_t *tm)
 {
-    struct tm_t *tm = traffic->tms + time;
     int tot_tors = network->k * network->t_per_p;
 
     if (network->flows != NULL)
@@ -142,6 +141,12 @@ void build_flow(struct network_t *network, struct traffic_t *traffic, int time)
             flows++;
         }
     }
+}
+
+void build_flow(struct network_t *network, struct traffic_t *traffic, int time)
+{
+    struct tm_t *tm = traffic->tms + time;
+    update_tm(network, tm);
 }
 
 void print_flows(struct network_t *network)

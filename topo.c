@@ -49,15 +49,12 @@ void network_update(struct network_t *network, int *node_ids, int node_nums)
             }
         }
     }
-    if (capacity_reduce[k] > 0)
+    for (int agg = 0; agg < k; agg++)
     {
-        for (int agg = 0; agg < k; agg++)
-        {
-            struct link_t *link = network->links + 2 * agg + 2 * tot_tors;
-            link->capacity = (a_per_p - capacity_reduce[agg]) * (c_num - capacity_reduce[k]) * LINK_CAPACITY;
-            link++;
-            link->capacity = (a_per_p - capacity_reduce[agg]) * (c_num - capacity_reduce[k]) * LINK_CAPACITY;
-        }
+        struct link_t *link = network->links + 2 * agg + 2 * tot_tors;
+        link->capacity = (a_per_p - capacity_reduce[agg]) * (c_num - capacity_reduce[k]) * LINK_CAPACITY;
+        link++;
+        link->capacity = (a_per_p - capacity_reduce[agg]) * (c_num - capacity_reduce[k]) * LINK_CAPACITY;
     }
     return;
 }
@@ -191,6 +188,7 @@ void network_reset(struct network_t *network)
     for (int i = 0; i < network->num_links; i++)
     {
         link = network->links + i;
+        link->id = i;
         link->used = 0;
         link->nactive_flows = 0;
         link->nflows = 0;

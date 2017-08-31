@@ -3,7 +3,7 @@ OBJ=$(SRC:.c=.o)
 CC=gcc
 
 OPT=-O3
-EXTRA=-g -pg -pthread
+EXTRA= -pthread
 
 CFLAGS=-Wall -Werror $(OPT) $(EXTRA)
 LDFLAGS = -lm -Wall -Werror $(OPT) $(EXTRA)

@@ -391,13 +391,15 @@ int maxmin(struct network_t *network) {
   }
 }
 
-int **generate_subplan(int *groups, int groups_len)
+int **generate_subplan(int *groups, int groups_len, int *subplan_num)
 {
     int plan_nums = 1;
     for (int i = 0; i < groups_len; i++)
     {
         plan_nums *= groups[i] + 1;
     }
+
+    *subplan_num = plan_nums;
 
     int **plans = (int **)malloc(sizeof(int *) * plan_nums);
     for (int i = 0; i < plan_nums; i++)
@@ -417,4 +419,26 @@ int **generate_subplan(int *groups, int groups_len)
     }
 
     return plans;
+}
+
+int *double_ewma(int *seq, int seq_len, double alpha, int n, double beta)
+{
+    int *ret = malloc(sizeof(int) * n);
+    memset(ret, 0, sizeof(int) * n);
+    int s_0 = seq[0];
+    int b_0 = seq[1] - seq[0];
+    int s_old = s_0;
+    int b = b_0;
+    int s = 0;
+
+    for (int i = 1; i < seq_len+1; i++)
+    {
+        s = (alpha * seq[i-1]) + (1 - alpha) * (s_old + b);
+        b = beta * (s - s_old) + (1 - beta) * b;
+        s_old = s;
+    }
+
+    for (int i = 0; i < n; i++)
+        ret[i] = (int)max(s+(i+1)*b, 0);
+    return ret;
 }
