@@ -44,7 +44,7 @@ void network_max_link_throughput(struct network_t *network) {
         if (link->used / link->capacity > max_link_throughput)
             max_link_throughput = link->used / link->capacity;
     }
-    printf("%f", max_link_throughput);
+    printf("%f\n", max_link_throughput);
 }
 
 const char *usage_message = "" \
@@ -232,8 +232,8 @@ void error_parallel_calculate(void *vargp)
             struct tm_t *tm = param->tms[j];
             network_reset(network);
             build_flow_error(network, tm, param->errors, param->error_seqs[i], j);
-            printf("%d %d\n", i, j);
-            write_flows(network);
+            //printf("%d %d\n", i, j);
+            //write_flows(network);
             maxmin(network);
             int ret = network_slo_violation(network, param->y);
             if (ret > param->x)
@@ -259,8 +259,7 @@ void error_cal_matrix(int error_time, int sample_num, int x, double y, int *symm
     int update_groups[5] = {0, 6, 12, 42, 48};
     int tot_subplans = 0;
     int **symmetric_subplans = generate_subplan(symmetric_groups, 5, &tot_subplans);
-    //threadpool thpool = thpool_init(sysconf(_SC_NPROCESSORS_ONLN) - 1);
-    threadpool thpool = thpool_init(1);
+    threadpool thpool = thpool_init(sysconf(_SC_NPROCESSORS_ONLN) - 1);
     //threadpool thpool = thpool_init(1);
 
     int **ret_data = malloc(sizeof(int *) * tot_subplans);
@@ -281,9 +280,11 @@ void error_cal_matrix(int error_time, int sample_num, int x, double y, int *symm
             error_seqs[error_id++] = id;
     }
 
+    /*
     for (int i = 0; i < sample_num; i++)
         printf("%d ", error_seqs[i]);
     printf("\n");
+    */
 
     struct tm_t **tms = build_flow_ewma(traffic, error_time, error->sd_pair_num);
 

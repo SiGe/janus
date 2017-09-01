@@ -251,14 +251,24 @@ static int flow_cmp(void const *v1, void const *v2) {
   struct flow_t const *f1 = (struct flow_t const*)v1;
   struct flow_t const *f2 = (struct flow_t const*)v2;
 
-  return (int)(f1->demand - f2->demand);
+  bw_t diff = (f1->demand - f2->demand);
+  if (diff == 0)
+    return 0;
+  if (diff < 0)
+    return -1;
+  return 1;
 }
 
 static int link_cmp_ptr(void const *v1, void const *v2) {
   struct link_t const *l1 = *(struct link_t const**)v1;
   struct link_t const *l2 = *(struct link_t const**)v2;
 
-  return (int)((per_flow_capacity(l1)) - (per_flow_capacity(l2)));
+  bw_t diff = ((per_flow_capacity(l1)) - (per_flow_capacity(l2)));
+  if (diff == 0)
+    return 0;
+  if (diff < 0)
+    return -1;
+  return 1;
 }
 
 static void populate_and_sort_flows(struct network_t *network) {
