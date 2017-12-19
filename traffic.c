@@ -164,6 +164,7 @@ void write_flows(struct network_t *network)
     printf("write flows done\n");
     fclose(fp);
 }
+
 void print_flows(struct network_t *network)
 {
     printf("%d\n", network->num_flows);
@@ -174,6 +175,14 @@ void print_flows(struct network_t *network)
     printf("\n");
 }
 
+double tot_volume_tm(struct tm_t * tm, int tm_len)
+{
+    double tot_volume = 0;
+    for (int i = 0; i < tm_len; i++)
+        tot_volume += tm->tm[i];
+    return tot_volume;
+}
+
 void build_flow_error(struct network_t *network, struct tm_t *tm, struct error_t *error, int error_seq, int tm_seq)
 {
     struct tm_t *new_tm = malloc(sizeof(struct tm_t));
@@ -182,7 +191,27 @@ void build_flow_error(struct network_t *network, struct tm_t *tm, struct error_t
     for (int i = 0; i < error->sd_pair_num; i++)
     {
         new_tm->tm[i] = max(tm->tm[i] + error_tm[i], 0);
+        //new_tm->tm[i] = tm->tm[i] + error_tm[i];
     }
+
+    struct tm_t *new_tm_no_max = malloc(sizeof(struct tm_t));
+    new_tm_no_max->tm = malloc(sizeof(bw_t) * error->sd_pair_num);
+    for (int i = 0; i < error->sd_pair_num; i++)
+    {
+        new_tm_no_max->tm[i] = tm->tm[i] + error_tm[i];
+    }
+
+    double ratio = tot_volume_tm(new_tm_no_max, error->sd_pair_num) /
+                   tot_volume_tm(new_tm, error->sd_pair_num) * 1.08;
+
+    free(new_tm_no_max->tm);
+    free(new_tm_no_max);
+
+    for (int i = 0; i < error->sd_pair_num; i++)
+    {
+        new_tm->tm[i] *= ratio;
+    }
+
     update_tm(network, new_tm);
     free(new_tm->tm);
     free(new_tm);

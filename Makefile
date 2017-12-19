@@ -5,8 +5,8 @@ CC=gcc
 OPT=-O3
 EXTRA= -pthread
 
-CFLAGS=-Wall -Werror $(OPT) $(EXTRA)
-LDFLAGS = -lm -Wall -Werror $(OPT) $(EXTRA)
+CFLAGS= $(OPT) $(EXTRA)
+LDFLAGS = -lm  $(OPT) $(EXTRA)
 
 maxmin: $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $^
