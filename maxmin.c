@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "algorithm.h"
 #include "error.h"
@@ -46,24 +47,23 @@ void network_free(struct network_t *network) {
   }
 }
 
-void network_slo_violation(struct network_t *network, double y) {
+void network_slo_violation(struct network_t *network, double cond) {
   struct flow_t *flow = 0;
   int vio_num = 0;
   for (int i = 0; i < network->num_flows; ++i) {
     flow = &network->flows[i];
-    if ((flow->demand > flow->bw) && (flow->bw < y)) {
+    if ((flow->demand > flow->bw) && (flow->bw < cond)) {
         vio_num += 1;
     }
     if ((flow->demand < flow->bw)) {
         panic("More bandwith than demand");
     }
   }
-  //printf("%d ToR pairs violating %f bandwidth, %d ToR pairs permitted\n", vio_num, y, x);
   printf("%d", vio_num);
 }
 
 const char *usage_message = "" \
-  "usage: %s <routing-file>\n" \
+  "usage: %s <routing-file> <y-capacity>\n" \
   "routing-file has the following format:\n\n" \
   "\tr\n"\
   "\t[num-flows]\n"\
@@ -81,11 +81,20 @@ void usage(const char *fname) {
   exit(EXIT_FAILURE);
 }
 
+int exists(const char *fname) {
+  return (access(fname, F_OK) != -1);
+}
+
 int main(int argc, char **argv) {
   char *output = 0;
   int err = 0;
 
   if (argc < 2) {
+    usage(argv[0]);
+  }
+
+  if (!exists(argv[1])) {
+    printf("File does not exist.\n");
     usage(argv[0]);
   }
 
