@@ -1,0 +1,17 @@
+
+Profiling started at Wed Aug 30 16:11:23 2017
+Profiling stopped at Wed Aug 30 16:14:24 2017
+
+-- OProfile/operf Statistics --
+Nr. non-backtrace samples: 4975419
+Nr. kernel samples: 6509
+Nr. user space samples: 4968910
+Nr. samples lost due to sample address not in expected range for domain: 0
+Nr. lost kernel samples: 0
+Nr. samples lost due to sample file open failure: 0
+Nr. samples lost due to no permanent mapping: 0
+Nr. user context kernel samples lost due to no app info available: 0
+Nr. user samples lost due to no app info available: 0
+Nr. backtraces skipped due to no file mapping: 0
+Nr. hypervisor samples dropped due to address out-of-range: 0
+Nr. samples lost reported by perf_events kernel: 0
