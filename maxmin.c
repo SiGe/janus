@@ -63,7 +63,7 @@ void network_slo_violation(struct network_t *network, double y) {
 }
 
 const char *usage_message = "" \
-  "usage: %s <routing-file>\n" \
+  "usage: %s <routing-file> <slo-threshold>\n" \
   "routing-file has the following format:\n\n" \
   "\tr\n"\
   "\t[num-flows]\n"\
@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
   char *output = 0;
   int err = 0;
 
-  if (argc < 2) {
+  if (argc < 3) {
     usage(argv[0]);
   }
 
@@ -100,7 +100,6 @@ int main(int argc, char **argv) {
 
 
   maxmin(&network);
-  //network_print_flows(&network);
   network_slo_violation(&network, atof(argv[2]));
   network_free(&network);
 
