@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "algorithm.h"
-#include "error.h"
-#include "log.h"
+#include "algo/maxmin.h"
+
+#include "util/error.h"
+#include "util/log.h"
+
 #include "parse.h"
 #include "types.h"
 

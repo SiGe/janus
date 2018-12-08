@@ -4,12 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "error.h"
-#include "log.h"
 #include "types.h"
 #include "parse.h"
+#include "util/error.h"
+#include "util/log.h"
 
-#include "algorithm.h"
+#include "algo/maxmin.h"
 
 #define EPS 1e-3
 

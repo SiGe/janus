@@ -1,12 +1,15 @@
 BUILD_DIR = build
 BIN_DIR = bin
-TARGET = maxmin
+TARGET = main
 
-SRC=$(wildcard *.c)
+SRC =$(wildcard src/*.c)
+SRC+=$(wildcard src/algo/*.c)
+SRC+=$(wildcard src/util/*.c)
+
 OBJ=$(SRC:%.c=$(BUILD_DIR)/%.o)
 
-CFLAGS=-O3 -Wall -Werror
-LDFLAGS=-lm -O3 -Wall -Werror
+CFLAGS=-O3 -Wall -Werror -Iinclude/
+LDFLAGS=-lm -O3 -Wall -Werror -Iinclude/
 
 $(BUILD_DIR)/%.o: %.c
 	@>&2 echo Compiling $<

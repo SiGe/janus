@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "log.h"
+#include "util/log.h"
 #include "types.h"
 
 #define LOG(level, color) {\
