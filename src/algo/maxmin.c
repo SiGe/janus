@@ -184,16 +184,18 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
     link->used += remaining_demand(flow);
     if (link->used > link->capacity) {
       network_smallest(network);
-      panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d, %.2f",
-            link->id, flow->id,
-            link->used, link->capacity, link->nflows, link->nactive_flows, remaining_demand(flow));
+      panic("Trying to route on a link that has no space left: (Link) %d,\
+          (Flow) %d, (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d,\
+          (Routed flows?) %d, (Remaining bandwidth on the flow) %.2f",
+            link->id, flow->id, link->used, link->capacity, link->nflows,
+            link->nactive_flows, remaining_demand(flow));
     }
 
     if (link->nactive_flows==0)
-      panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d",
-            link->id, flow->id,
-            link->used, link->capacity,
-            link->nflows, network->fixed_flow_end);
+      panic("No flow left to route for link: (Link) %d, (Flow) %d, (Link used?)\
+          %.2f, (Link cap) %.2f, (Num flows on link) %d, (Useless) %d",
+            link->id, flow->id, link->used, link->capacity, link->nflows,
+            network->fixed_flow_end);
 
     link->nactive_flows -= 1;
     recycle_link_if_fixed(network, link);
@@ -228,9 +230,11 @@ static int fix_link(struct network_t *network, struct link_t *link) {
 
       if ((l->used - l->capacity) > EPS) {
         network_smallest(network);
-        panic("what the heck mate ...: %d, %d, %.2f, %.2f, %d, %d, %.2f",
-              l->id, flow->id,
-              l->used, l->capacity, l->nflows, l->nactive_flows, remaining_demand(flow));
+        panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
+            (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
+              flows left) %d, (Remaining demand on flow) %.2f",
+            l->id, flow->id, l->used, l->capacity, l->nflows, l->nactive_flows,
+            remaining_demand(flow));
       }
 
       recycle_link_if_fixed(network, l);

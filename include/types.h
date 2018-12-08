@@ -44,16 +44,32 @@ struct flow_t {
 
 /* Network representation */
 struct network_t {
+  /* Structure holding the links per flow.  This is a 2D structure where routing
+   * for the i_th flow is available from:
+   *    base = i_th * (MAX_PATH_LENGHT + 1)
+   *    [base ...  base + MAX_PATH_LENGTH]
+   *    First entry is the number of links on the path
+   *    Second and onward are the links on the path
+   */
   link_id_t *routing;
+
+  /* List of links in the network */
   struct link_t *links;
+
+  /* List of flows in the network */
   struct flow_t *flows;
 
+  /* Number of links in the network */
   link_id_t num_links;
+
+  /* Number of flows in the network */
   pair_id_t num_flows;
 
+  /* XXX: Useless? */
   int fixed_flow_end;
   pair_id_t *flow_ids;
 
+  /* XXX: Useless? */
   int fixed_link_end;
   link_id_t *link_ids;
 

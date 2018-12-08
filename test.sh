@@ -11,14 +11,17 @@ output() {
 }
 
 tmpFile=$(mktemp)
-output $1 > $tmpFile
 
-echo -ne "Erroneous lines:\n"
-echo -ne "\033[1;31m"
-cat $tmpFile | awk '{if ($5 > 1) print $0}'
-echo -ne "\033[0m"
+for i in $(ls ./tests/data/ | cut -d'_' -f3 | cut -d'.' -f1); do
+  output $i > $tmpFile
 
-echo -ne "Greeneries:\n"
-echo -ne "\033[1;92m"
-cat $tmpFile | awk '{if ($1 != $2) print $0}'
-echo -ne "\033[0m"
+  echo -ne "Erroneous lines:\n"
+  echo -ne "\033[1;31m"
+  cat $tmpFile | awk '{if ($5 > 1) print $0}'
+  echo -ne "\033[0m"
+
+  echo -ne "Greeneries:\n"
+  echo -ne "\033[1;92m"
+  cat $tmpFile | awk '{if ($1 != $2) print $0}'
+  echo -ne "\033[0m"
+done

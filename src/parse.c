@@ -136,7 +136,6 @@ char const *parse_routing_matrix(char const *input, struct network_t *network) {
     input += pos;
     input = strip(input);
 
-
     /* Save the link id */
     if (result >= 1) {
       /* remember the max link id seen */
