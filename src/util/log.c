@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "util/log.h"
-#include "types.h"
+#include "dataplane.h"
 
 #define LOG(level, color) {\
   char format[MAX_FORMAT_LENGTH] = {0};\
@@ -40,7 +40,7 @@ void info(const char *fmt, ...) {}
 // TODO jiaqi: you can change the output format here. both network->flows and
 // network->links are in the same order that you passed. To see what the
 // structures have take a look at types.h
-void network_print_flows(struct network_t *network) {
+void network_print_flows(struct dataplane_t *network) {
   printf("----------------------------------------\n");
   struct flow_t *flow = 0;
   for (int i = 0; i < network->num_flows; ++i) {

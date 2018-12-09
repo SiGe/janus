@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "types.h"
+#include "dataplane.h"
 #include "parse.h"
 #include "util/error.h"
 #include "util/log.h"
@@ -23,17 +23,17 @@ static inline bw_t remaining_demand(struct flow_t const *flow) {
 }
 
 // returns the capacity that a link can spare for each active flow (i.e., flows
-// that are not bottlenecked in other parts of the network)
+// that are not bottlenecked in other parts of the dataplane)
 static inline bw_t per_flow_capacity(struct link_t const *link) {
   if (link->nactive_flows == 0)
     return 0;
   return max((link->capacity - link->used) / link->nactive_flows, 0);
 }
 
-static __attribute__((unused)) void ensure_consistency_of_links(struct network_t *network) {
+static __attribute__((unused)) void ensure_consistency_of_links(struct dataplane_t *dataplane) {
   bw_t last = 0;
   int loop = 0;
-  struct link_t *link = network->smallest_link;
+  struct link_t *link = dataplane->smallest_link;
   while (link) {
     loop++;
     if (last > per_flow_capacity(link))
@@ -43,9 +43,9 @@ static __attribute__((unused)) void ensure_consistency_of_links(struct network_t
   }
 }
 
-static __attribute__((unused)) void network_smallest(struct network_t *network) {
+static __attribute__((unused)) void dataplane_smallest(struct dataplane_t *dataplane) {
   printf("smallest link chain: \n");
-  struct link_t *link = network->smallest_link;
+  struct link_t *link = dataplane->smallest_link;
   while (link) {
     printf("(%d: %.2f) ~> \n", link->id, per_flow_capacity(link));
     if (link->next)
@@ -57,8 +57,8 @@ static __attribute__((unused)) void network_smallest(struct network_t *network) 
   printf("\n");
 }
 
-static __attribute__((unused)) void network_consistent(struct network_t *network) {
-  struct link_t *link = network->smallest_link;
+static __attribute__((unused)) void dataplane_consistent(struct dataplane_t *dataplane) {
+  struct link_t *link = dataplane->smallest_link;
   while (link) {
     if (link->next)
       if (link->next->prev != link) {
@@ -67,11 +67,11 @@ static __attribute__((unused)) void network_consistent(struct network_t *network
       }
     link = link->next;
   }
-  info("network-consistent.");
+  info("dataplane-consistent.");
 }
 
-static __attribute__((unused)) int is_28_there(struct network_t *network) {
-  struct link_t *link = network->smallest_link;
+static __attribute__((unused)) int is_28_there(struct dataplane_t *dataplane) {
+  struct link_t *link = dataplane->smallest_link;
   while (link) {
     if (link->id == 28)
       return 1;
@@ -82,13 +82,13 @@ static __attribute__((unused)) int is_28_there(struct network_t *network) {
 
 
 // finds the flow with the smallest remaining demand
-static struct flow_t *find_flow_with_smallest_remaining_demand(struct network_t *network) {
-  return network->smallest_flow;
+static struct flow_t *find_flow_with_smallest_remaining_demand(struct dataplane_t *dataplane) {
+  return dataplane->smallest_flow;
 }
 
 // finds a link that gets saturated first
-static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct network_t *network) {
-  return network->smallest_link;
+static struct link_t *find_link_with_smallest_remaining_per_flow_bw(struct dataplane_t *dataplane) {
+  return dataplane->smallest_link;
 }
 
 static void linked_list_remove_flow(struct flow_t *flow) {
@@ -132,10 +132,10 @@ static void stitch_link_before(struct link_t *l, struct link_t *before) {
   before->prev = l;
 }
 
-static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
+static void recycle_link_if_fixed(struct dataplane_t *dataplane, struct link_t *l) {
   if (l->nactive_flows == 0) {
-    if (network->smallest_link == l) {
-      network->smallest_link = l->next;
+    if (dataplane->smallest_link == l) {
+      dataplane->smallest_link = l->next;
     }
 
     linked_list_remove_link(l);
@@ -153,15 +153,15 @@ static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
     stitch_link_before(l, prv);
 
     if (l->prev == 0 && l->nactive_flows != 0) {
-      network->smallest_link = l;
+      dataplane->smallest_link = l;
     }
 
     return;
   }
 
   if (l->next && (per_flow_capacity(l) > per_flow_capacity(l->next))) {
-    if (network->smallest_link == l) {
-      network->smallest_link = l->next;
+    if (dataplane->smallest_link == l) {
+      dataplane->smallest_link = l->next;
     }
 
     // Do surgery to find the correct position of the link
@@ -172,18 +172,17 @@ static void recycle_link_if_fixed(struct network_t *network, struct link_t *l) {
     }
     stitch_link_after(l, nxt);
 
-    //printf("(3) [%d], [m%d] %15.2f vs. smallest, %15.2f\n", is_28_there(network), l->id, per_flow_capacity(l), per_flow_capacity(network->smallest_link));
     return;
   }
 }
 
 // fixes a flow by updating the links on its path
-static int fix_flow(struct network_t *network, struct flow_t *flow) {
+static int fix_flow(struct dataplane_t *dataplane, struct flow_t *flow) {
   for (int i = 0; i < flow->nlinks; i++) {
     struct link_t *link = flow->links[i];
     link->used += remaining_demand(flow);
     if (link->used > link->capacity) {
-      network_smallest(network);
+      dataplane_smallest(dataplane);
       panic("Trying to route on a link that has no space left: (Link) %d,\
           (Flow) %d, (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d,\
           (Routed flows?) %d, (Remaining bandwidth on the flow) %.2f",
@@ -195,10 +194,10 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
       panic("No flow left to route for link: (Link) %d, (Flow) %d, (Link used?)\
           %.2f, (Link cap) %.2f, (Num flows on link) %d, (Useless) %d",
             link->id, flow->id, link->used, link->capacity, link->nflows,
-            network->fixed_flow_end);
+            dataplane->fixed_flow_end);
 
     link->nactive_flows -= 1;
-    recycle_link_if_fixed(network, link);
+    recycle_link_if_fixed(dataplane, link);
   }
 
   flow->fixed = 1;
@@ -210,7 +209,7 @@ static int fix_flow(struct network_t *network, struct flow_t *flow) {
 }
 
 // fixes a link by fixing the flows on itself and distributing the spare capacity that it has.
-static int fix_link(struct network_t *network, struct link_t *link) {
+static int fix_link(struct dataplane_t *dataplane, struct link_t *link) {
   bw_t spare_capacity = per_flow_capacity(link);
 
   struct flow_t *flow = 0;
@@ -229,7 +228,7 @@ static int fix_link(struct network_t *network, struct link_t *link) {
       l->used += spare_capacity;
 
       if ((l->used - l->capacity) > EPS) {
-        network_smallest(network);
+        dataplane_smallest(dataplane);
         panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
             (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
               flows left) %d, (Remaining demand on flow) %.2f",
@@ -237,7 +236,7 @@ static int fix_link(struct network_t *network, struct link_t *link) {
             remaining_demand(flow));
       }
 
-      recycle_link_if_fixed(network, l);
+      recycle_link_if_fixed(dataplane, l);
     }
 
     flow->fixed = 1;
@@ -246,8 +245,8 @@ static int fix_link(struct network_t *network, struct link_t *link) {
     /* take it out of the loop */
     linked_list_remove_flow(flow);
 
-    if (network->smallest_flow == flow) {
-      network->smallest_flow = flow->next;
+    if (dataplane->smallest_flow == flow) {
+      dataplane->smallest_flow = flow->next;
     }
   }
 
@@ -268,40 +267,40 @@ static int link_cmp_ptr(void const *v1, void const *v2) {
   return (int)((per_flow_capacity(l1)) - (per_flow_capacity(l2)));
 }
 
-static void populate_and_sort_flows(struct network_t *network) {
+static void populate_and_sort_flows(struct dataplane_t *dataplane) {
   /* populate the link and flow structures */
-  link_id_t *ptr = network->routing;
-  struct flow_t *flow = network->flows;
-  for (int i = 0; i < network->num_flows; ++i, ++flow, ptr += (MAX_PATH_LENGTH + 1)) {
+  link_id_t *ptr = dataplane->routing;
+  struct flow_t *flow = dataplane->flows;
+  for (int i = 0; i < dataplane->num_flows; ++i, ++flow, ptr += (MAX_PATH_LENGTH + 1)) {
     /* if flow has less than EPS demand, just ignore it */
     if (flow->demand < EPS) {
       continue;
     }
 
     for (int j = 0; j < *ptr; ++j) {
-      struct link_t *link = &network->links[*(ptr+j+1)];
+      struct link_t *link = &dataplane->links[*(ptr+j+1)];
       flow->links[flow->nlinks++] = link;
       link->nflows++;
     }
   }
 
   /* sort the flows by their demand */
-  qsort(network->flows, network->num_flows, sizeof(struct flow_t), flow_cmp);
+  qsort(dataplane->flows, dataplane->num_flows, sizeof(struct flow_t), flow_cmp);
 
-  flow = network->flows;
-  for (int i = 0; i < network->num_flows; ++i, ++flow)  {
+  flow = dataplane->flows;
+  for (int i = 0; i < dataplane->num_flows; ++i, ++flow)  {
     if (flow->demand > EPS)
       break;
   }
-  network->smallest_flow = flow;
+  dataplane->smallest_flow = flow;
 }
 
-static void populate_and_sort_links(struct network_t *network) {
+static void populate_and_sort_links(struct dataplane_t *dataplane) {
   /* populate the links with non-zero flows */
   {
-    struct flow_t *flow = network->flows;
+    struct flow_t *flow = dataplane->flows;
     struct flow_t *prev = 0;
-    for (int i = 0; i < network->num_flows; ++i, ++flow) {
+    for (int i = 0; i < dataplane->num_flows; ++i, ++flow) {
       if (flow->demand < EPS) {
         continue;
       }
@@ -334,16 +333,16 @@ static void populate_and_sort_links(struct network_t *network) {
 
   {
     /* create sortable links */
-    struct link_t **links = malloc(sizeof(struct link_t *) * network->num_links);
-    struct link_t *link = network->links;
-    for (int i = 0; i < network->num_links; ++i, ++link) {
+    struct link_t **links = malloc(sizeof(struct link_t *) * dataplane->num_links);
+    struct link_t *link = dataplane->links;
+    for (int i = 0; i < dataplane->num_links; ++i, ++link) {
       links[i] = link;
     }
-    qsort(links, network->num_links, sizeof(struct link_t *), link_cmp_ptr);
+    qsort(links, dataplane->num_links, sizeof(struct link_t *), link_cmp_ptr);
     struct link_t *prev = 0;
-    network->smallest_link = 0;
+    dataplane->smallest_link = 0;
 
-    for (int i = 0; i < network->num_links; ++i) {
+    for (int i = 0; i < dataplane->num_links; ++i) {
       link = links[i];
       link->next = link->prev = 0;
       if (link->nactive_flows == 0) {
@@ -355,41 +354,40 @@ static void populate_and_sort_links(struct network_t *network) {
       link->prev = prev;
       prev = link;
 
-      if (!network->smallest_link) {
-        network->smallest_link = link;
+      if (!dataplane->smallest_link) {
+        dataplane->smallest_link = link;
       }
-      //printf("building ...\n");
     }
     prev->next = 0;
     free(links);
   }
 }
 
-static void network_prepare(struct network_t *network) {
-  populate_and_sort_flows(network);
-  populate_and_sort_links(network);
+static void dataplane_prepare(struct dataplane_t *dataplane) {
+  populate_and_sort_flows(dataplane);
+  populate_and_sort_links(dataplane);
 }
 
 
-/* calculate the max-min fairness of the network flows. This is a destructive
-   operation---i.e., the network structure will change */
-int maxmin(struct network_t *network) {
-  network_prepare(network);
+/* calculate the max-min fairness of the dataplane flows. This is a destructive
+   operation---i.e., the dataplane structure will change */
+int maxmin(struct dataplane_t *dataplane) {
+  dataplane_prepare(dataplane);
 
   while (1) {
-    struct flow_t *flow = find_flow_with_smallest_remaining_demand(network);
-    struct link_t *link = find_link_with_smallest_remaining_per_flow_bw(network);
+    struct flow_t *flow = find_flow_with_smallest_remaining_demand(dataplane);
+    struct link_t *link = find_link_with_smallest_remaining_per_flow_bw(dataplane);
 
     if (flow == 0 || link == 0)
       return 1;
 
     if (remaining_demand(flow) < per_flow_capacity(link)) {
       info("fixing flow: %d", flow->id);
-      fix_flow(network, flow);
-      network->smallest_flow = flow->next;
+      fix_flow(dataplane, flow);
+      dataplane->smallest_flow = flow->next;
     } else {
       info("> fixing link: %d", link->id);
-      fix_link(network, link);
+      fix_link(dataplane, link);
       info("> done fixing link: %d", link->id);
     }
   }

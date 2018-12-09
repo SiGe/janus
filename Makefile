@@ -1,6 +1,7 @@
 BUILD_DIR = build
 BIN_DIR = bin
 TARGET = main
+CC = gcc-8
 
 SRC =$(wildcard src/*.c)
 SRC+=$(wildcard src/algo/*.c)
@@ -8,8 +9,8 @@ SRC+=$(wildcard src/util/*.c)
 
 OBJ=$(SRC:%.c=$(BUILD_DIR)/%.o)
 
-CFLAGS=-O3 -Wall -Werror -Iinclude/
-LDFLAGS=-lm -O3 -Wall -Werror -Iinclude/
+CFLAGS=-O3 -Wall -Werror -Iinclude/ -std=c11 -fms-extensions
+LDFLAGS=-lm -O3 -Wall -Werror -Iinclude/ -std=c11
 
 $(BUILD_DIR)/%.o: %.c
 	@>&2 echo Compiling $<

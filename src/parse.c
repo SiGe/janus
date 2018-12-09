@@ -7,7 +7,7 @@
 #include "util/error.h"
 #include "util/log.h"
 #include "parse.h"
-#include "types.h"
+#include "dataplane.h"
 
 char const *strip(char const* input) {
   for (;*input == '\t' || *input == ' '; input++){}
@@ -95,7 +95,7 @@ int read_bw(char const *input, bw_t *value, int *pos) {
 }
 #endif
 
-char const *parse_routing_matrix(char const *input, struct network_t *network) {
+char const *parse_routing_matrix(char const *input, struct dataplane_t *network) {
   info("parsing routing.");
   uint32_t num_lines = 0;
   int result = 0, pos = 0;
@@ -181,7 +181,7 @@ char const *parse_routing_matrix(char const *input, struct network_t *network) {
   return 0;
 }
 
-char const *parse_flows(char const *input, struct network_t *network) {
+char const *parse_flows(char const *input, struct dataplane_t *network) {
   info("parsing flows.");
   if (network->num_flows <= 0) {
     return input;
@@ -214,7 +214,7 @@ char const *parse_flows(char const *input, struct network_t *network) {
   return strip(input);
 }
 
-char const *parse_links(char const *input, struct network_t *network) {
+char const *parse_links(char const *input, struct dataplane_t *network) {
   info("parsing links.");
   if (network->num_links <= 0) {
     return input;
@@ -245,7 +245,7 @@ char const *parse_links(char const *input, struct network_t *network) {
   return strip(input);
 }
 
-int parse_input(char const *input, struct network_t *network) {
+int parse_input(char const *input, struct dataplane_t *network) {
   char const *ptr = input;
 
   /* Initialize everything to nil */

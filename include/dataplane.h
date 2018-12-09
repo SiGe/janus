@@ -42,8 +42,8 @@ struct flow_t {
   struct flow_t *next, *prev;
 };
 
-/* Network representation */
-struct network_t {
+/* Dataplane representation */
+struct dataplane_t {
   /* Structure holding the links per flow.  This is a 2D structure where routing
    * for the i_th flow is available from:
    *    base = i_th * (MAX_PATH_LENGHT + 1)

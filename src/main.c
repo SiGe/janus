@@ -4,12 +4,13 @@
 #include <string.h>
 
 #include "algo/maxmin.h"
+#include "network.h"
 
 #include "util/error.h"
 #include "util/log.h"
 
 #include "parse.h"
-#include "types.h"
+#include "dataplane.h"
 
 #define MAX_FILE_SIZE (1 << 20) * sizeof(char)
 void read_file(char const *file, char **output) {
@@ -28,7 +29,7 @@ void read_file(char const *file, char **output) {
   fclose(f);
 }
 
-void network_free(struct network_t *network) {
+void network_free(struct dataplane_t *network) {
   if (network->routing) {
     free(network->routing);
     network->routing = 0;
@@ -48,7 +49,7 @@ void network_free(struct network_t *network) {
   }
 }
 
-void network_slo_violation(struct network_t *network, double y) {
+void network_slo_violation(struct dataplane_t *network, double y) {
   struct flow_t *flow = 0;
   int vio_num = 0;
   for (int i = 0; i < network->num_flows; ++i) {
@@ -94,7 +95,7 @@ int main(int argc, char **argv) {
   info("reading data file.");
   read_file(argv[1], &output);
 
-  struct network_t network = {0};
+  struct dataplane_t network = {0};
   if ((err = parse_input(output, &network)) != E_OK) {
     error("failed to read the data file: %d.", err);
     return EXIT_FAILURE;
