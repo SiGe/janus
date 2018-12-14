@@ -6,6 +6,10 @@
 #include "util/log.h"
 #include "dataplane.h"
 
+#ifndef LOG_LEVEL
+#define LOG_LEVEL 1
+#endif
+
 #define LOG(level, color) {\
   char format[MAX_FORMAT_LENGTH] = {0};\
   strcat(format, "\e[1;" color "m" #level ">\033[0m "); \

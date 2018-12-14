@@ -27,6 +27,8 @@ static inline bw_t remaining_demand(struct flow_t const *flow) {
 static inline bw_t per_flow_capacity(struct link_t const *link) {
   if (link->nactive_flows == 0)
     return 0;
+  if (link->capacity == 0)
+    return 0;
   return max((link->capacity - link->used) / link->nactive_flows, 0);
 }
 
@@ -257,14 +259,16 @@ static int flow_cmp(void const *v1, void const *v2) {
   struct flow_t const *f1 = (struct flow_t const*)v1;
   struct flow_t const *f2 = (struct flow_t const*)v2;
 
-  return (int)(f1->demand - f2->demand);
+  bw_t val = (f1->demand - f2->demand);
+  return (int)(val * 1/EPS);
 }
 
 static int link_cmp_ptr(void const *v1, void const *v2) {
   struct link_t const *l1 = *(struct link_t const**)v1;
   struct link_t const *l2 = *(struct link_t const**)v2;
 
-  return (int)((per_flow_capacity(l1)) - (per_flow_capacity(l2)));
+  bw_t val = per_flow_capacity(l1) - per_flow_capacity(l2);
+  return (int)(val * 1/EPS);
 }
 
 static void populate_and_sort_flows(struct dataplane_t *dataplane) {

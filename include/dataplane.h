@@ -7,8 +7,8 @@
 #define MAX_PATH_LENGTH 4
 
 /* link and pair ids */
-typedef uint16_t link_id_t;
-typedef uint16_t pair_id_t;
+typedef uint32_t link_id_t;
+typedef uint32_t pair_id_t;
 
 /* bandwidth type variable */
 typedef double bw_t;
@@ -76,5 +76,7 @@ struct dataplane_t {
   struct flow_t *smallest_flow;
   struct link_t *smallest_link;
 };
+
+void dataplane_init(struct dataplane_t *);
 
 #endif
