@@ -1,8 +1,16 @@
 BUILD_DIR = build
 BIN_DIR = bin
+BENCH_DIR = tests/benchmarks
 TARGET = main
+
 #CC = clang
 CC = gcc-8
+
+#OPT = -O0 -pg -g
+OPT = -O3 -pg -g
+
+CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=c11 -fms-extensions -Wno-microsoft-anon-tag
+LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=c11 -flto
 
 SRC:=$(filter-out src/main.c src/test.c, $(wildcard src/*.c))
 SRC+=$(wildcard src/algo/*.c)
@@ -17,11 +25,17 @@ TEST_SRC:=$(SRC)
 TEST_SRC+=src/test.c
 TEST_OBJ=$(TEST_SRC:%.c=$(BUILD_DIR)/%.o)
 
-#OPT = -O0 -pg -g
-OPT = -O3 -pg -g
 
-CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=c11 -fms-extensions -Wno-microsoft-anon-tag
-LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=c11 -flto
+# Handle benchmark executions
+BENCH_SRC:=$(SRC)
+ifeq (bench, $(firstword $(MAKECMDGOALS)))
+BENCH_TARGET=$(wordlist 2, 2, $(MAKECMDGOALS))
+BENCH_SRC+=$(wildcard $(BENCH_DIR)/src/*.c)
+BENCH_SRC+=$(BENCH_DIR)/$(BENCH_TARGET).c
+BENCH_OBJ=$(BENCH_SRC:%.c=$(BUILD_DIR)/%.o)
+CFLAGS+=-I$(BENCH_DIR)/include
+endif
+
 
 all: $(TARGET)
 
@@ -40,6 +54,14 @@ test: $(TEST_OBJ)
 	@mkdir -p $(BIN_DIR)
 	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
 
+$(BENCH_TARGET): $(BENCH_OBJ)
+	@>&2 echo Building $@
+	@mkdir -p $(BIN_DIR)
+	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
+
+bench: $(BENCH_OBJ)
+	@>&2 echo $(MAKECMDGOALS)
+
 .PHONY: clean
 clean:
-	rm -f $(MAIN_OBJ) $(BUILD_DIR)/$(TARGET)
+	rm -fr $(BUILD_DIR)/*

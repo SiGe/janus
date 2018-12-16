@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "dataplane.h"
+#include "traffic.h"
 
 struct network_t;
 typedef uint32_t network_steps_t;
@@ -25,14 +26,6 @@ struct pair_bw_t {
 
   /* Bandwidth used between the pairs */
   bw_t bw;
-};
-
-struct traffic_matrix_t {
-  /* Bandwidths between the hosts */
-  struct pair_bw_t *bws;
-
-  /* Number of hosts */
-  uint32_t num_pairs;
 };
 
 typedef int (*apply_mops_t) (struct network_t *, struct mop_t*);
