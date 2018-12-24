@@ -122,7 +122,7 @@ uint32_t static _setup_bandwidth_for_flows(
   flows = malloc(size);
   memset(flows, 0, size);
   *out = flows;
-  struct pair_bw_t *pair = jup->tm->bws;
+  struct pair_bw_t const *pair = jup->tm->bws;
   for (uint32_t i = 0; i < jup->tm->num_pairs; ++i) {
     flows->demand = pair->bw;
     flows->bw = 0;
@@ -248,7 +248,7 @@ int jupiter_get_dataplane(struct network_t *net, struct dataplane_t *dp) {
   /* setup the routing */
   link_id_t      *routing = malloc(sizeof(link_id_t) * jup->tm->num_pairs * (MAX_PATH_LENGTH + 1));
   link_id_t      *ptr = routing;
-  struct pair_bw_t *pair = jup->tm->bws;
+  struct pair_bw_t const *pair = jup->tm->bws;
   for (uint32_t i = 0; i < jup->tm->num_pairs; ++i) {
     _setup_routing_for_pair(jup, pair->sid, pair->did, ptr);
     ptr += (MAX_PATH_LENGTH + 1);
@@ -270,10 +270,9 @@ int jupiter_get_dataplane(struct network_t *net, struct dataplane_t *dp) {
   return 0;
 };
 
-int jupiter_set_traffic (struct network_t *net, struct traffic_matrix_t *tm) {
-  (void)(net);
-  (void)(tm);
-
+int jupiter_set_traffic (struct network_t *net, struct traffic_matrix_t const *tm) {
+  TO_J(net);
+  jup->tm = tm;
   return 0;
 }
 

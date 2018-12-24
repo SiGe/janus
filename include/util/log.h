@@ -8,9 +8,25 @@
 #define LOG_ERROR 1
 #define LOG_INFO  2
 
-void info(char const *fmt, ...);
-void error(char const *fmt, ...);
-void panic(char const *fmt, ...);
-void network_print_flows(struct dataplane_t *);
+void _info(char const *fmt, ...);
+void _error(char const *fmt, ...);
+void _panic(char const *fmt, ...);
+void _network_print_flows(struct dataplane_t *);
+
+#define panic(fmt, args...) { \
+  _panic(fmt, __FILE__, __LINE__, ##args); \
+}
+
+#define info(fmt, args...) { \
+  _info(fmt, __FILE__, __LINE__, ##args); \
+}
+
+#define warning(fmt, args...) { \
+  _warning(fmt, __FILE__, __LINE__, ##args); \
+}
+
+#define error(fmt, args...) { \
+  _error(fmt, __FILE__, __LINE__, ##args); \
+}
 
 #endif

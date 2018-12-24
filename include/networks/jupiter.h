@@ -41,7 +41,7 @@ jupiter_network_create(
 
 int  jupiter_apply_mops (struct network_t *, struct mop_t*);
 int  jupiter_step (struct network_t *);
-int  jupiter_set_traffic (struct network_t *, struct traffic_matrix_t*);
+int  jupiter_set_traffic (struct network_t *, struct traffic_matrix_t const*);
 int  jupiter_get_traffic (struct network_t *, struct traffic_matrix_t const**);
 int  jupiter_get_dataplane (struct network_t *, struct dataplane_t*); 
 void jupiter_drain_switch(struct network_t *, switch_id_t);

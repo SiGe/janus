@@ -20,17 +20,9 @@ struct mop_t {
   network_steps_t (*operation)  (struct network_t*);
 };
 
-struct pair_bw_t {
-  /* Source id and destination id */
-  uint32_t sid, did;
-
-  /* Bandwidth used between the pairs */
-  bw_t bw;
-};
-
 typedef int (*apply_mops_t) (struct network_t *, struct mop_t*);
 typedef int (*step_t) (struct network_t *);
-typedef int (*set_traffic_t) (struct network_t *, struct traffic_matrix_t*);
+typedef int (*set_traffic_t) (struct network_t *, struct traffic_matrix_t const*);
 typedef int (*get_traffic_t) (struct network_t *, struct traffic_matrix_t const**);
 typedef int (*get_dataplane_t) (struct network_t *, struct dataplane_t *);
 
@@ -54,7 +46,7 @@ struct network_t {
   void (*drain_switch)   (struct network_t *, switch_id_t);
   void (*undrain_switch) (struct network_t *, switch_id_t);
 
-  struct traffic_matrix_t *tm;
+  struct traffic_matrix_t const *tm;
 };
 
 struct clone_t {

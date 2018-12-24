@@ -6,13 +6,9 @@ TARGET = main
 #CC = clang
 CC = gcc-8
 
-#OPT = -O0 -pg -g
-OPT = -O3 -pg -g
+OPT = -O0 -pg -g
 
-CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=c11 -fms-extensions -Wno-microsoft-anon-tag
-LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=c11 -flto
-
-SRC:=$(filter-out src/main.c src/test.c, $(wildcard src/*.c))
+SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, $(wildcard src/*.c))
 SRC+=$(wildcard src/algo/*.c)
 SRC+=$(wildcard src/networks/*.c)
 SRC+=$(wildcard src/util/*.c)
@@ -21,10 +17,13 @@ MAIN_SRC:=$(SRC)
 MAIN_SRC+=src/main.c
 MAIN_OBJ=$(MAIN_SRC:%.c=$(BUILD_DIR)/%.o)
 
+TRAFFIC_COMPRESSOR_SRC:=$(SRC)
+TRAFFIC_COMPRESSOR_SRC+=src/traffic_compressor.c
+TRAFFIC_COMPRESSOR_OBJ=$(TRAFFIC_COMPRESSOR_SRC:%.c=$(BUILD_DIR)/%.o)
+
 TEST_SRC:=$(SRC)
 TEST_SRC+=src/test.c
 TEST_OBJ=$(TEST_SRC:%.c=$(BUILD_DIR)/%.o)
-
 
 # Handle benchmark executions
 BENCH_SRC:=$(SRC)
@@ -35,6 +34,13 @@ BENCH_SRC+=$(BENCH_DIR)/$(BENCH_TARGET).c
 BENCH_OBJ=$(BENCH_SRC:%.c=$(BUILD_DIR)/%.o)
 CFLAGS+=-I$(BENCH_DIR)/include
 endif
+
+ifeq (test, $(firstword $(MAKECMDGOALS)))
+OPT = -O0 -pg -g
+endif
+
+CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=c11 -fms-extensions -Wno-microsoft-anon-tag -Ilib/
+LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=c11 -flto -Ilib/
 
 
 all: $(TARGET)
@@ -50,6 +56,11 @@ $(TARGET): $(MAIN_OBJ)
 	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
 
 test: $(TEST_OBJ)
+	@>&2 echo Building $@
+	@mkdir -p $(BIN_DIR)
+	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
+
+traffic_compressor: $(TRAFFIC_COMPRESSOR_OBJ)
 	@>&2 echo Building $@
 	@mkdir -p $(BIN_DIR)
 	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)

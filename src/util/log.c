@@ -7,12 +7,12 @@
 #include "dataplane.h"
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 1
+#define LOG_LEVEL 4
 #endif
 
 #define LOG(level, color) {\
   char format[MAX_FORMAT_LENGTH] = {0};\
-  strcat(format, "\e[1;" color "m" #level ">\033[0m "); \
+  strcat(format, "\e[1;" color "m" #level " [%s:%d]" "\033[0m "); \
   strcat(format, fmt);\
   strcat(format, "\n");\
   va_list args;\
@@ -22,23 +22,23 @@
 }
 
 #if LOG_LEVEL >= LOG_ERROR
-void error(const char *fmt, ...) LOG(ERROR, "91");
-void panic(const char *fmt, ...) {
+void _error(const char *fmt, ...) LOG(ERROR, "91");
+void _panic(const char *fmt, ...) {
   LOG(PANIC, "91");
   exit(EXIT_FAILURE);
 }
 #else
-void error(const char *fmt, ...) {}
-void panic(const char *fmt, ...) {
+void _error(const char *fmt, ...) {}
+void _panic(const char *fmt, ...) {
   exit(EXIT_FAILURE);
 }
 #endif
 
 
 #if LOG_LEVEL >= LOG_INFO
-void info(const char *fmt, ...) LOG(INFO, "32");
+void _info(const char *fmt, ...) LOG(INFO, "32");
 #else
-void info(const char *fmt, ...) {}
+void _info(const char *fmt, ...) {}
 #endif
 
 // TODO jiaqi: you can change the output format here. both network->flows and

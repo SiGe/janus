@@ -1,3 +1,6 @@
+# Traffic files
+trace/
+
 # Prerequisites
 *.d
 
