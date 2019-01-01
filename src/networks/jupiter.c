@@ -12,7 +12,8 @@
 #define MAX_PODS 256
 
 inline static uint32_t _num_switches(
-    uint32_t core, uint32_t pod, uint32_t agg, uint32_t tor) {
+    uint32_t core, uint32_t pod, 
+    uint32_t agg, uint32_t tor) {
   return core + pod * (agg + tor);
 }
 
@@ -62,6 +63,7 @@ inline static void _setup_routing_for_pair(
     uint32_t dpod = _tor_to_pod(jup, did);
     uint32_t num_core_links = jup->pod * 2;
     //uint32_t num_pod_links = jup->tor * 2;
+    //
 
     if (spod == dpod) {
       *links++ = 2;
@@ -119,19 +121,27 @@ uint32_t static _setup_bandwidth_for_flows(
   /* Init the flows */
   struct flow_t *flows = 0;
   size_t size = sizeof(struct flow_t) * jup->tm->num_pairs;
+  size_t num_flows = 0;
+  struct pair_bw_t const *pair = jup->tm->bws;
+
   flows = malloc(size);
   memset(flows, 0, size);
   *out = flows;
-  struct pair_bw_t const *pair = jup->tm->bws;
   for (uint32_t i = 0; i < jup->tm->num_pairs; ++i) {
-    flows->demand = pair->bw;
-    flows->bw = 0;
-    flows->nlinks = 0;
-    flows++;
-    pair++;
-  }
+    // No need to setup a flow if bw is zero
+    if (pair->bw == 0) {
+      pair++;
+      continue;
+    }
 
-  return jup->tm->num_pairs;
+    /* Setup the flow */
+    flows->demand = pair->bw;
+    flows->bw = 0; flows->nlinks = 0;
+
+    /* Move the iterators */
+    flows++; num_flows++; pair++;
+  }
+  return num_flows;
 }
 
 
@@ -249,10 +259,20 @@ int jupiter_get_dataplane(struct network_t *net, struct dataplane_t *dp) {
   link_id_t      *routing = malloc(sizeof(link_id_t) * jup->tm->num_pairs * (MAX_PATH_LENGTH + 1));
   link_id_t      *ptr = routing;
   struct pair_bw_t const *pair = jup->tm->bws;
-  for (uint32_t i = 0; i < jup->tm->num_pairs; ++i) {
-    _setup_routing_for_pair(jup, pair->sid, pair->did, ptr);
-    ptr += (MAX_PATH_LENGTH + 1);
-    pair++;
+  pair_id_t num_tors = jup->tor * jup->pod;
+  assert(jup->tm->num_pairs == num_tors * num_tors);
+
+  for (pair_id_t s = 0; s < num_tors; ++s) {
+    for (pair_id_t d = 0; d < num_tors; ++d) {
+      // No need to setup pair routing if there is no traffic.
+      if (pair->bw == 0) {
+        pair++; continue;
+      }
+
+      _setup_routing_for_pair(jup, s, d, ptr);
+      ptr += (MAX_PATH_LENGTH + 1);
+      pair++;
+    }
   }
 
   struct flow_t *flows = 0;

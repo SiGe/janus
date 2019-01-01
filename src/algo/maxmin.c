@@ -11,7 +11,7 @@
 
 #include "algo/maxmin.h"
 
-#define EPS 1e-3
+#define EPS 1e-2
 
 static inline bw_t max(bw_t a, bw_t b) {
   return  (a > b) ? a : b;

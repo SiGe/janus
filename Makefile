@@ -6,12 +6,13 @@ TARGET = main
 #CC = clang
 CC = gcc-8
 
-OPT = -O0 -pg -g
+OPT = -O3 # -pg -g
 
 SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, $(wildcard src/*.c))
-SRC+=$(wildcard src/algo/*.c)
-SRC+=$(wildcard src/networks/*.c)
-SRC+=$(wildcard src/util/*.c)
+SRC+=$(wildcard src/*/*.c)
+#SRC+=$(wildcard src/algo/*.c)
+#SRC+=$(wildcard src/networks/*.c)
+#SRC+=$(wildcard src/util/*.c)
 
 MAIN_SRC:=$(SRC)
 MAIN_SRC+=src/main.c

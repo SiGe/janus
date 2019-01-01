@@ -6,15 +6,22 @@
 #define MAX_FORMAT_LENGTH 256
 
 #define LOG_ERROR 1
-#define LOG_INFO  2
+#define LOG_WARN 2
+#define LOG_INFO  3
 
 void _info(char const *fmt, ...);
+void _warn(char const *fmt, ...);
 void _error(char const *fmt, ...);
 void _panic(char const *fmt, ...);
 void _network_print_flows(struct dataplane_t *);
 
 #define panic(fmt, args...) { \
   _panic(fmt, __FILE__, __LINE__, ##args); \
+}
+
+
+#define warn(fmt, args...) { \
+  _warn(fmt, __FILE__, __LINE__, ##args); \
 }
 
 #define info(fmt, args...) { \

@@ -2,6 +2,7 @@
 #include "util/log.h"
 #include "traffic.h"
 
+#include <assert.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +57,8 @@ void load_keys(char const *fdir) {
 
     char *val = kh_value(h, k);
     char const* key = kh_key(h, k);
-    printf("Tor: %s, Pod: %s\n", key, val);
+    // TODO: Save file ...
+    //info("Tor: %s, Pod: %s", key, val);
 
     kh_del(net_entity, h, k);
     free(val);
@@ -93,7 +95,7 @@ void print_name(char const *name, void *nil) {
 
 struct traffic_matrix_t *file_to_tm(
     char const *name, char const *dir, 
-    uint32_t pair_count) {
+    uint32_t tor_count) {
   char fname[PATH_MAX+1]= {0};
   (void) strncat(fname, dir, PATH_MAX);
   (void) strncat(fname, name, PATH_MAX);
@@ -101,38 +103,46 @@ struct traffic_matrix_t *file_to_tm(
   FILE *file = fopen(fname, "r");
   bw_t bw = 0;
   size_t size = sizeof(struct traffic_matrix_t) +
-    sizeof(struct pair_bw_t) * pair_count * (pair_count - 1);
+    sizeof(struct pair_bw_t) * tor_count * tor_count;
   struct traffic_matrix_t *tm = malloc(size);
   struct pair_bw_t *bws = tm->bws;
 
   int src = 0, dst  = 0;
   uint64_t iterator   = 0;
+  float max_traffic = 0;
 
   fseek(file, 0, SEEK_SET);
   while (!feof(file)) {
     if (src == dst) {
+      bws->bw = 0;
+      bws++;
       dst += 1;
+      iterator++;
     }
 
     fscanf(file, "%f ", &bw);
-    if (bw != 0) {
-      bws->sid = src;
-      bws->did = dst;
-      bws->bw = bw;
-      bws++;
+    bws->bw = bw;
+    bws++;
 
-      iterator += 1;
-    }
+    max_traffic = (max_traffic < bw) ? bw : max_traffic;
 
     dst += 1;
-    if (dst == pair_count) {
-      dst  = 0;
+
+    if (dst == tor_count) {
+      dst = 0;
       src += 1;
     }
-  }
-  tm->num_pairs = iterator;
 
-  info("MAX: (%d, %d), %d entries", src, dst, iterator);
+    iterator++;
+  }
+
+  /* TODO: Not sure what was wrong with the old code that requires me to insert
+   * this line ... */
+  bws->bw = 0;
+  iterator++;
+
+  tm->num_pairs = iterator;
+  assert(iterator == tor_count * tor_count);
   fclose(file);
 
   return tm;
@@ -154,12 +164,10 @@ void add_tm_to_trace(char const *name, void *_metadata) {
 
   char *split = strtok(tokens, ".");
   int key = atoi(split);
-
-  info("Translating traffic @%d.", key);
-
   struct traffic_matrix_t *tm =
     file_to_tm(name, metadata->dir, metadata->pair_count); 
 
+  info("Serialized traffic matrix @key: %d", key);
   traffic_matrix_trace_add(
       metadata->trace, tm, key);
 

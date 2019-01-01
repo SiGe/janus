@@ -3,22 +3,12 @@
 
 #include <stdint.h>
 #include "dataplane.h"
+#include "plan.h"
 #include "traffic.h"
 
 struct network_t;
 typedef uint32_t network_steps_t;
 typedef uint32_t switch_id_t;
-
-struct mop_t {
-  /* Apply a pre mop on the network */
-  int             (*pre)        (struct network_t*);
-
-  /* Apply a post mop on the network */
-  int             (*post)       (struct network_t*);
-
-  /* Number of steps that we should run this operation */
-  network_steps_t (*operation)  (struct network_t*);
-};
 
 typedef int (*apply_mops_t) (struct network_t *, struct mop_t*);
 typedef int (*step_t) (struct network_t *);

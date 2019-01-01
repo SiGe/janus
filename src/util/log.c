@@ -7,7 +7,7 @@
 #include "dataplane.h"
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 4
+#define LOG_LEVEL 2
 #endif
 
 #define LOG(level, color) {\
@@ -40,6 +40,13 @@ void _info(const char *fmt, ...) LOG(INFO, "32");
 #else
 void _info(const char *fmt, ...) {}
 #endif
+
+#if LOG_LEVEL >= LOG_WARN
+void _warn(const char *fmt, ...) LOG(INFO, "93");
+#else
+void _warn(const char *fmt, ...) {}
+#endif
+
 
 // TODO jiaqi: you can change the output format here. both network->flows and
 // network->links are in the same order that you passed. To see what the
