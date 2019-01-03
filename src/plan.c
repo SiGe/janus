@@ -102,6 +102,7 @@ struct jupiter_switch_upgrade_plan_iterator_t *_sup_init(
   iter->end   = _sup_end;
   iter->next  = _sup_next;
   iter->free  = _sup_free;
+  iter->granularity = iter->granularity;
 
   /* Setup the groups */
   khash_t(jupiter_groups) *h = kh_init(jupiter_groups);

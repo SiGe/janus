@@ -6,8 +6,10 @@
 #include "algo/maxmin.h"
 #include "networks/jupiter.h"
 #include "predictors/ewma.h"
+#include "util/group_gen.h"
 #include "util/log.h"
 
+#include "plan.h"
 #include "traffic.h"
 
 #define RUN_COUNT 10
@@ -406,10 +408,60 @@ void test_ewma(void) {
   traffic_matrix_trace_free(trace);
 }
 
+#define NUM_STATES 10
+void test_group_state() {
+  uint32_t A000041[] = {1, 1, 2, 3, 5, 7, 11, 15, 22, 30, 42, 56, 77, 101, 135,
+    176, 231, 297, 385, 490, 627, 792, 1002, 1255, 1575, 1958, 2436, 3010,
+    3718, 4565, 5604, 6842, 8349, 10143, 12310, 14883, 17977, 21637, 26015,
+    31185, 37338, 44583, 53174, 63261, 75175, 89134, 105558, 124754, 147273,
+    173525};
+
+  for (uint32_t i = 1; i < sizeof(A000041)/sizeof(uint32_t); ++i) {
+    uint32_t count = 0;
+    struct npart_iter_state_t *s = npart_create(i);
+
+    while (s->next(s) != 0) {
+      for (uint32_t i = 0; i < s->state_length; ++i) {
+        //info("%d ", s->state[i]);
+      }
+      //info("\n");
+      count ++;
+    }
+
+    info("Count for %d is %d", i, count);
+    assert(count == A000041[i]);
+
+    npart_free(s);
+  }
+}
+
+#define DUAL_LEN 11
+void test_dual_state() {
+  for (uint32_t i = 1; i <= DUAL_LEN; ++i) {
+    for (uint32_t j = 1; j <= DUAL_LEN; ++j) {
+      struct npart_iter_state_t *s1 = npart_create(j);
+      struct npart_iter_state_t *s2 = npart_create(i);
+
+      struct dual_npart_iter_state_t *s =
+        dual_npart_create(s1, s2);
+
+      uint32_t count = 0;
+      while (dual_npart_state_next(s)) {
+        //dual_npart_state_current(s);
+        count ++;
+      }
+      printf("%7d ", count);
+    }
+    printf("\n\n\n");
+  }
+}
+
 int main(int argc, char **argv) {
   //test_jupiter_cluster();
   //test_tm_read_load();
   //test_tm_trace();
-  test_ewma();
+  //test_ewma();
+  //test_group_state();
+  test_dual_state();
   return 0;
 }
