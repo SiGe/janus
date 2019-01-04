@@ -14,6 +14,11 @@
 
 #define RUN_COUNT 10
 #define abs(p) ((p) < 0 ? -(p) : (p))
+#define TEST(p) {\
+  printf("\t > \e[1;33mTESTING\033[0m %s: ", #p);\
+  test_##p();\
+  printf("\e[1;33mPASSED\033[0m.\n");\
+}
 
 void traffic_matrix_random(
     struct traffic_matrix_t **ret, uint32_t num_tors, bw_t bw, float density) {
@@ -418,9 +423,9 @@ void test_group_state() {
 
   for (uint32_t i = 1; i < sizeof(A000041)/sizeof(uint32_t); ++i) {
     uint32_t count = 0;
-    struct npart_iter_state_t *s = npart_create(i);
+    struct group_iter_t *s = npart_create(i);
 
-    while (s->next(s) != 0) {
+    for (s->begin(s); !s->end(s); s->next(s)) {
       for (uint32_t i = 0; i < s->state_length; ++i) {
         //info("%d ", s->state[i]);
       }
@@ -428,31 +433,111 @@ void test_group_state() {
       count ++;
     }
 
-    info("Count for %d is %d", i, count);
+    //info("Count for %d is %d", i, count);
     assert(count == A000041[i]);
 
-    npart_free(s);
+    s->free(s);
   }
 }
 
-#define DUAL_LEN 11
 void test_dual_state() {
-  for (uint32_t i = 1; i <= DUAL_LEN; ++i) {
-    for (uint32_t j = 1; j <= DUAL_LEN; ++j) {
-      struct npart_iter_state_t *s1 = npart_create(j);
-      struct npart_iter_state_t *s2 = npart_create(i);
+  uint32_t test[][11] = {
+    {      1,       3,       6,      11,      18,      29,      44,      66,      96,     138,     194},
+    {      3,       8,      15,      28,      46,      76,     117,     180,     266,     391,     559},
+    {      6,      15,      30,      56,      96,     161,     256,     400,     607,     906,    1324},
+    {     11,      28,      56,     108,     188,     322,     521,     830,    1278,    1940,    2875},
+    {     18,      46,      96,     188,     338,     588,     974,    1575,    2471,    3803,    5726},
+    {     29,      76,     161,     322,     588,    1042,    1751,    2875,    4570,    7127,   10859},
+    {     44,     117,     256,     521,     974,    1751,    2997,    4986,    8042,   12692,   19583},
+    {     66,     180,     400,     830,    1575,    2875,    4986,    8405,   13714,   21892,   34133},
+    {     96,     266,     607,    1278,    2471,    4570,    8042,   13714,   22651,   36534,   57567},
+    {    138,     391,     906,    1940,    3803,    7127,   12692,   21892,   36534,   59520,   94663},
+    {    194,     559,    1324,    2875,    5726,   10859,   19583,   34133,   57567,   94663,  151957},
+  };
 
-      struct dual_npart_iter_state_t *s =
+  uint32_t sy = sizeof(test[0])/sizeof(uint32_t);
+  uint32_t sx = sizeof(test)/(sy * sizeof(uint32_t));
+
+  (void)sy;
+  (void)sx;
+  sx = 4; sy = 4;
+
+
+  for (uint32_t i = 1; i <= sx; ++i) {
+    for (uint32_t j = 1; j <= sy; ++j) {
+      struct group_iter_t *s1 = npart_create(j);
+      struct group_iter_t *s2 = npart_create(i);
+
+      struct group_iter_t *s =
         dual_npart_create(s1, s2);
 
       uint32_t count = 0;
-      while (dual_npart_state_next(s)) {
-        //dual_npart_state_current(s);
-        count ++;
+      for (s->begin(s); !s->end(s); s->next(s)) {
+          count ++;
+          /*
+          printf("(%2d, %2d): ", i, j);
+          for (uint32_t k = 0; k < s->state_length; ++k) {
+            printf("%5d", s->state[k]);
+          }
+          printf("\n");
+          */
       }
-      printf("%7d ", count);
+      assert(count == test[i-1][j-1] + 1);
+
+      count = 0;
+      for (s->begin(s); !s->end(s); s->next(s)) {
+          count ++;
+          /*
+          printf("(%2d, %2d): ", i, j);
+          for (uint32_t k = 0; k < s->state_length; ++k) {
+            printf("%5d", s->state[k]);
+          }
+          printf("\n");
+          */
+      }
+
+      assert(count == test[i-1][j-1] + 1);
+      s1->free(s1);
+      s2->free(s2);
+      s->free(s);
     }
-    printf("\n\n\n");
+  }
+}
+
+#define TRI_SIZE 5
+void test_tri_state() {
+  // A219727
+  for(uint32_t i = 1; i <= TRI_SIZE; ++i) {
+    struct group_iter_t *s1 = npart_create(i);
+    struct group_iter_t *s2 = npart_create(i);
+    struct group_iter_t *s3 = npart_create(i);
+
+    struct group_iter_t *s12 =
+      dual_npart_create(s1, s2);
+
+    struct group_iter_t *s123 =
+      dual_npart_create(s12, s3);
+
+    struct group_iter_t *s = s123;
+
+    uint32_t count = 0;
+    for (s->begin(s); !s->end(s); s->next(s)) {
+      count ++;
+      /*
+         for (uint32_t k = 0; k < s->state_length; ++k) {
+         printf("%5d", s->state[k]);
+         }
+         printf("\n");
+         */
+    }
+
+    printf("\ncount is: %d\n", count);
+
+    s1->free(s1);
+    s2->free(s2);
+    s3->free(s3);
+    s12->free(s12);
+    s123->free(s123);
   }
 }
 
@@ -462,6 +547,8 @@ int main(int argc, char **argv) {
   //test_tm_trace();
   //test_ewma();
   //test_group_state();
-  test_dual_state();
+  TEST(dual_state);
+  TEST(tri_state);
+  //test_tri_state();
   return 0;
 }

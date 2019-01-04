@@ -9,26 +9,33 @@
 
 #define max(a, b) ((a) > (b)) ? (a) : (b)
 
-void _npart_begin(struct npart_iter_state_t *out) {
+void _npart_begin(struct group_iter_t *s) {
+  struct npart_iter_state_t *out = (struct npart_iter_state_t *)s;
   memset(out->state, 0, sizeof(uint32_t) * out->total);
   out->state_min_allowed = 0;
   out->state_length = 0;
   out->last_allowed = 1;
   out->finished = 0;
+
+  // Initiate the first state
+  out->next((struct group_iter_t *)out);
 }
 
-void npart_free(struct npart_iter_state_t *s) {
+void _npart_free(struct group_iter_t *in) {
+  struct npart_iter_state_t *s = (struct npart_iter_state_t *)in;
   free(s->state);
   free(s);
 }
 
-int _npart_end(struct npart_iter_state_t *s) {
+int _npart_end(struct group_iter_t *in) {
+  struct npart_iter_state_t *s = (struct npart_iter_state_t *)in;
   return s->finished;
 }
 
 // TODO: Probably can clean this up ... there is a possibility that we can
 // merge state_min_allowed and last_allowed but too lazy atm to get it working.
-int _npart_next(struct npart_iter_state_t *s) {
+int _npart_next(struct group_iter_t *in) {
+  struct npart_iter_state_t *s = (struct npart_iter_state_t *)in;
   // If we are done ... well, we are done.
   uint32_t ma  = s->state_min_allowed;
   uint32_t *last = &s->state[s->state_length - 1];
@@ -121,18 +128,19 @@ int _npart_next(struct npart_iter_state_t *s) {
   return 1;
 }
 
-struct npart_iter_state_t *npart_create(uint32_t n) {
+struct group_iter_t *npart_create(uint32_t n) {
   struct npart_iter_state_t *out = malloc(
       sizeof(struct npart_iter_state_t));
 
   out->state = malloc(sizeof(uint32_t) * n);
   out->total = n;
-  _npart_begin(out);
   out->begin = _npart_begin;
   out->next  = _npart_next;
+  out->free  = _npart_free;
   out->end   = _npart_end;
+  _npart_begin((struct group_iter_t *)out);
 
-  return out;
+  return (struct group_iter_t *)out;
 }
 
 static inline
@@ -155,7 +163,7 @@ void _release_index(
     struct dual_npart_iter_state_t *s,
     uint32_t index) {
   if (index > s->avail_len) {
-    warn("Trying to release an invalid index: %d (should be <%d)", index, s->avail_len);
+    panic("Trying to release an invalid index: %d (should be <%d)", index, s->avail_len);
     return;
   }
   s->avail[index] += 1;
@@ -167,6 +175,7 @@ void _find_next_comb_for_class(
   // Find the next available index for our class that is greater than
   // min_class_index; 
   uint32_t ma = s->min_class_index[class];
+  //info("REading from %d", class+1);
   uint32_t len = (s->comp_pointers[class+1] - s->comp_pointers[class]);
 
   // If no element here ... move on
@@ -271,6 +280,36 @@ void _find_next_comb_for_class(
   }
 }
 
+static
+void _dual_npart_state_build(
+    struct dual_npart_iter_state_t *s) {
+    // Try to extract the state.
+    // PRINT the state of the network
+    uint32_t *st = s->state;
+    uint32_t *stl = &s->state_length; *stl = 0;
+
+    uint32_t t1 = s->iter1->total;
+    uint32_t t2 = s->iter2->total;
+
+    (void)t1;
+
+    for (uint32_t i = 1; i < s->comp1_len; ++i) {
+      for (uint32_t j = s->comp_pointers[i]; j < s->comp_pointers[i+1]; ++j) {
+        uint32_t index = s->comp_index[j];
+        *st++ = (i * (t2+1)) + index; /* +1 is to consider empty sets */
+        *stl += 1;
+      }
+    }
+
+    for (uint32_t i = 1; i < s->avail_len; ++i) {
+      for( uint32_t j = 0; j < s->avail[i]; ++j) {
+        *st++ = i;
+        *stl += 1;
+      }
+    }
+}
+
+
 void _setup_for_next_iter(struct dual_npart_iter_state_t *s) {
   // TODO: Move this to begin()
   // Composite index is an index of all the cross combinations
@@ -283,11 +322,10 @@ void _setup_for_next_iter(struct dual_npart_iter_state_t *s) {
       index++;
     }
   }
+  //info("WRITING TO: s->comp_pointers: %d, %d", s->comp1_len, s->iter1->state_length);
   s->comp_pointers[s->comp1_len] = index;
   s->comp_total = index;
-}
-
-void dual_npart_begin(struct dual_npart_iter_state_t *s) {
+  //_dual_npart_state_build(s);
 }
 
 static inline
@@ -313,7 +351,6 @@ int _dual_npart_next_in_class(struct dual_npart_iter_state_t *s) {
 
       // Move on to the next class
       s->last_class += 1;
-
       if (s->last_class == s->comp1_len) {
         return 0;
       }
@@ -333,9 +370,16 @@ void _prepare_comps(struct dual_npart_iter_state_t *s) {
   uint32_t *s2 = s->iter2->state;
   uint32_t s2l = s->iter2->state_length;
 
-  memset(s->comp1, 0, sizeof(uint32_t) * (s->iter1->total + 1));
-  memset(s->comp2, 0, sizeof(uint32_t) * (s->iter2->total + 1));
-  memset(s->avail, 0, sizeof(uint32_t) * (s->iter2->total + 1));
+  size_t size1 = (s->iter1->total+2) * sizeof(uint32_t);
+  size_t size2 = (s->iter2->total+2) * sizeof(uint32_t);
+
+  memset(s->comp1, 0, size1);
+  memset(s->comp2, 0, size2);
+  memset(s->avail, 0, size2);
+  memset(s->min_class_index, 0, size1);
+  memset(s->comp_index, 0, sizeof(uint32_t) * (s1l+2));
+  memset(s->comp_pointers, 0, sizeof(uint32_t) * (s1l+2));
+
   s->comp1_len = 0;
   s->comp2_len = 0;
   s->last_index = 0;
@@ -357,56 +401,22 @@ void _prepare_comps(struct dual_npart_iter_state_t *s) {
   s->comp2_len += 1;
   s->avail_len = s->comp2_len;
 
-  memset(s->indices, 0, sizeof(uint32_t) * s1l);
-  memset(s->min_class_index, 0, sizeof(uint32_t) * s->iter1->total);
-  memset(s->comp_index, 0, sizeof(uint32_t) * s1l);
-  memset(s->comp_pointers, 0, sizeof(uint32_t) * s1l);
-
   //info("Preparing iterators: %d, %d", s->iter1->state_length, s->iter2->state_length);
   _setup_for_next_iter(s);
 }
 
-struct dual_npart_iter_state_t *dual_npart_create(
-    struct npart_iter_state_t *iter1,
-    struct npart_iter_state_t *iter2) {
+static
+void _dual_npart_free(struct group_iter_t *in) {
+  struct dual_npart_iter_state_t *iter =
+    (struct dual_npart_iter_state_t *)in;
 
-  struct dual_npart_iter_state_t *iter = malloc(
-      sizeof(struct dual_npart_iter_state_t));
-
-  iter->comp_index = malloc(sizeof(uint32_t) * (iter1->total+1));
-
-  // TODO: this could be sqrt(iter1->total?)
-  // The + 1 is because we also keep an additional (empty) class at the end (to indicate the end)
-  iter->comp_pointers= malloc(sizeof(uint32_t) * (iter1->total + 1));
-
-  iter->comp1 = malloc(sizeof(uint32_t) * (iter1->total+1));
-  iter->comp2 = malloc(sizeof(uint32_t) * (iter2->total+1));
-  iter->min_class_index = malloc(sizeof(uint32_t) * (iter1->total+1));
-  iter->avail = malloc(sizeof(uint32_t) * (iter2->total+1));
-  iter->indices = malloc(sizeof(uint32_t) * (iter1->total+1));
-
-  iter->iter1 = iter1;
-  iter->iter2 = iter2;
-
-  iter->iter1->begin(iter->iter1);
-  iter->iter1->next(iter->iter1);
-
-  iter->iter2->begin(iter->iter2);
-  iter->iter2->next(iter->iter2);
-
-  _prepare_comps(iter);
-
-  return iter;
-}
-
-void dual_npart_free(struct dual_npart_iter_state_t *iter) {
   free(iter->comp_index);
   free(iter->comp_pointers);
   free(iter->comp1);
   free(iter->comp2);
   free(iter->min_class_index);
   free(iter->avail);
-  free(iter->indices);
+  free(iter->state);
 
   free(iter);
 }
@@ -420,62 +430,122 @@ void dual_npart_state_current(struct dual_npart_iter_state_t *s) {
         uint32_t index = s->comp_index[j];
         count ++;
         if (index == 0) {
-          printf("[%5d,  ], ", i);
+          printf("[%d,  ], ", i);
         } else {
-          printf("[%5d, %5d], ", i, s->comp_index[j]);
+          printf("[%d, %d], ", i, s->comp_index[j]);
         }
       }
     }
 
     for (uint32_t i = 1; i < s->avail_len; ++i) {
       for( uint32_t j = 0; j < s->avail[i]; ++j) {
-        printf("[ , %5d], ", i);
+        printf("[ , %d], ", i);
       }
     }
     printf("\n");
 }
 
-int dual_npart_state_next(struct dual_npart_iter_state_t *s) {
-  //TODO: fix this
-  static int _count = 0;
+static
+int _dual_npart_state_next(struct group_iter_t *in) {
+  struct dual_npart_iter_state_t *s =
+    (struct dual_npart_iter_state_t *)in;
   while (1) {
-    _count += 1;
-
     uint32_t success = _dual_npart_next_in_class(s);
 
     if (success == 1) {
+      _dual_npart_state_build(s);
       return 1;
     }
 
     // If we have finished iterating---move on.
     s->iter1->next(s->iter1);
     if (s->iter1->end(s->iter1)) {
-      // TODO: Reset states of iter2
-      // Reset the first iterator
       s->iter1->begin(s->iter1);
-      s->iter1->next(s->iter1);
       s->iter2->next(s->iter2);
       if (s->iter2->end(s->iter2)) {
+        // we are done ... :)
+        s->finished = 1;
         return 0;
       }
     }
 
     _prepare_comps(s);
+    _dual_npart_state_build(s);
     return 1;
   }
 
 
   // If we have looked at every class in comp1_len, we are done.
-  if (s->last_class == s->comp1_len)
+  if (s->last_class == s->comp1_len) {
+    s->finished = 1;
     return 0;
+  }
 
-  // If we have sweeped across the whole class, 
-  // increment the next class (can propagate) ...
-  // e.g., [L L L L L, 0 0 0 0 0]
-  //         lst_cls  
-  // next would be:
-  //       [0 0 0 0 0, 0 0 0 0 1]
-  //
-
+  _dual_npart_state_build(s);
   return 1;
+}
+
+static
+void _dual_npart_state_begin(
+    struct group_iter_t *in) {
+  struct dual_npart_iter_state_t *iter =
+    (struct dual_npart_iter_state_t *)in;
+
+  iter->iter1->begin(iter->iter1);
+  iter->iter2->begin(iter->iter2);
+  iter->finished = 0;
+
+  _prepare_comps(iter);
+  _dual_npart_state_build(iter);
+}
+
+static
+int _dual_npart_state_end(
+    struct group_iter_t *in) {
+  struct dual_npart_iter_state_t *iter =
+    (struct dual_npart_iter_state_t *)in;
+  return (iter->finished);
+}
+
+
+
+struct group_iter_t *dual_npart_create(
+    struct group_iter_t *iter1,
+    struct group_iter_t *iter2) {
+
+  struct dual_npart_iter_state_t *iter = malloc(
+      sizeof(struct dual_npart_iter_state_t));
+
+  iter1->begin(iter1);
+  iter2->begin(iter2);
+
+  size_t size1 = (iter1->total+2) * sizeof(uint32_t);
+  size_t size2 = (iter2->total+2) * sizeof(uint32_t);
+
+  iter->comp_index = malloc(size1);
+
+  // TODO: this could be sqrt(iter1->total?)
+  // The + 1 is because we also keep an additional (empty) class at the end (to indicate the end)
+  iter->comp_pointers= malloc(size1);
+
+  iter->comp1 = malloc(size1);
+  iter->comp2 = malloc(size2);
+  iter->min_class_index = malloc(size1);
+  iter->avail = malloc(size2);
+
+  // Max state is gonna be the sum of two
+  iter->state = malloc(size1 + size2);
+  iter->total = (iter1->total + 1) * (iter2->total + 1);
+
+  iter->iter1 = iter1;
+  iter->iter2 = iter2;
+
+  iter->free = _dual_npart_free;
+  iter->begin = _dual_npart_state_begin;
+  iter->next = _dual_npart_state_next;
+  iter->end = _dual_npart_state_end;
+
+  _dual_npart_state_begin((struct group_iter_t *)iter);
+
+  return (struct group_iter_t *)iter;
 }
