@@ -82,7 +82,6 @@ void network_stats(struct dataplane_t *network) {
 }
 
 void test_jupiter_cluster(void) {
-  printf("Testing is initialized.");
   uint32_t num_pods = 2; //32
   uint32_t num_aggs = 2;  //24
   uint32_t num_tors = 4; //48
@@ -132,12 +131,11 @@ void is_tm_equal(struct traffic_matrix_t *t1, struct traffic_matrix_t *t2) {
 }
 
 void test_tm_read_load(void) {
-  printf("Testing is initialized.");
   uint32_t num_pods = 2; //32
   uint32_t num_tors = 2; //48
 
-  num_pods = 32;
-  num_tors = 48;
+  num_pods = 32/4;
+  num_tors = 48/4;
   bw_t bw = 10;
 
   const uint32_t replication = 28;//00;
@@ -166,7 +164,7 @@ void test_tm_read_load(void) {
 
 struct traffic_matrix_trace_t *gen_sample_trace(uint16_t caches, const char *fname, uint16_t num_traces) {
   struct traffic_matrix_trace_t *ret = traffic_matrix_trace_create(caches, 1000, fname);
-  uint32_t num_tors = 48, num_pods = 32;
+  uint32_t num_tors = 48/4, num_pods = 32/4;
   bw_t bw = 10;
 
   for (uint32_t i = 0; i < num_traces; ++i) {
@@ -507,7 +505,10 @@ void test_dual_state() {
 #define TRI_SIZE 5
 void test_tri_state() {
   // A219727
-  for(uint32_t i = 1; i <= TRI_SIZE; ++i) {
+  uint32_t test[] = {1, 5, 66, 686, 6721, 58616};
+  uint32_t tuple[TRI_SIZE] = {0};
+
+  for(uint32_t i = 5; i <= TRI_SIZE; ++i) {
     struct group_iter_t *s1 = npart_create(i);
     struct group_iter_t *s2 = npart_create(i);
     struct group_iter_t *s3 = npart_create(i);
@@ -522,16 +523,19 @@ void test_tri_state() {
 
     uint32_t count = 0;
     for (s->begin(s); !s->end(s); s->next(s)) {
-      count ++;
-      /*
-         for (uint32_t k = 0; k < s->state_length; ++k) {
-         printf("%5d", s->state[k]);
-         }
-         printf("\n");
-         */
-    }
+      for (uint32_t k = 0; k < s->state_length; ++k) {
+        s->to_tuple(s, s->state[k], tuple);
+        //printf("[");
+        for (uint32_t p = 0; p < s->tuple_size; ++p) {
+          //printf("%d ", tuple[p]);
+        }
+        //printf("], ");
+      }
+      //printf("\n");
 
-    printf("\ncount is: %d\n", count);
+      count ++;
+    }
+    assert(count == test[i]);
 
     s1->free(s1);
     s2->free(s2);
@@ -542,13 +546,14 @@ void test_tri_state() {
 }
 
 int main(int argc, char **argv) {
-  //test_jupiter_cluster();
-  //test_tm_read_load();
-  //test_tm_trace();
-  //test_ewma();
-  //test_group_state();
+  TEST(jupiter_cluster);
+  TEST(tm_read_load);
+  TEST(tm_trace);
+  TEST(ewma);
+  TEST(group_state);
   TEST(dual_state);
   TEST(tri_state);
+
   //test_tri_state();
   return 0;
 }

@@ -9,6 +9,23 @@
 
 #define max(a, b) ((a) > (b)) ? (a) : (b)
 
+static inline
+int _npart_state_num_subsets(
+    struct group_iter_t *in) {
+  struct npart_iter_state_t *s = 
+    (struct npart_iter_state_t *)in;
+
+  return (s->total + 1);
+}
+
+static inline
+int _npart_state_to_tuple(
+    struct group_iter_t *in,
+    uint32_t val,
+    uint32_t *ret) {
+  return *ret = val;
+}
+
 void _npart_begin(struct group_iter_t *s) {
   struct npart_iter_state_t *out = (struct npart_iter_state_t *)s;
   memset(out->state, 0, sizeof(uint32_t) * out->total);
@@ -138,6 +155,11 @@ struct group_iter_t *npart_create(uint32_t n) {
   out->next  = _npart_next;
   out->free  = _npart_free;
   out->end   = _npart_end;
+  out->to_tuple = _npart_state_to_tuple;
+  out->num_subsets = _npart_state_num_subsets;
+
+  out->tuple_size = 1;
+
   _npart_begin((struct group_iter_t *)out);
 
   return (struct group_iter_t *)out;
@@ -499,6 +521,39 @@ void _dual_npart_state_begin(
   _dual_npart_state_build(iter);
 }
 
+static inline
+int _dual_npart_state_num_subsets(
+    struct group_iter_t *in) {
+  struct dual_npart_iter_state_t *s = 
+    (struct dual_npart_iter_state_t *)in;
+
+  return s->iter1->num_subsets(s->iter1) *
+    s->iter2->num_subsets(s->iter2);
+}
+
+static inline
+int _dual_npart_state_to_tuple(
+    struct group_iter_t *in,
+    uint32_t val,
+    uint32_t *ret) {
+
+  struct dual_npart_iter_state_t *s = 
+    (struct dual_npart_iter_state_t *)in;
+
+  int ns2 = s->iter2->num_subsets(s->iter2);
+
+  uint32_t val1 = val / ns2;
+  uint32_t val2 = val - val1 * ns2;
+
+  s->iter1->to_tuple(
+      s->iter1, val1, ret);
+
+  s->iter2->to_tuple(
+      s->iter2, val2, ret + s->iter1->tuple_size);
+
+  return s->tuple_size;
+}
+
 static
 int _dual_npart_state_end(
     struct group_iter_t *in) {
@@ -523,6 +578,7 @@ struct group_iter_t *dual_npart_create(
   size_t size2 = (iter2->total+2) * sizeof(uint32_t);
 
   iter->comp_index = malloc(size1);
+  iter->tuple_size = iter1->tuple_size + iter2->tuple_size;
 
   // TODO: this could be sqrt(iter1->total?)
   // The + 1 is because we also keep an additional (empty) class at the end (to indicate the end)
@@ -544,6 +600,8 @@ struct group_iter_t *dual_npart_create(
   iter->begin = _dual_npart_state_begin;
   iter->next = _dual_npart_state_next;
   iter->end = _dual_npart_state_end;
+  iter->to_tuple = _dual_npart_state_to_tuple;
+  iter->num_subsets = _dual_npart_state_num_subsets;
 
   _dual_npart_state_begin((struct group_iter_t *)iter);
 

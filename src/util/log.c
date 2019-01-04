@@ -7,7 +7,7 @@
 #include "dataplane.h"
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 3
+#define LOG_LEVEL 1
 #endif
 
 #define LOG(level, color) {\

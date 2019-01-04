@@ -1,5 +1,5 @@
 #ifndef _GROUP_GEN_H_
-#define  _GROUP_GEN_H_
+#define _GROUP_GEN_H_
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,10 +10,14 @@ struct group_iter_t {
   int  (*next)(struct group_iter_t *);
   int  (*end)(struct group_iter_t *);
   void (*free)(struct group_iter_t *);
+  int  (*to_tuple)(struct group_iter_t *, uint32_t, uint32_t *);
+  int  (*num_subsets)(struct group_iter_t *);
 
   uint32_t *state;
   uint32_t state_length;
   uint32_t total;
+  uint32_t tuple_size;
+  uint32_t max_tuple_size;
 };
 
 /* TODO: Private data-structures.  Move to c file later. */
