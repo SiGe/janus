@@ -472,3 +472,12 @@ if __name__ == '__main__':
     main()
     #NumpyCacher(numpy.random.choice
 
+
+
+# Inadmissible Traffic fix:
+#   ... Rate limit the users causing the inadmissibility.
+#       Rate limit the ToRs---
+#       Rate limit the whole TM
+#         - Throw away the TMs
+#   ... 
+
