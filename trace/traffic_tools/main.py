@@ -176,14 +176,14 @@ class TrafficSummary(object):
         self._gen = gen
         self._dists = {}
 
-    def pair(self, src, dst):
-        if src not in self._dists:
-            self._dists[src] = {}
+    def pair(self, src, dst, tick):
+        #if src not in self._dists:
+        #    self._dists[src] = {}
 
-        if dst not in self._dists[src]:
-            self._dists[src][dst] = self._gen(src, dst)
+        #if dst not in self._dists[src]:
+            #self._dists[src][dst] = self._gen(src, dst, tick)
 
-        return self._dists[src][dst]
+        return self._gen(src, dst, tick) #self._dists[src][dst]
 
     @classmethod
     def new(cls, dist_gen, nodes):
@@ -208,13 +208,12 @@ class User(object):
         self._start = start
         self._end = end
 
-    def tick(self, ticks):
+    def tick(self, start):
         mat = {}
-        for _ in xrange(ticks):
-            for src in self._tors:
-                for dst in self._tors:
-                    if (src != dst):
-                        mat[(src, dst)] = self._summary.pair(src, dst).sample(ticks)
+        for src in self._tors:
+            for dst in self._tors:
+                if (src != dst):
+                    mat[(src, dst)] = self._summary.pair(src, dst, start)
         return mat
 
 
@@ -294,6 +293,7 @@ class TraceBuilder(object):
         while (duration < ticks * interval):
             sample = self._uad.sample_one()
             duration += sample
+            tors = self._usd.sample_one()
             uat.append(
                 User(
                     start=duration,
@@ -376,10 +376,10 @@ class TraceBuilder(object):
             for user in active_users:
                 assert user.start < tick + 1
                 assert user.end > tick
-                for pair, vol in user.tick(1).iteritems():
+                for pair, vol in user.tick(tick).iteritems():
                     if pair not in tm:
                         tm[pair] = 0
-                    tm[pair] += vol[0]
+                    tm[pair] += vol
 
             _del_dead_users(tick, interval)
             __idx = _clean_up_users(users, tick+1, __idx)
@@ -417,13 +417,74 @@ def save_key(num_pods, num_tors_per_pod, fname):
 
 def usage():
     print """Usage:
-    > %s [dir] [# pods] [# tors per pod] [%% user size < 1] [# trace length]
+    > %s [dir] [# pods] [# tors per pod] [%% user size < 1] [# trace length] [# webserver trace path]
 
     default args could be:
     %s . 10 10 0.9 200
     
     """ % (sys.argv[0], sys.argv[0])
     exit(1)
+
+def load_trace(path, length):
+    pod_count = 0
+    def load_key():
+        pod_tor  = {}
+        tors = set()
+        def add_tor_to_pod(tor, pod):
+            pod = int(pod[1:]) # Remove p from the name
+            tor = int(tor[1:]) # Remove t from the name
+
+            if pod not in pod_tor:
+                pod_tor[pod] = set()
+            pod_tor[pod].add(tor)
+
+            return tor, pod
+
+        relation = {}
+        with open(os.path.join(path, "key.tsv")) as f:
+            index = 0
+            for num, line in enumerate(f):
+                src, dst, spod, dpod, _, _ = line.split("\t")
+                src, spod = add_tor_to_pod(src, spod)
+                dst, dpod = add_tor_to_pod(dst, dpod)
+
+                if src == dst:
+                    continue
+
+                relation[index] = (src, dst)
+                index += 1
+
+        return {k: sorted(list(v)) for k, v in pod_tor.iteritems()}, relation
+
+    def load_traffic(fname, relation, tick, traffic):
+        traffic[tick] = {}
+        T = traffic[tick]
+        with open(os.path.join(path, fname)) as f:
+            for num, line in enumerate(f):
+                src, dst = relation[num]
+                if src not in T:
+                    T[src] = {}
+
+                T[src][dst] = float(line)
+
+
+    pod_tor, traffic_relation = load_key()
+    traffic = {}
+
+    traffic_files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.find("000") != -1]
+    count = len(traffic_files) / length
+
+    for tick, tfile in enumerate(sorted(traffic_files)[::count]):
+        info("Loading %s", tfile);
+        load_traffic(tfile, traffic_relation, tick, traffic)
+
+    return {
+        'pod_count': len(pod_tor),
+        'tor_count_for': lambda x: len(pod_tor[x]),
+        'located_tor': lambda p, t: pod_tor[p][t],
+        'pod_tor': pod_tor,
+        'traffic': traffic
+    }
 
 def main():
     # NUM_TORS_PER_POD = 10
@@ -440,6 +501,10 @@ def main():
     NUM_TORS_PER_POD = int(sys.argv[3])
     MAX_USER_SIZE = int(NUM_PODS * NUM_TORS_PER_POD * float(sys.argv[4]))
     TRACE_LENGTH = int(sys.argv[5])
+    WEBSERVER_TRACE=sys.argv[6]
+
+    FB_SEED_A = 11321
+    FB_SEED_B = 51607
 
     # Possibly don't want to change these
     MIN_USER_SIZE = 1
@@ -450,15 +515,60 @@ def main():
     if not os.path.exists(DIR):
             os.makedirs(DIR)
 
-    def traffic_summary(L, H):
-        def dist_gen(src, dst):
+    def traffic_summary(L, H, webserver, hadoop):
+        def get_pod(tor):
+            return tor/NUM_TORS_PER_POD
+
+        def p2p(pod, nfb_pods):
+            return ((pod * FB_SEED_A) + FB_SEED_B) % nfb_pods
+
+        def t2t(tor, nfb_tors):
+            return ((tor * FB_SEED_A) + FB_SEED_B) % nfb_tors
+
+        def fb_gen(traffic_dist):
+            dist = traffic_dist
+
+            tr   = dist['traffic']
+            pc   = dist['pod_count']
+            tcf  = dist['tor_count_for']
+            lt   = dist['located_tor']
+
+            def gen(src, dst, start_tick):
+                spod = get_pod(src)
+                dpod = get_pod(dst)
+
+                fspod = p2p(spod, pc)
+                fdpod = p2p(dpod, pc)
+
+                fsrc = t2t(src, tcf(fspod))
+                fdst = t2t(dst, tcf(fdpod))
+
+                flsrc = lt(fspod, fsrc)
+                fldst = lt(fdpod, fdst)
+
+                # have to do one final translation from fsrc and fspod to located tor
+
+                # it could be the case that fsrc and fdst are the same after the translation
+                # in that case we just return 0
+                if (flsrc == fldst):
+                    return 0
+
+                return tr[start_tick][flsrc][fldst]
+            return gen
+
+        def power_gen(src, dst, start_tick):
             return IntSampler(
                     MultiplySampler(random.randint(L, H), 
                         PowerSampler(TRAFFIC_VOLUME_POWER)))
-        return TrafficSummary(dist_gen)
 
+        hadoop_gen    = fb_gen(hadoop)
+        webserver_gen = fb_gen(webserver)
+
+        return TrafficSummary(webserver_gen)
+
+    webserver = load_trace(WEBSERVER_TRACE, TRACE_LENGTH)
     traffic_summaries = ExactPdfSampler([
-        traffic_summary(1, random.randint(1, 10000))
+        traffic_summary(1, random.randint(1, 10000), webserver, webserver)
         for _ in xrange(100)])
 
     poisson_arrival  = MultiplySampler(MAX_USER_ARRIVAL_RATE, ExponentialSampler(10))
@@ -485,9 +595,18 @@ def main():
     save_key(NUM_PODS, NUM_TORS_PER_POD, os.path.join(DIR, "key.tsv"))
 
 if __name__ == '__main__':
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 7:
         usage()
 
     main()
     #NumpyCacher(numpy.random.choice
+
+
+
+# Inadmissible Traffic fix:
+#   ... Rate limit the users causing the inadmissibility.
+#       Rate limit the ToRs---
+#       Rate limit the whole TM
+#         - Throw away the TMs
+#   ... 
 
