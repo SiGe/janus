@@ -545,6 +545,57 @@ void test_tri_state() {
   }
 }
 
+void test_experiment(void) {
+  // Here's how a (jupiter) experiment should look like:
+  //
+  //
+  // (0) Traffic traces:
+  //
+  //     (1) Test: Traffic trace for a DC of the same size.
+  //     (2) Validation: Traffic trace for a DC over a period of a day
+  //
+  // (1) A list of pods that are "similar"  (so we plan them the same way)
+  // (2) Granularity of search for each pod and the core switches
+  //    (If you want to understand what granularity you should choose for each
+  //     pod take a look at https://oeis.org/A219727
+  //     
+  //                      K = 3 (2 different pods + 1 core switch)
+	//     1,   1,    1,      1,        1,         1,         1,       1, ...
+	//     1,   1,    2,      5,       15,        52,       203,     877, ...
+	//     1,   2,    9,     66,      712,     10457,    198091, 4659138, ...
+	//     1,   3,   31,    686,    27036,   1688360, 154703688, ...
+	//     1,   5,  109,   6721,   911838, 231575143, ...                      N = 5 (upgrade in 5 steps)
+	//     1,   7,  339,  58616, 26908756, ...
+	//     1,  11, 1043, 476781, ...
+	//     1,  15, 2998, ...
+  //
+  //  (3) Two risk functions:
+  //      (1) Gets the percentage of ToR pairs satisfied and returns a "cost" value
+  //      (2) Gets the length of a plan (i.e., time) and returns a "cost" value
+  //  
+  //  (4) We use (0.1) and (3.1) to generate a random variable for the risk of
+  //      long-term violation for each possible plan subset.
+  //
+  //  (5) We use (0.1) to generate an EWMA error matrix.
+  //
+  //  (6) During online validation, we use (5) to predict the traffic of the
+  //  next subset and use (3.1) to translate it to a cost random variable.
+  //
+  //  (7) To solve our optimization problem, namely:
+  //
+  //  Minimize  : Risk of time
+  //  Subject to: Risk of violation < Cost
+  //
+  //  We could also try to solve the problem of:
+  //  Minimize  : Risk of time + Risk of violation (?)
+  //  We just have to find how many steps we need to "wait" before things go hairy.
+  //
+  //  We prune the plans with risk of violation < cost We measure the risk of
+  //  time of each "plan" (around 65k in our case?) and the risk of violation
+  //  of each plan and choose the best one and execute it.
+  //
+}
+
 int main(int argc, char **argv) {
   TEST(jupiter_cluster);
   TEST(tm_read_load);

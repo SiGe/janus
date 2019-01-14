@@ -1,5 +1,14 @@
+# MAC
+.DS_Store
+
 # Traffic files
-trace/
+*.tsv
+*.pdf
+*.log
+trace/p*
+
+# Python files
+*.pyc
 
 # Prerequisites
 *.d
