@@ -7,7 +7,7 @@
 #include "dataplane.h"
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL 1
+#define LOG_LEVEL 3
 #endif
 
 #define LOG(level, color) {\
@@ -42,7 +42,7 @@ void _info(const char *fmt, ...) {}
 #endif
 
 #if LOG_LEVEL >= LOG_WARN
-void _warn(const char *fmt, ...) LOG(INFO, "93");
+void _warn(const char *fmt, ...) LOG(WARN, "93");
 #else
 void _warn(const char *fmt, ...) {}
 #endif

@@ -416,7 +416,7 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_load(
 void traffic_matrix_trace_print_index(struct traffic_matrix_trace_t *t) {
   for (uint64_t i = 0; i < t->num_indices; ++i) {
     struct traffic_matrix_trace_index_t *index = &t->indices[i];
-    printf("indices are: %llu  @%llu [:%llu]\n", index->size, index->time, index->seek);
+    printf("indices are: %lu  @%lu [:%lu]\n", index->size, index->time, index->seek);
   }
 }
 

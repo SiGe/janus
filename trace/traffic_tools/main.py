@@ -7,6 +7,11 @@ import sys
 random.seed(10)
 numpy.random.seed(10)
 
+SETUP_TIME=50
+
+def info(fmt, *args):
+    print(fmt % args)
+
 class RvCacher(object):
     def __init__(self, gen, steps=20000):
         self._gen = gen
@@ -24,7 +29,7 @@ class RvCacher(object):
             ret = self._all
             n -= len(self._all)
             self._all = self._gen(self._steps)
-            print "Caching %d objects" % self._steps
+            info("Caching %d objects", self._steps)
 
         ret += self._all[:n]
         self._all = self._all[n:]
@@ -345,15 +350,32 @@ class TraceBuilder(object):
                 del users[i]
             return index - subtract_index
 
-        trace = {}
+        info("Running warm up runs to initiate user traffic.")
+        self._duration = -SETUP_TIME
         __idx = 0
+        for tick in xrange(-SETUP_TIME, 0):
+            self._sample_user_arrival_and_duration(users, tick + 4, interval)
+            __idx = _add_next_users(__idx, users, tick, interval)
+            _del_dead_users(tick, interval)
+            __idx = _clean_up_users(users, tick+1, __idx)
+            # We don't actually need to generate traffic for mock runs
+            # for index, user in enumerate(active_users):
+            #     assert(user.start < tick + 1)
+            #     assert(user.end > tick)
+            #     for pair, vol in user.tick(1).iteritems():
+            #         if pair not in tm:
+            #             tm[pair] = 0
+            #         tm[pair] += vol[0]
+
+
+        info("Running traffic runs.")
         for tick in xrange(ticks):
             tm = {}
             self._sample_user_arrival_and_duration(users, tick + 4, interval)
             __idx = _add_next_users(__idx, users, tick, interval)
-            for index, user in enumerate(active_users):
-                assert(user.start < tick + 1)
-                assert(user.end > tick)
+            for user in active_users:
+                assert user.start < tick + 1
+                assert user.end > tick
                 for pair, vol in user.tick(1).iteritems():
                     if pair not in tm:
                         tm[pair] = 0
@@ -363,9 +385,6 @@ class TraceBuilder(object):
             __idx = _clean_up_users(users, tick+1, __idx)
 
             yield active_users, tm
-
-def info(fmt, *args):
-    print(fmt % args)
 
 def save_tm(tm, num_tors, fname):
     traffic=[]

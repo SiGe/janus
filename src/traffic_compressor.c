@@ -16,10 +16,10 @@
 KHASH_MAP_INIT_STR(net_entity, char *);
 
 void usage(char const *arg) {
-  info("usage: %s [TM PATH] [OUTPUT]"
-       "Accept traffic matrix files from the interpolate.py output"
-       "And outputs a compressed format usable by the rest of the"
-       "toolkit.", arg
+  warn("\n  usage: %s [TM PATH] [OUTPUT]\n\n"
+       "  Accept traffic matrix files from the interpolate.py output\n"
+       "  And outputs a compressed format usable by the rest of the\n"
+       "  toolkit.", arg
       );
   exit(1);
 }
@@ -34,7 +34,7 @@ void insert_tor_pod(khash_t(net_entity) *table, char const *tor, char const *pod
     kh_value(table, iter) = strdup(pod);
 }
 
-void load_keys(char const *fdir) {
+uint32_t load_keys(char const *fdir) {
   char path[PATH_MAX] = {0};
   (void) strncat(path, fdir, PATH_MAX - 1);
   (void) strncat(path, "/key.tsv", PATH_MAX - 1);
@@ -46,12 +46,14 @@ void load_keys(char const *fdir) {
   char tor1[NET_MAX], tor2[NET_MAX], pod1[NET_MAX], pod2[NET_MAX];
   khash_t(net_entity) *h = kh_init(net_entity);
 
+  info("Loading keys.");
   while (!feof(keys)) {
     fscanf(keys, "%s\t%s\t%s\t%s\t0\t0 ", tor1, tor2, pod1, pod2);
     insert_tor_pod(h, tor1, pod1);
     insert_tor_pod(h, tor2, pod2);
   }
 
+  uint32_t tor_count = kh_size(h);
   for (khiter_t k = kh_begin(h); k != kh_end(h); ++k) {
     if (!kh_exist(h, k)) continue;
 
@@ -64,8 +66,10 @@ void load_keys(char const *fdir) {
     free(val);
     free((char*) key);
   }
+  info("Finished loading keys.");
 
   kh_destroy(net_entity, h);
+  return tor_count;
 }
 
 // https://stackoverflow.com/questions/12489/how-do-you-get-a-directory-listing-in-c
@@ -151,7 +155,7 @@ struct traffic_matrix_t *file_to_tm(
 struct _trace_metadata {
   struct traffic_matrix_trace_t *trace;
   char const *dir;
-  uint32_t pair_count;
+  uint32_t tor_count;
 };
 
 void add_tm_to_trace(char const *name, void *_metadata) {
@@ -165,7 +169,7 @@ void add_tm_to_trace(char const *name, void *_metadata) {
   char *split = strtok(tokens, ".");
   int key = atoi(split);
   struct traffic_matrix_t *tm =
-    file_to_tm(name, metadata->dir, metadata->pair_count); 
+    file_to_tm(name, metadata->dir, metadata->tor_count); 
 
   info("Serialized traffic matrix @key: %d", key);
   traffic_matrix_trace_add(
@@ -175,14 +179,14 @@ void add_tm_to_trace(char const *name, void *_metadata) {
   free(tokens);
 }
 
-void load_traffic(char const *fdir, const char *output) {
+void load_traffic(char const *fdir, const char *output, uint32_t tor_count) {
   struct traffic_matrix_trace_t *trace = 
     traffic_matrix_trace_create(50, 100, output);
 
   struct _trace_metadata metadata = {
     .trace =  trace,
     .dir = fdir,
-    .pair_count = 323,
+    .tor_count = tor_count,
   };
 
   for_file_in_dir(
@@ -200,9 +204,8 @@ int main(int argc, char **argv) {
   char const *output = argv[2];
   (void)(output);
 
-  load_keys(fdir);
-  load_traffic(fdir, "test");
-  //load_keys(output);
+  uint32_t tor_count = load_keys(fdir);
+  load_traffic(fdir, output, tor_count);
 
   return 0;
 }
