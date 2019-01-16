@@ -417,7 +417,7 @@ def save_key(num_pods, num_tors_per_pod, fname):
 
 def usage():
     print """Usage:
-    > %s [dir] [# pods] [# tors per pod] [%% user size < 1] [# trace length] [# webserver trace path]
+    > %s [dir] [# pods] [# tors per pod] [%% user size < 1] [# trace length] [# webserver trace path] [# hadoop trace path]
 
     default args could be:
     %s . 10 10 0.9 200
@@ -502,6 +502,7 @@ def main():
     MAX_USER_SIZE = int(NUM_PODS * NUM_TORS_PER_POD * float(sys.argv[4]))
     TRACE_LENGTH = int(sys.argv[5])
     WEBSERVER_TRACE=sys.argv[6]
+    HADOOP_TRACE=sys.argv[6]
 
     FB_SEED_A = 11321
     FB_SEED_B = 51607
@@ -563,12 +564,15 @@ def main():
 
         hadoop_gen    = fb_gen(hadoop)
         webserver_gen = fb_gen(webserver)
+        generator = random.choice([hadoop_gen, webserver_gen])
 
-        return TrafficSummary(webserver_gen)
+        return TrafficSummary(generator)
 
     webserver = load_trace(WEBSERVER_TRACE, TRACE_LENGTH)
+    hadoop = load_trace(HADOOP_TRACE, TRACE_LENGTH)
+
     traffic_summaries = ExactPdfSampler([
-        traffic_summary(1, random.randint(1, 10000), webserver, webserver)
+        traffic_summary(1, random.randint(1, 10000), webserver, hadoop)
         for _ in xrange(100)])
 
     poisson_arrival  = MultiplySampler(MAX_USER_ARRIVAL_RATE, ExponentialSampler(10))
@@ -595,7 +599,7 @@ def main():
     save_key(NUM_PODS, NUM_TORS_PER_POD, os.path.join(DIR, "key.tsv"))
 
 if __name__ == '__main__':
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 8:
         usage()
 
     main()

@@ -8,6 +8,51 @@
 
 #define TM_SIZE(p) (p->num_pairs * sizeof(struct pair_bw_t) + sizeof(struct traffic_matrix_t))
 
+void _tmti_begin(struct traffic_matrix_trace_iter_t *iter) {
+    iter->state = 0;
+}
+
+int _tmti_next(struct traffic_matrix_trace_iter_t *iter) {
+    iter->state += 1;
+    if (iter->state > iter->trace->num_indices) {
+        iter->state = iter->trace->num_indices;
+        return 0;
+    }
+    return 1;
+}
+
+int _tmti_end(struct traffic_matrix_trace_iter_t *iter) {
+    return iter->state >= iter->trace->num_indices;
+}
+
+void _tmti_get(struct traffic_matrix_trace_iter_t *iter, struct traffic_matrix_t **tm) {
+    trace_time_t time;
+    if (traffic_matrix_trace_get_nth_key(iter->trace, iter->state, &time) != SUCCESS) {
+        *tm = 0;
+        return;
+    }
+
+    traffic_matrix_trace_get(iter->trace, time, tm);
+}
+
+void _tmti_free(struct traffic_matrix_trace_iter_t *iter) {
+    free(iter);
+}
+
+static struct traffic_matrix_trace_iter_t *_tmt_iter(
+        struct traffic_matrix_trace_t *trace) {
+    struct traffic_matrix_trace_iter_t *iter = malloc(sizeof(struct traffic_matrix_trace_iter_t));
+    iter->state = 0;
+    iter->trace = trace;
+    iter->begin = _tmti_begin;
+    iter->next  = _tmti_next;
+    iter->end   = _tmti_end;
+    iter->get   = _tmti_get;
+    iter->free  = _tmti_free;
+
+    return iter;
+}
+
 void traffic_matrix_save(struct traffic_matrix_t *tm, FILE * f) {
   assert(tm->num_pairs != 0);
   if (f == 0)
@@ -314,6 +359,7 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_create(
   trace->num_indices = 0;
   trace->cap_indices = cap_indices;
   trace->largest_seek = 0;
+  trace->iter = _tmt_iter;
 
   if (name != 0) {
     char fname[PATH_MAX] = {0};
@@ -397,6 +443,8 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_load(
 
   FILE *index = fopen(fname, "ab+");
   FILE *data = fopen(fdata, "ab+");
+
+  info("Opening %s data and %s index files.", fdata, fname);
 
   if (!index || !data) {
     panic("Couldn't find the associated index or data file.");

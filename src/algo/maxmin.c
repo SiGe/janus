@@ -114,18 +114,18 @@ static void cut_link(struct link_t *l) {
 }
 
 static void stitch_link_after(struct link_t *l, struct link_t *after) {
-  info("AFTER %4d (%15.2f) after %4d (%15.2f)", l->id, per_flow_capacity(l), after->id, per_flow_capacity(after));
+  //info("AFTER %4d (%15.2f) after %4d (%15.2f)", l->id, per_flow_capacity(l), after->id, per_flow_capacity(after));
   l->next = after->next;
   l->prev = after;
 
   if (after->next)
     after->next->prev = l;
   after->next = l;
-  info("after->next (%d) = l (%d), l->prev (%d) = after->id (%d)", after->next->id, l->id, l->prev->id, after->id);
+  //info("after->next (%d) = l (%d), l->prev (%d) = after->id (%d)", after->next->id, l->id, l->prev->id, after->id);
 }
 
 static void stitch_link_before(struct link_t *l, struct link_t *before) {
-  info("BEFORE %4d (%15.2f) before %4d (%15.2f)", l->id, per_flow_capacity(l), before->id, per_flow_capacity(before));
+  //info("BEFORE %4d (%15.2f) before %4d (%15.2f)", l->id, per_flow_capacity(l), before->id, per_flow_capacity(before));
   l->next = before;
   l->prev = before->prev;
 
@@ -230,12 +230,16 @@ static int fix_link(struct dataplane_t *dataplane, struct link_t *link) {
       l->used += spare_capacity;
 
       if ((l->used - l->capacity) > EPS) {
+        // we can honestly set the l used to be equal to l capacity ...
+        l->used = l->capacity;
+        /*
         dataplane_smallest(dataplane);
         panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
             (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
               flows left) %d, (Remaining demand on flow) %.2f",
             l->id, flow->id, l->used, l->capacity, l->nflows, l->nactive_flows,
             remaining_demand(flow));
+        */
       }
 
       recycle_link_if_fixed(dataplane, l);
@@ -386,13 +390,13 @@ int maxmin(struct dataplane_t *dataplane) {
       return 1;
 
     if (remaining_demand(flow) < per_flow_capacity(link)) {
-      info("fixing flow: %d", flow->id);
+      // info("fixing flow: %d", flow->id);
       fix_flow(dataplane, flow);
       dataplane->smallest_flow = flow->next;
     } else {
-      info("> fixing link: %d", link->id);
+      // info("> fixing link: %d", link->id);
       fix_link(dataplane, link);
-      info("> done fixing link: %d", link->id);
+      // info("> done fixing link: %d", link->id);
     }
   }
 }

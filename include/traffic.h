@@ -71,6 +71,17 @@ struct traffic_matrix_t *traffic_matrix_multiply(
     bw_t, struct traffic_matrix_t const *);
 
 
+struct traffic_matrix_trace_iter_t {
+    struct traffic_matrix_trace_t *trace;
+    uint32_t state;
+
+    void (*begin)(struct traffic_matrix_trace_iter_t *);
+    int  (*next)(struct traffic_matrix_trace_iter_t *);
+    int  (*end)(struct traffic_matrix_trace_iter_t *);
+    void (*get)(struct traffic_matrix_trace_iter_t *, struct traffic_matrix_t **);
+    void (*free)(struct traffic_matrix_trace_iter_t *);
+};
+
 // Append only data-structure for working with traffic matrix traces
 struct traffic_matrix_trace_t {
   struct traffic_matrix_trace_index_t *indices;
@@ -85,6 +96,8 @@ struct traffic_matrix_trace_t {
 
   // Whether the indices are optimized (as in sorted) or not.
   uint8_t _optimized;
+
+  struct traffic_matrix_trace_iter_t * (*iter)(struct traffic_matrix_trace_t *);
 };
 
 // Save the trace to the two file pointers opened inside of it
