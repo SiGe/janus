@@ -248,7 +248,7 @@ int _ewma_predictor_rotating_func(
     traffic_matrix_trace_add(pe->pred_traces[i], 
         setting->pred[i], setting->keys[INDEX(index+i, setting->size)]);
 
-    info("Adding key for %d's error matrix (time=%d)", i, setting->keys[INDEX(index+i, setting->size)]);
+    //info("Adding key for %d's error matrix (time=%d)", i, setting->keys[INDEX(index+i, setting->size)]);
     traffic_matrix_trace_add(pe->error_traces[i], 
         setting->error[i], setting->keys[INDEX(index+i, setting->size)]);
   }
@@ -276,13 +276,12 @@ void predictor_ewma_build(
   if (trace->num_indices == 0)
     panic("Cannot build an EWMA model with no entry in the trace");
 
-  // TODO: Just get the num pairs---there should be a better way of doing this.
+  // TODO: we need to get the num pairs---there should be a better way of doing this.
   //  Omid - 12/26/2018
   struct traffic_matrix_t *tm = 0;
   trace_time_t time = 0;
   if (traffic_matrix_trace_get_nth_key(trace, 0, &time) != SUCCESS)
     panic("Trace is empty.");
-
   traffic_matrix_trace_get(trace, time, &tm);
   uint32_t num_pairs = tm->num_pairs;
 

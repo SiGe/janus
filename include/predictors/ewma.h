@@ -35,8 +35,13 @@ struct predictor_ewma_t {
 void predictor_ewma_build
   (struct predictor_t *, struct traffic_matrix_trace_t *);
 
+/*
+ * @param exp_coeff: Exponential smoothing factor
+ * @param steps: # of steps into the future to predict
+ * @param name: path of the file where we save the error matrices
+ * */
 struct predictor_ewma_t *predictor_ewma_create(
-    bw_t exp_coeff, uint16_t, const char *);
+    bw_t coeff, uint16_t steps, const char *loc);
 
 struct predictor_iterator_t* predictor_ewma_predict(
     struct predictor_t *, struct traffic_matrix_t const*, trace_time_t, trace_time_t);

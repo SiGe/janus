@@ -121,6 +121,8 @@ void traffic_matrix_free(struct traffic_matrix_t *tm) {
 struct traffic_matrix_t *traffic_matrix_multiply(
   bw_t value, struct traffic_matrix_t const *left) {
   pair_id_t num_pairs = left->num_pairs;
+  if (!left)
+     return 0;
 
   struct traffic_matrix_t *output = malloc(
       sizeof(struct pair_bw_t) * num_pairs);
@@ -141,6 +143,9 @@ struct traffic_matrix_t *traffic_matrix_multiply(
 struct traffic_matrix_t *traffic_matrix_add(
   struct traffic_matrix_t const *left, 
   struct traffic_matrix_t const *right) {
+  if (!left || !right)
+     return 0;
+
   if (left->num_pairs != right->num_pairs)
     return 0;
 

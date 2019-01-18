@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "algo/maxmin.h"
+#include "algo/rvar.h"
 #include "networks/jupiter.h"
 #include "predictors/ewma.h"
 #include "util/group_gen.h"
@@ -596,14 +597,55 @@ void test_experiment(void) {
   //
 }
 
+rvar_type_t _mc_run(void *data) {
+  int *index = (int*)(data);
+  *index += 1;
+  return ((*index) - 1);
+}
+
+void test_rvar_bucket(void) {
+  int index = 0;
+  struct rvar_t *r = (struct rvar_t*)rvar_monte_carlo(_mc_run, 2, &index);
+
+  info("Convolve RR");
+  struct rvar_t *rr = r->convolve(r, r, 1);
+
+  #define EPS 1e-3
+  #define AEQ(q, z) (abs(q - z) < EPS)
+
+  assert(AEQ(rr->expected(rr), 1));
+  assert(AEQ(rr->percentile(rr, 0)   , 0));
+  assert(AEQ(rr->percentile(rr, 0.25), 1));
+  assert(AEQ(rr->percentile(rr,  0.5), 1.5));
+  assert(AEQ(rr->percentile(rr, 0.75), 2));
+  assert(AEQ(rr->percentile(rr, 1   ), 3));
+
+  info("Convolve RRR");
+  struct rvar_t *rrr = rr->convolve(rr, r, 1);
+  assert(AEQ(rrr->expected  (rrr)      , 1.5));
+  assert(AEQ(rrr->percentile(rrr, 0)   , 0));
+  assert(AEQ(rrr->percentile(rrr, 0.99), 3.92));
+
+  info("Convolve RRRR");
+  struct rvar_t *rrrr = rr->convolve(rr, rr, 1);
+  assert(AEQ(rrrr->expected  (rrrr)   , 2));
+  assert(AEQ(rrrr->percentile(rrrr, 0), 0));
+  assert(AEQ(rrrr->percentile(rrrr, 1), 5));
+
+  rrr->free(rrr);
+  rr->free(rr);
+  r->free(r);
+}
+
 int main(int argc, char **argv) {
-  TEST(jupiter_cluster);
-  TEST(tm_read_load);
-  TEST(tm_trace);
-  TEST(ewma);
-  TEST(group_state);
-  TEST(dual_state);
-  TEST(tri_state);
+  // TEST(jupiter_cluster);
+  // TEST(tm_read_load);
+  // TEST(tm_trace);
+  // TEST(ewma);
+  // TEST(group_state);
+  // TEST(dual_state);
+  // TEST(tri_state);
+  TEST(rvar_bucket);
 
   //test_tri_state();
   return 0;
