@@ -5,8 +5,55 @@
 #include "util/log.h"
 #include "plan.h"
 
+static struct jupiter_group_t *
+_jupiter_get_group_for(struct jupiter_multigroup_t *mg,
+                       struct jupiter_located_switch_t *sw) {
+    return &mg->groups[sw->color % mg->ngroups];
+}
+
+static void
+_jupiter_add_switch_to_class(
+        struct jupiter_class_t *class,
+        struct jupiter_located_switch_t *sw) {
+    class->nswitches += 1;
+    class->switches = realloc(class->switches, 
+            sizeof(struct jupiter_located_switch_t *) * class->nswitches);
+    class->switches[class->nswitches - 1] = sw;
+}
+
+static void
+_jupiter_build_groups(struct jupiter_switch_upgrade_planner_t *planner) {
+    for (int i = 0; i < planner->num_switches; ++i) {
+        struct jupiter_located_switch_t *sw = &planner->switches[i];
+        struct jupiter_group_t *group = _jupiter_get_group_for(&planner->multigroup, sw);
+
+        uint32_t done = 0;
+        for (uint32_t j = 0; j < group->nclasses; ++j) {
+            struct jupiter_class_t *class = &group->classes[j];
+            if (class->pod == sw->pod &&
+                class->type == sw->type) {
+                _jupiter_add_switch_to_class(class, sw);
+                done = 1;
+                break;
+            }
+        }
+
+        if (!done) {
+            group->nclasses += 1;
+            group->classes = realloc(group->classes, sizeof(struct jupiter_class_t) * group->nclasses);
+            struct jupiter_class_t *class = &group->classes[group->nclasses-1];
+            class->nswitches = 0;
+            class->color = sw->color;
+            class->pod = sw->pod;
+            class->type = sw->type;
+            _jupiter_add_switch_to_class(class, sw);
+        }
+    }
+}
+
 struct jupiter_switch_upgrade_planner_t *jupiter_switch_upgrade_planner_new(
-    uint32_t num_switches, struct jupiter_located_switch_t const *switches) {
+    uint32_t num_switches, struct jupiter_located_switch_t const *switches,
+    uint32_t *freedom_degree, uint32_t ndegree) {
   if (num_switches == 0)
     panic("Creating a planner with no switches ...");
 
@@ -16,6 +63,13 @@ struct jupiter_switch_upgrade_planner_t *jupiter_switch_upgrade_planner_new(
   size = sizeof(struct jupiter_located_switch_t) * num_switches;
   planner->switches = malloc(size);
   memcpy(planner->switches, switches, size);
+
+  planner->multigroup.ngroups = ndegree;
+  planner->multigroup.groups = malloc(sizeof(struct jupiter_group_t) * ndegree);
+
+  for (uint32_t i = 0; i < ndegree; ++i) {
+      planner->multigroup.groups[i].group_size = freedom_degree[ndegree];
+  }
 
   return planner;
 }
