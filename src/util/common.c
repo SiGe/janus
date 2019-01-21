@@ -22,3 +22,4 @@ unsigned int upper_pow2(unsigned int v) {
 
   return v;
 }
+

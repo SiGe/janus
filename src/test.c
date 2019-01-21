@@ -637,6 +637,51 @@ void test_rvar_bucket(void) {
   r->free(r);
 }
 
+void test_planner(void) {
+    struct jupiter_located_switch_t switches[] = {
+        {1, CORE, 3, 0},
+        {1, CORE, 3, 0},
+        {1, CORE, 3, 0},
+
+        {1, CORE, 4, 0},
+        {1, CORE, 4, 0},
+        {1, CORE, 4, 0},
+
+        {1, AGG, 4, 2},
+        {1, AGG, 4, 2},
+        {1, AGG, 4, 2},
+
+        {1, AGG, 4, 1},
+        {1, AGG, 4, 1},
+        {1, AGG, 4, 1},
+
+        {1, AGG, 1, 3},
+        {1, AGG, 1, 3},
+        {1, AGG, 1, 3},
+
+        {1, AGG, 2, 3},
+        {1, AGG, 2, 3},
+        {1, AGG, 2, 3},
+        {1, AGG, 2, 3},
+    };
+
+    uint32_t freedom_degree[] = {5, 5, 5, 5};
+    uint32_t ndegree = 4;
+
+    struct jupiter_switch_plan_enumerator_t *planner =
+        jupiter_switch_plan_enumerator_create(
+                sizeof(switches)/sizeof(struct jupiter_located_switch_t), 
+                switches, freedom_degree, ndegree);
+    struct plan_iterator_t *iter = planner->iter((struct plan_t *)planner);
+
+    struct mop_t *mop = 0;
+    int size = 0;
+
+    for (iter->begin(iter); !iter->end(iter); iter->next(iter, &mop, &size)) {
+        info("%d\n", size);
+    }
+}
+
 int main(int argc, char **argv) {
   // TEST(jupiter_cluster);
   // TEST(tm_read_load);
@@ -645,7 +690,8 @@ int main(int argc, char **argv) {
   // TEST(group_state);
   // TEST(dual_state);
   // TEST(tri_state);
-  TEST(rvar_bucket);
+  // TEST(rvar_bucket);
+  TEST(planner);
 
   //test_tri_state();
   return 0;

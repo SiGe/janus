@@ -5,10 +5,11 @@
 #include <unistd.h>
 
 #include "algo/maxmin.h"
-#include "inih/ini.h"
+#include "config.h"
+#include "util/common.h"
 #include "util/log.h"
 #include "network.h"
-#include "networks/jupiter.h"
+#include "plan.h"
 #include "predictors/ewma.h"
 #include "risk.h"
 
@@ -20,71 +21,6 @@ void usage(const char *fname) {
   exit(EXIT_FAILURE);
 }
 
-struct expr_t {
-    char *traffic_test;
-    char *traffic_training;
-
-	risk_func_t *risk_violation;
-	risk_func_t *risk_delay;
-
-    struct network_t *network;
-
-    int testing;
-};
-
-static risk_func_t *risk_violation_name_to_func(char const *name) {
-	return 0;
-}
-
-static risk_func_t *risk_delay_name_to_func(char const *name) {
-	return 0;
-}
-
-static struct network_t *jupiter_string_to_network(char const *string) {
-    info("Parsing jupiter config: %s", string);
-    uint32_t core, pod, app, tpp; bw_t bw;
-    int tot_read;
-
-    if (sscanf(string, "jupiter-%d-%d-%d-%d-%f%n", &core, &pod, &app, &tpp, &bw, &tot_read) <= 0) {
-        panic("Bad format specifier for jupiter: %s", string);
-    }
-
-    if (tot_read < strlen(string)) {
-        panic("Bad format specifier for jupiter: %s", string);
-    }
-
-    info("Creating a jupiter network with: %d, %d, %d, %d, %f", core, pod, app, tpp, bw);
-
-    return (struct network_t *)jupiter_network_create(core, pod, app, tpp, bw);
-}
-
-static int config_handler(void *data, 
-        char const *section, char const *name,
-        char const *value) {
-    #define MATCH(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
-
-    struct expr_t *expr = (struct expr_t *)data;
-    if        (MATCH("", "traffic-test")) {
-        expr->traffic_test = strdup(value);
-    } else if (MATCH("", "traffic-training")) {
-        expr->traffic_training = strdup(value);
-    } else if (MATCH("", "risk-violation")) {
-		expr->risk_violation = risk_violation_name_to_func(value);
-    } else if (MATCH("", "risk-delay")) {
-		expr->risk_delay= risk_delay_name_to_func(value);
-    } else if (MATCH("", "network")) {
-		expr->network = jupiter_string_to_network(value);
-    }
-	
-	return 1;
-}
-
-void config_parse(char const *ini_file, struct expr_t *expr) {
-    info("Parsing config %s", ini_file);
-    if (ini_parse(ini_file, config_handler, expr) < 0) {
-        panic("Couldn't load the ini file.");
-    }
-}
 
 void _get_violations_mlu_for_dataplane(struct dataplane_t const *dp, int *viol, bw_t *mlu) {
         int violations = 0;
@@ -228,7 +164,29 @@ test_error_matrices(struct expr_t *expr) {
 }
 
 void test_planner(struct expr_t *expr) {
+    struct jupiter_switch_plan_enumerator_t *en = jupiter_switch_plan_enumerator_create(
+            expr->upgrade_list.num_switches,
+            expr->located_switches,
+            expr->upgrade_freedom,
+            expr->upgrade_nfreedom);
 
+    struct plan_iterator_t *iter = en->iter((struct plan_t *)en);
+
+    int *subplans = 0; int subplan_count = 0;
+    int tot_plans = 0;
+    int max_id = 0;
+    for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
+        iter->plan(iter, &subplans, &subplan_count);
+
+        for (uint32_t id = 0; id < subplan_count; ++id) {
+            max_id = MAX(max_id, subplans[id]);
+        }
+
+        free(subplans);
+        subplans = 0;
+        tot_plans += 1;
+    }
+    info("Total number of unique plans: %d (max_id = %d)", tot_plans, max_id);
 }
 
 int main(int argc, char **argv) {

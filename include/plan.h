@@ -25,6 +25,14 @@ struct mop_t {
   mop_steps_t (*operation)      (struct mop_t *, struct network_t*);
 };
 
+struct jupiter_switch_mop_t {
+    struct mop_t;
+
+    struct jupiter_located_switch_t **switches;
+    uint32_t nswitches;
+    uint32_t ncap;
+};
+
 /* A planner has one interface ... a plan iterator that lets us iterate
  * throught the feasible set of plans.  
  *
@@ -33,7 +41,7 @@ struct mop_t {
  * automatically but that takes too much time ... for this paper).
  */
 struct plan_t {
-  struct plan_iterator_t* (*iter) (struct plan_t);
+  struct plan_iterator_t* (*iter) (struct plan_t *);
 };
 
 /* Iterator that returns an ordered set of mops for a specific step of a plan.
@@ -53,8 +61,14 @@ struct plan_t {
 struct plan_iterator_t {
   void (*begin) (struct plan_iterator_t *);
   void (*free)  (struct plan_iterator_t *);
-  int  (*next)  (struct plan_iterator_t *, struct mop_t **, int *);
+  int  (*next)  (struct plan_iterator_t *);
   int  (*end)   (struct plan_iterator_t *);
+
+  /* Return the mop for a subplan with specific id */
+  struct mop_t * (*mop_for)(struct plan_iterator_t *, int id);
+
+  /* Return a list of subplans for the current id */
+  void (*plan)(struct plan_iterator_t *, int **ret, int *size);
 };
 
 /* Jupiter network MOP planner  */
@@ -94,7 +108,7 @@ struct jupiter_multigroup_t {
 KHASH_MAP_INIT_INT(jupiter_groups, struct jupiter_group_t*);
 
 /* Jupiter upgrade planner groups the switches into "granularity" groups. */
-struct jupiter_switch_upgrade_planner_t {
+struct jupiter_switch_plan_enumerator_t {
   struct plan_t;
 
   uint32_t num_switches;
@@ -109,22 +123,24 @@ struct jupiter_switch_upgrade_planner_t {
   struct jupiter_multigroup_t multigroup;
 };
 
-struct jupiter_switch_upgrade_plan_iterator_t {
+struct jupiter_switch_plan_enumerator_iterator_t {
   struct plan_iterator_t;
 
-  uint32_t num_switches;
-  struct jupiter_located_switch_t *switches;
-  struct jupiter_switch_upgrade_planner_t const *planner;
+  struct jupiter_switch_plan_enumerator_t const *planner;
 
   // We use this variable to keep track of where we are in the iteration.
-  struct _group_iter_state *state;
+  struct group_iter_t *state;
+  uint32_t *_tuple_tmp;
 };
 
-struct jupiter_switch_upgrade_planner_t *jupiter_switch_upgrade_planner_new(
+struct jupiter_switch_plan_enumerator_t *jupiter_switch_plan_enumerator_create(
     uint32_t num_switches, struct jupiter_located_switch_t const *switches, 
     uint32_t *freedom_degree, uint32_t ndegree);
 
-void jupiter_switch_upgrade_planner_free(
-    struct jupiter_switch_upgrade_planner_t *);
+void jupiter_switch_plan_enumerator_free(
+    struct jupiter_switch_plan_enumerator_t *);
+
+struct plan_iterator_t*
+jupiter_switch_plan_enumerator_iterator(struct plan_t *planner);
 
 #endif // _PLAN_H_

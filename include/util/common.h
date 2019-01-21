@@ -24,4 +24,7 @@ unsigned int upper_pow2(unsigned int v);
 
 #define METHOD(o, m, ...) ((o)->m(o, __VA_ARGS__))
 
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 #endif
