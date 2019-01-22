@@ -23,6 +23,9 @@ struct mop_t {
 
   /* Number of steps that we should run this operation */
   mop_steps_t (*operation)      (struct mop_t *, struct network_t*);
+
+  /* Free the mop */
+  void        (*free)           (struct mop_t *);
 };
 
 struct jupiter_switch_mop_t {
@@ -69,6 +72,9 @@ struct plan_iterator_t {
 
   /* Return a list of subplans for the current id */
   void (*plan)(struct plan_iterator_t *, int **ret, int *size);
+
+  /* Returns the maximum number of subplans */
+  int (*subplan_count)(struct plan_iterator_t *);
 };
 
 /* Jupiter network MOP planner  */

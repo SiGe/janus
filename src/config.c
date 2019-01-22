@@ -145,6 +145,12 @@ _build_located_switch_group(struct expr_t *expr) {
         }
     }
 
+    printf("Draining switches: ");
+    for (uint32_t i =0; i < idx; ++i) {
+      printf("%d, ", sws[i].sid);
+    }
+    printf("\n");
+
     expr->located_switches = sws;
 }
 

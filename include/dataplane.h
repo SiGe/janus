@@ -78,5 +78,6 @@ struct dataplane_t {
 };
 
 void dataplane_init(struct dataplane_t *);
+void dataplane_free_resources(struct dataplane_t *);
 
 #endif

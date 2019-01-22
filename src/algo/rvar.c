@@ -26,9 +26,10 @@ static rvar_type_t
 _sample_expected(struct rvar_t const *rs) {
     struct rvar_sample_t *r = (struct rvar_sample_t *)rs;
     rvar_type_t ret = 0;
-    rvar_type_t *val = 0;
+    rvar_type_t *val = r->vals;
     for (int i = 0 ; i < r->num_samples; ++i) {
-        ret += *val++;
+        ret += *val;
+        val++;
     }
 
     return ret/r->num_samples;
