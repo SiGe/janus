@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "inih/ini.h"
 #include "networks/jupiter.h"
@@ -160,7 +162,58 @@ _build_located_switch_group(struct expr_t *expr) {
   expr->located_switches = sws;
 }
 
-void config_parse(char const *ini_file, struct expr_t *expr) {
+static enum EXPR_ACTION
+parse_action(char const *arg) {
+  if      (strcmp(arg, "longterm") == 0)
+    return BUILD_LONGTERM;
+  else if (strcmp(arg, "pug") == 0)
+    return RUN_PUG;
+  else if (strcmp(arg, "stg") == 0)
+    return RUN_STG;
+  else if (strcmp(arg, "ltg") == 0)
+    return RUN_LTG;
+  else if (strcmp(arg, "cap") == 0)
+    return RUN_CAP;
+
+  panic("Invalid execution option.");
+  return RUN_UNKNOWN;
+}
+
+static void
+parse_duration(char const *arg, uint32_t *start, uint32_t *end) {
+  char *ptr = strdup(arg);
+  char *sbegin = ptr;
+
+  while (*ptr != '-' || *ptr != 0)
+    ptr++;
+
+  if (*ptr == 0)
+    panic("Error parsing the duration.");
+  *ptr = 0;
+  char *send = ptr + 1;
+
+  *start = atoi(sbegin);
+  *end = atoi(send);
+}
+
+static void
+cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
+    int opt = 0;
+    while ((opt = getopt(argc, argv, "a:d:")) != -1) {
+      switch (opt) {
+        case 'a':
+          expr->action = parse_action(optarg);
+          break;
+        case 'd':
+          parse_duration(optarg, 
+              &expr->longterm.start,
+              &expr->longterm.end);
+          break;
+      };
+    }
+};
+
+void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {
   info("Parsing config %s", ini_file);
   if (ini_parse(ini_file, config_handler, expr) < 0) {
     panic("Couldn't load the ini file.");
