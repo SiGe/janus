@@ -18,9 +18,10 @@ struct jupiter_sw_up_list_t {
 struct expr_t {
     char *traffic_test;
     char *traffic_training;
+    char *network_string;
 
-	risk_func_t *risk_violation;
-	risk_func_t *risk_delay;
+    risk_func_t *risk_violation;
+    risk_func_t *risk_delay;
 
     struct network_t *network;
     
@@ -31,6 +32,8 @@ struct expr_t {
     // Freedom degree for the upgrades
     uint32_t *upgrade_freedom;
     uint32_t upgrade_nfreedom;
+
+    struct network_t * (*clone_network)(struct expr_t *);
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr);

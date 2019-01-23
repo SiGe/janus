@@ -27,4 +27,6 @@ unsigned int upper_pow2(unsigned int v);
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+long get_ncores(void);
+
 #endif

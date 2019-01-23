@@ -1,7 +1,11 @@
 #include <math.h>
+#include <pthread.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "thpool/thpool.h"
+#include "util/common.h"
 #include "util/log.h"
 
 #include "algo/rvar.h"
@@ -186,14 +190,25 @@ struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_size, uint
 
 static int
 _float_comp(const void *v1, const void *v2) {
-    float f1 = *(float*)(v1);
-    float f2 = *(float*)(v2);
+    rvar_type_t f1 = *(rvar_type_t*)(v1);
+    rvar_type_t f2 = *(rvar_type_t*)(v2);
 
-    if (f1 < f2)
-        return -1;
-    else if (f2 > f1)
-        return 1;
-    return 0;
+    if      (f1 < f2) return -1;
+    else if (f1 > f2) return  1;
+    else              return  0;
+}
+
+/* TODO: This is so stupid, we shouldn't need to do this sorting ... it
+ * should be done automatically, sort of.  Or be done lazily, if data gets
+ * added to rvar and it isn't "optimized."
+ * - Omid 1/22/2019
+ * */
+void _fix_rvar(struct rvar_sample_t *rv, uint32_t nsteps) {
+    /* TODO: This is so stupid, we shouldn't need to do this */
+    rv->num_samples = nsteps;
+    qsort(rv->vals, nsteps, sizeof(rvar_type_t), _float_comp);
+    rv->low = rv->vals[0];
+    rv->high = rv->vals[nsteps-1];
 }
 
 struct rvar_sample_t *rvar_monte_carlo(
@@ -204,10 +219,9 @@ struct rvar_sample_t *rvar_monte_carlo(
     for (int i = 0; i < nsteps; ++i) {
         ret->vals[i] = single_run(data);
     }
-    ret->num_samples = nsteps;
-    qsort(ret->vals, nsteps, sizeof(rvar_type_t), _float_comp);
-    ret->low = ret->vals[0];
-    ret->high = ret->vals[nsteps-1];
+
+    /* TODO: This is so stupid, we shouldn't need to do this */
+    _fix_rvar(ret, nsteps);
 
     return ret;
 }
@@ -233,13 +247,70 @@ struct rvar_sample_t *rvar_monte_carlo_multi(
             ptrs[j]++;
     }
 
+    /* TODO: This is so stupid, we shouldn't need to do this */
     for (int i = 0; i < nvars; ++i) {
-        vars[i].num_samples = nsteps;
-        qsort(vars[i].vals, nsteps, sizeof(rvar_type_t), _float_comp);
-        vars[i].low = vars[i].vals[0];
-        vars[i].high = vars[i].vals[nsteps-1];
+      _fix_rvar(&vars[i], nsteps);
     }
 
     free(ptrs);
     return vars;
 }
+
+struct _monte_carlo_parallel_t {
+  void *data;
+  int  index;
+  struct rvar_sample_t *rv;
+  monte_carlo_run_t runner;
+};
+
+void _mcpd_rvar_runner(void *data) {
+  struct _monte_carlo_parallel_t *mpcd = (struct _monte_carlo_parallel_t *)data;
+  rvar_type_t ret = mpcd->runner(mpcd->data);
+  mpcd->rv->vals[mpcd->index] = ret;
+}
+
+struct rvar_sample_t *rvar_monte_carlo_parallel(
+    monte_carlo_run_t run,
+    void *data,
+    int nsteps,
+    int dsize,
+    int num_threads) {
+
+  if (num_threads == 0)
+    num_threads = get_ncores() - 1;
+    if (num_threads == 0)
+      num_threads = 1;
+
+  threadpool thpool = thpool_init(num_threads);
+
+  struct _monte_carlo_parallel_t *mcpd = malloc(sizeof(struct _monte_carlo_parallel_t) * nsteps);
+  struct rvar_sample_t *rv = (struct rvar_sample_t *)rvar_sample_create(nsteps);
+
+  for (uint32_t i = 0; i < nsteps; ++i) {
+    mcpd[i].data = ((char *)data) + (dsize * i);
+    mcpd[i].index = i;
+    mcpd[i].rv = rv;
+    mcpd[i].runner = run;
+  }
+
+  for (uint32_t i = 0; i < nsteps; ++i) {
+    thpool_add_work(thpool, _mcpd_rvar_runner, &mcpd[i]);
+  }
+
+  thpool_wait(thpool);
+  thpool_destroy(thpool);
+  _fix_rvar(rv, nsteps);
+
+  /*
+  printf("RVs: ");
+  for (uint32_t i = 0; i < nsteps; ++i) {
+    printf("%f, ", rv->vals[i]);
+  }
+  printf("\n");
+
+  printf("Low: %f, High: %f", rv->low, rv->high);
+  */
+
+  return rv;
+}
+

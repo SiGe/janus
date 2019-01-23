@@ -264,7 +264,13 @@ static int flow_cmp(void const *v1, void const *v2) {
   struct flow_t const *f2 = (struct flow_t const*)v2;
 
   bw_t val = (f1->demand - f2->demand);
-  return (int)(val * 1/EPS);
+
+  if (val < 0) {
+    return -1;
+  } else if (val > 0){
+    return 1;
+  }
+  return 0;
 }
 
 static int link_cmp_ptr(void const *v1, void const *v2) {
@@ -272,7 +278,13 @@ static int link_cmp_ptr(void const *v1, void const *v2) {
   struct link_t const *l2 = *(struct link_t const**)v2;
 
   bw_t val = per_flow_capacity(l1) - per_flow_capacity(l2);
-  return (int)(val * 1/EPS);
+
+  if (val < 0) {
+    return -1;
+  } else if (val > 0){
+    return 1;
+  }
+  return 0;
 }
 
 static void populate_and_sort_flows(struct dataplane_t *dataplane) {

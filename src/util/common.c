@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "util/common.h"
 
 unsigned long
@@ -21,5 +22,9 @@ unsigned int upper_pow2(unsigned int v) {
   v++;
 
   return v;
+}
+
+long get_ncores(void) {
+  return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
