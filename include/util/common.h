@@ -9,7 +9,17 @@
 #define PATH_MAX 1024
 #endif
 
+#ifdef _WIN32
+#define PATH_SEPARATOR   "\\"
+#else
+#define PATH_SEPARATOR   "/"
+#endif
+
+
 #define INT_MAX_LEN 20
+
+// Max number of steps that EWMA will predict
+#define EWMA_MAX_TM_STRIDE 10
 
 // http://www.cse.yorku.ca/~oz/hash.html
 unsigned long
@@ -27,6 +37,13 @@ unsigned int upper_pow2(unsigned int v);
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+#define DURATION_SEPARATOR ':'
+
+/* Get the number of cores */
 long get_ncores(void);
+
+/* Directory functions */
+int dir_exists(char const *dname);
+int dir_mk(char const *dname);
 
 #endif

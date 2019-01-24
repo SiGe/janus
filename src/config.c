@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "util/common.h"
 #include "inih/ini.h"
 #include "networks/jupiter.h"
 #include "util/log.h"
@@ -101,15 +102,17 @@ static int config_handler(void *data,
 
   struct expr_t *expr = (struct expr_t *)data;
 
-  if        (MATCH("", "traffic-test")) {
+  if        (MATCH("general", "traffic-test")) {
     expr->traffic_test = strdup(value);
-  } else if (MATCH("", "traffic-training")) {
+  } else if (MATCH("general", "traffic-training")) {
     expr->traffic_training = strdup(value);
-  } else if (MATCH("", "risk-violation")) {
+  } else if (MATCH("criteria", "risk-violation")) {
     expr->risk_violation = risk_violation_name_to_func(value);
-  } else if (MATCH("", "risk-delay")) {
+  } else if (MATCH("criteria", "risk-delay")) {
     expr->risk_delay = risk_delay_name_to_func(value);
-  } else if (MATCH("", "network")) {
+  } else if (MATCH("criteria", "promised_throughput")) {
+    expr->promised_throughput = atof(value);
+  } else if (MATCH("general", "network")) {
     info("Parsing jupiter config: %s", value);
     expr->network = jupiter_string_to_network(value);
     expr->network_string = strdup(value);
@@ -121,6 +124,10 @@ static int config_handler(void *data,
     } else {
       panic("Upgrading %s not supported.", name);
     }
+  } else if (MATCH("cache", "rv-cache-dir")) {
+    expr->cache.rvar_directory = strdup(value);
+  } else if (MATCH("cache", "ewma-cache-dir")) {
+    expr->cache.ewma_directory = strdup(value);
   }
 
   return 1;
@@ -152,30 +159,29 @@ _build_located_switch_group(struct expr_t *expr) {
       idx++;
     }
   }
-
-  // printf("Draining switches: ");
-  // for (uint32_t i =0; i < idx; ++i) {
-  //   printf("%d, ", sws[i].sid);
-  // }
-  // printf("\n");
-
   expr->located_switches = sws;
 }
 
 static enum EXPR_ACTION
 parse_action(char const *arg) {
-  if      (strcmp(arg, "longterm") == 0)
+  if      (strcmp(arg, "long-term") == 0) {
+    info("Building long-term cache files.");
     return BUILD_LONGTERM;
-  else if (strcmp(arg, "pug") == 0)
+  } else if (strcmp(arg, "pug") == 0) {
+    info("Running PUG.");
     return RUN_PUG;
-  else if (strcmp(arg, "stg") == 0)
+  } else if (strcmp(arg, "stg") == 0) {
+    info("Running STG.");
     return RUN_STG;
-  else if (strcmp(arg, "ltg") == 0)
+  } else if (strcmp(arg, "ltg") == 0) {
+    info("Running LTG.");
     return RUN_LTG;
-  else if (strcmp(arg, "cap") == 0)
+  } else if (strcmp(arg, "cap") == 0) {
+    info("Running CAP.");
     return RUN_CAP;
+  }
 
-  panic("Invalid execution option.");
+  panic("Invalid execution option: %s.", arg);
   return RUN_UNKNOWN;
 }
 
@@ -184,33 +190,37 @@ parse_duration(char const *arg, uint32_t *start, uint32_t *end) {
   char *ptr = strdup(arg);
   char *sbegin = ptr;
 
-  while (*ptr != '-' || *ptr != 0)
+  while (*ptr != DURATION_SEPARATOR && *ptr != 0)
     ptr++;
 
   if (*ptr == 0)
-    panic("Error parsing the duration.");
+    panic("Error parsing the duration: %s", arg);
   *ptr = 0;
   char *send = ptr + 1;
 
   *start = atoi(sbegin);
   *end = atoi(send);
+  free(sbegin);
+
+  info("Parsing duration: %d to %d", *start, *end);
 }
 
-static void
+static int
 cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
-    int opt = 0;
-    while ((opt = getopt(argc, argv, "a:d:")) != -1) {
-      switch (opt) {
-        case 'a':
-          expr->action = parse_action(optarg);
-          break;
-        case 'd':
-          parse_duration(optarg, 
-              &expr->longterm.start,
-              &expr->longterm.end);
-          break;
-      };
-    }
+  int opt = 0;
+  while ((opt = getopt(argc, argv, "a:r:")) != -1) {
+    switch (opt) {
+      case 'a':
+        expr->action = parse_action(optarg);
+        break;
+      case 'd':
+        parse_duration(optarg, 
+            &expr->cache.subplan_start,
+            &expr->cache.subplan_end);
+        break;
+    };
+  }
+  return 1;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {
@@ -218,6 +228,10 @@ void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *con
   if (ini_parse(ini_file, config_handler, expr) < 0) {
     panic("Couldn't load the ini file.");
   }
+  if (cmd_parse(argc, argv, expr) < 0) {
+    panic("Couldn't parse the command line options.");
+  }
+
   expr->clone_network = expr_clone_network;
   _build_located_switch_group(expr);
 }

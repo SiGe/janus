@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "util/common.h"
-#include "util/config.h"
 #include "util/log.h"
 #include "predictors/ewma.h"
 

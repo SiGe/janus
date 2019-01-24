@@ -7,13 +7,15 @@
 
 #include "algo/maxmin.h"
 #include "config.h"
-#include "util/common.h"
-#include "util/log.h"
-#include "network.h"
+#include "dataplane.h"
+#include "exec/longterm.h"
 #include "freelist.h"
+#include "network.h"
 #include "plan.h"
 #include "predictors/ewma.h"
 #include "risk.h"
+#include "util/common.h"
+#include "util/log.h"
 
 const char *usage_message = ""
   "usage: %s <experiment-setting ini file>\n";
@@ -21,17 +23,6 @@ const char *usage_message = ""
 void usage(const char *fname) {
   printf(usage_message, fname);
   exit(EXIT_FAILURE);
-}
-
-int _dataplane_count_violations(struct dataplane_t const *dp) {
-  int violations = 0;
-  for (int flow_id = 0; flow_id < dp->num_flows; ++flow_id) {
-    if (dp->flows[flow_id].bw < dp->flows[flow_id].demand) {
-      violations +=1 ;
-    }
-  }
-
-  return violations;
 }
 
 bw_t _dataplane_get_mlu(struct dataplane_t const *dp) {
@@ -47,7 +38,7 @@ bw_t _dataplane_get_mlu(struct dataplane_t const *dp) {
 
 
 void _get_violations_mlu_for_dataplane(struct dataplane_t const *dp, int *viol, bw_t *mlu) {
-  *viol = _dataplane_count_violations(dp);
+  *viol = dataplane_count_violations(dp, 0);
   *mlu = _dataplane_get_mlu(dp);
 }
 
@@ -188,7 +179,7 @@ rvar_type_t _sim_network_for_trace(void *data) {
   _simulate_network(builder->network, tm, &builder->dp);
 
   // Count the violations
-  int violations = _dataplane_count_violations(&builder->dp);
+  int violations = dataplane_count_violations(&builder->dp, 0);
   rvar_type_t percentage = (rvar_type_t)violations/(rvar_type_t)(builder->network->tm->num_pairs);
 
   // And free the traffic matrix
@@ -272,7 +263,7 @@ void test_planner(struct expr_t *expr) {
         struct traffic_matrix_t *tm = 0;
         titer->get(titer, &tm);
         _simulate_network(expr->network, tm, &dp);
-        _dataplane_count_violations(&dp);
+        dataplane_count_violations(&dp, 0);
         traffic_matrix_free(tm);
         count += 1;
       }
@@ -289,122 +280,13 @@ void test_planner(struct expr_t *expr) {
   info("Total number of unique plans: %d", tot_plans);
 }
 
-struct _rvar_cache_builder_parallel {
-  struct traffic_matrix_trace_t *trace;
-  uint32_t index;
-  struct freelist_repo_t *network_freelist;
-  pthread_mutex_t *lock;
-};
-
-
-struct _network_dp_t {
-  struct dataplane_t dp;
-  struct network_t *net;
-};
-
-rvar_type_t _sim_network_for_trace_parallel(void *data) {
-  struct _rvar_cache_builder_parallel* builder = (struct _rvar_cache_builder_parallel*)data;
-  struct traffic_matrix_t *tm = 0;
-  trace_time_t time = 0;
-
-  {
-    // Get the next traffic matrix
-    pthread_mutex_lock(builder->lock);
-
-    traffic_matrix_trace_get_nth_key(builder->trace, builder->index, &time);
-    traffic_matrix_trace_get(builder->trace, time, &tm);
-    pthread_mutex_unlock(builder->lock);
-  }
-
-  int violations = 0;
-  {
-    // Simulate the network
-    struct _network_dp_t *np = freelist_get(builder->network_freelist);
-    np->net->set_traffic(np->net, tm);
-    np->net->get_dataplane(np->net, &np->dp);
-
-    maxmin(&np->dp);
-    violations = _dataplane_count_violations(&np->dp);
-    freelist_return(builder->network_freelist, np);
-  }
-
-  // Count the violations
-  rvar_type_t percentage = (rvar_type_t)violations/(rvar_type_t)(tm->num_pairs);
-
-  // And free the traffic matrix
-  traffic_matrix_free(tm);
-
-  return percentage;
-}
-
-
-void test_build_rvar_cache_parallel(struct expr_t *expr) {
-  struct jupiter_switch_plan_enumerator_t *en = 
-    jupiter_switch_plan_enumerator_create(
-        expr->upgrade_list.num_switches,
-        expr->located_switches,
-        expr->upgrade_freedom,
-        expr->upgrade_nfreedom);
-
-  struct traffic_matrix_trace_t *trace = traffic_matrix_trace_load(400, expr->traffic_test);
-  struct plan_iterator_t *iter = en->iter((struct plan_t *)en);
-  int subplan_count = iter->subplan_count(iter);
-  pthread_mutex_t mut;
-
-  if (pthread_mutex_init(&mut, 0) != 0)
-    panic("Couldn't initiate the mutex.");
-
-  uint32_t trace_length = trace->num_indices;
-  uint32_t nthreads = get_ncores() - 1;
-  struct freelist_repo_t *repo = freelist_create(nthreads);
-  struct _network_dp_t *networks = malloc(sizeof(struct _network_dp_t) * nthreads);
-
-  for (uint32_t i = 0; i < nthreads; ++i) {
-    networks[i].net = expr->clone_network(expr);
-    memset(&networks[i].dp, 0, sizeof(struct dataplane_t));
-    freelist_return(repo, &networks[i]);
-  }
-
-  for (int i = 0; i < subplan_count-1; ++i) {
-    // Apply the mop on the network
-    struct mop_t *mop = iter->mop_for(iter, i);
-    struct _rvar_cache_builder_parallel *data = 
-      malloc(sizeof(struct _rvar_cache_builder_parallel) * trace_length);
-
-    for (uint32_t j = 0; j < nthreads; ++j) {
-      mop->pre(mop, networks[j].net);
+struct exec_t *executor(struct expr_t *expr) {
+    if (expr->action == BUILD_LONGTERM) {
+        return exec_longterm_create();
     }
 
-    for (uint32_t j = 0; j < trace_length; ++j ){
-      data[j].lock = &mut;
-      data[j].trace = trace;
-      data[j].index = j;
-      data[j].network_freelist = repo;
-    }
-
-    struct rvar_t *rvar = (struct rvar_t *)rvar_monte_carlo_parallel(
-        _sim_network_for_trace_parallel, 
-        data, trace_length,
-        sizeof(struct _rvar_cache_builder_parallel), 0);
-
-    for (uint32_t j = 0; j < nthreads; ++j) {
-      mop->post(mop, networks[j].net);
-    }
-
-    info("Generated rvar for %ith subplan (expected viol: %f)", i, rvar->expected(rvar));
-    free(mop);
-  }
-
-  // Free the free list of networks
-  for (uint32_t i = 0; i < nthreads; ++i) {
-    struct _network_dp_t *np = freelist_get(repo);
-    dataplane_free_resources(&np->dp);
-  }
-  free(networks);
-  freelist_free(repo);
-
-  traffic_matrix_trace_free(trace);
-  info("Done generating the rvars");
+    panic("Executor not implemented.");
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -413,13 +295,17 @@ int main(int argc, char **argv) {
   }
 
   struct expr_t expr = {0};
-  config_parse(argv[1], &expr);
+  config_parse(argv[1], &expr, argc - 1, argv + 1);
+  struct exec_t *exec = executor(&expr);
 
-  //test_settings(&expr);
-  //test_error_matrices(&expr);
-  //test_planner(&expr);
-  //test_build_rvar_cache(&expr);
-  test_build_rvar_cache_parallel(&expr);
+  exec->validate(exec, &expr);
+  exec->run(exec, &expr);
+
+  // test_settings(&expr);
+  // test_error_matrices(&expr);
+  // test_planner(&expr);
+  // test_build_rvar_cache(&expr);
+  // test_build_rvar_cache_parallel(&expr);
 
   return EXIT_SUCCESS;
 }

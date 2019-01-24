@@ -1,3 +1,5 @@
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "util/common.h"
 
@@ -28,3 +30,15 @@ long get_ncores(void) {
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
+int dir_exists(char const *dname) {
+  struct stat st = {0};
+  return stat(dname, &st) != -1;
+}
+
+int dir_mk(char const *dname) {
+  struct stat st = {0};
+  if (stat(dname, &st) == -1) {
+    mkdir(dname, 0700);
+  }
+  return 1;
+}

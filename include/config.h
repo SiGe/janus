@@ -3,6 +3,7 @@
 
 #include "plan.h"
 #include "risk.h"
+#include "traffic.h"
 
 struct jupiter_sw_up_t {
     enum JUPITER_SWITCH_TYPE type;
@@ -15,9 +16,15 @@ struct jupiter_sw_up_list_t {
     uint32_t num_switches;
 };
 
-struct expr_longterm_t {
-    uint32_t start, end;
-    char const *rvar_directory;
+struct expr_cache_t {
+  /* Cache generation start to end */
+  uint32_t subplan_start, subplan_end;
+
+  /* Rvar directory */
+  char const *rvar_directory;
+
+  /* EWMA directory */
+  char const *ewma_directory;
 };
 
 struct expr_execution_t {
@@ -46,6 +53,9 @@ struct expr_t {
     risk_func_t *risk_violation;
     risk_func_t *risk_delay;
 
+    // Min throughput promised to the user
+    bw_t promised_throughput;
+
     struct network_t *network;
     
     //TODO: Change this from Jupiter to arbitrary topology later on ...
@@ -64,8 +74,8 @@ struct expr_t {
     uint32_t *at;
     uint32_t nat;
 
-    // Long-term cache files
-    struct expr_longterm_t longterm;
+    // Execution cache files
+    struct expr_cache_t cache;
 
     // Execution intervals, etc.
     struct expr_execution_t exec;

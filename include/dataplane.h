@@ -80,4 +80,7 @@ struct dataplane_t {
 void dataplane_init(struct dataplane_t *);
 void dataplane_free_resources(struct dataplane_t *);
 
+// Returns the number of violations of a dataplane
+int dataplane_count_violations(struct dataplane_t const *dp, float max_bandwidth);
+
 #endif

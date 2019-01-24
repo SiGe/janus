@@ -18,6 +18,7 @@ struct rvar_t {
   struct rvar_bucket_t * (*to_bucket) (struct rvar_t const*, rvar_type_t);
 
   void (*free)(struct rvar_t *);
+  char * (*serialize)(struct rvar_t *, int *size);
 
   enum RVAR_TYPE _type;
 };
@@ -67,18 +68,7 @@ struct rvar_sample_t *rvar_monte_carlo_parallel(
     int num_threads        // Number of thread to use or 0 for automatic calculation
 );
 
-
-/* Cache for keeping rvar_t values after simulations */
-struct rvar_cache_t {
-  uint32_t size;
-  struct rvar_t *vars;
-
-  void (*save)(struct rvar_cache_t *, char const *file);
-  void (*set)(struct rvar_cache_t *, uint32_t key, struct rvar_t *);
-};
-
-struct rvar_cache_t *rvar_load(char const *fname);
-
+struct rvar_t *rvar_deserialize(char const *data);
 
 //rvar_bucket_t *rvar_to_bucket(struct
 
