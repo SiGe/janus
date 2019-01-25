@@ -50,6 +50,6 @@ void predictor_ewma_save(struct predictor_t *);
 void predictor_ewma_free(struct predictor_t *);
 
 struct predictor_ewma_t *
-  predictor_ewma_load(char const *);
+  predictor_ewma_load(char const *, char const *, int, int);
 
 #endif // _PREDICTORS_EWMA_H_

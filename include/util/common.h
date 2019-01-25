@@ -1,6 +1,8 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <stdio.h>
+
 #ifdef linux
 #include <linux/limits.h>
 #endif
@@ -45,5 +47,8 @@ long get_ncores(void);
 /* Directory functions */
 int dir_exists(char const *dname);
 int dir_mk(char const *dname);
+int dir_num_files(char const *dname);
+
+int file_read(FILE *, char **);
 
 #endif

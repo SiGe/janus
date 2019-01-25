@@ -106,6 +106,10 @@ static int config_handler(void *data,
     expr->traffic_test = strdup(value);
   } else if (MATCH("general", "traffic-training")) {
     expr->traffic_training = strdup(value);
+  } else if (MATCH("general", "mop-duration")) {
+    expr->mop_duration = atoi(value);
+  } else if (MATCH("predictor", "ewma-coeff")) {
+    expr->ewma_coeff = atof(value);
   } else if (MATCH("criteria", "risk-violation")) {
     expr->risk_violation = risk_violation_name_to_func(value);
   } else if (MATCH("criteria", "risk-delay")) {
@@ -223,6 +227,10 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
   return 1;
 };
 
+int _step_count(struct criteria_time_t *crit, uint32_t length) {
+  return (crit->steps >= length);
+}
+
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {
   info("Parsing config %s", ini_file);
   if (ini_parse(ini_file, config_handler, expr) < 0) {
@@ -231,6 +239,10 @@ void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *con
   if (cmd_parse(argc, argv, expr) < 0) {
     panic("Couldn't parse the command line options.");
   }
+
+  expr->criteria_time = malloc(sizeof(struct criteria_time_t));
+  expr->criteria_time->acceptable = _step_count;
+  expr->criteria_time->steps = 6;
 
   expr->clone_network = expr_clone_network;
   _build_located_switch_group(expr);

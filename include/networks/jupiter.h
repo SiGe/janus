@@ -46,7 +46,7 @@ int  jupiter_get_traffic (struct network_t *, struct traffic_matrix_t const**);
 int  jupiter_get_dataplane (struct network_t *, struct dataplane_t*); 
 void jupiter_drain_switch(struct network_t *, switch_id_t);
 void jupiter_undrain_switch(struct network_t *, switch_id_t);
-void jupiter_network_free(struct jupiter_network_t *);
+void jupiter_network_free(struct network_t *);
 
 switch_id_t jupiter_get_core(struct network_t *, uint32_t);
 switch_id_t jupiter_get_agg(struct network_t *, uint32_t, uint32_t);

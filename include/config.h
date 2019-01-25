@@ -2,6 +2,7 @@
 #define _CONFIG_H_
 
 #include "plan.h"
+#include "plan/jupiter.h"
 #include "risk.h"
 #include "traffic.h"
 
@@ -53,10 +54,13 @@ struct expr_t {
     risk_func_t *risk_violation;
     risk_func_t *risk_delay;
 
+    struct network_t *network;
+    trace_time_t mop_duration;
+
+    float ewma_coeff;
+
     // Min throughput promised to the user
     bw_t promised_throughput;
-
-    struct network_t *network;
     
     //TODO: Change this from Jupiter to arbitrary topology later on ...
     struct jupiter_sw_up_list_t upgrade_list;
@@ -82,6 +86,9 @@ struct expr_t {
 
     // Experiment action
     enum EXPR_ACTION action;
+
+    // Planning criteria
+    struct criteria_time_t *criteria_time;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const* argv);

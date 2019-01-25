@@ -45,6 +45,7 @@ struct freelist_repo_t *freelist_create(int num) {
   struct freelist_repo_t *repo = malloc(sizeof(struct freelist_repo_t));
   size_t size = sizeof(struct freelist_t) * num;
   repo->busy = malloc(size);
+  repo->size = num;
 
   // For freeing later
   repo->_data = repo->busy;
@@ -68,4 +69,8 @@ struct freelist_repo_t *freelist_create(int num) {
 void freelist_free(struct freelist_repo_t *repo){
   free(repo->_data);
   free(repo);
+}
+
+int freelist_size(struct freelist_repo_t *ntr) {
+  return ntr->size;
 }

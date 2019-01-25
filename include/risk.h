@@ -26,6 +26,12 @@
  */
 
 typedef struct rvar_t* (*risk_func_t)(struct rvar_t const *state);
+typedef double risk_cost_t;
+
+struct criteria_time_t {
+  int (*acceptable) (struct criteria_time_t *, uint32_t length);
+  int steps;
+};
 
 /* Empty interface for now (?) Maybe change later for serialization/memoization? */
 struct risk_t {

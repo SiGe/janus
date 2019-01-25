@@ -13,6 +13,10 @@
 
 #include "exec/longterm.h"
 
+/* TODO: Merge this and use exec_simulate
+ *
+ * Omid - 1/25/2019
+ * */
 struct _rvar_cache_builder_parallel {
   struct traffic_matrix_trace_t *trace;
   uint32_t index;
@@ -98,7 +102,7 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
     subplan_end = subplan_count - 1;
   }
 
-  for (int i = subplan_start; i < subplan_end; ++i) {
+  for (int i = subplan_start; i <= subplan_end; ++i) {
     // Apply the mop on the network
     struct mop_t *mop = iter->mop_for(iter, i);
     struct _rvar_cache_builder_parallel *data = 
@@ -157,7 +161,8 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
   info("Done generating the rvars");
 }
 
-void _exec_longterm_runner(struct exec_t *exec, struct expr_t *expr) {
+static void
+_exec_longterm_runner(struct exec_t *exec, struct expr_t *expr) {
   _build_rvar_cache_parallel(expr);
 }
 

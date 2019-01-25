@@ -37,6 +37,8 @@ struct network_t {
   void (*undrain_switch) (struct network_t *, switch_id_t);
 
   struct traffic_matrix_t const *tm;
+
+  void (*free) (struct network_t *);
 };
 
 struct clone_t {

@@ -9,6 +9,7 @@
 #include "config.h"
 #include "dataplane.h"
 #include "exec/longterm.h"
+#include "exec/pug.h"
 #include "freelist.h"
 #include "network.h"
 #include "plan.h"
@@ -283,6 +284,8 @@ void test_planner(struct expr_t *expr) {
 struct exec_t *executor(struct expr_t *expr) {
     if (expr->action == BUILD_LONGTERM) {
         return exec_longterm_create();
+    } else if (expr->action == RUN_PUG) {
+        return exec_pug_create();
     }
 
     panic("Executor not implemented.");

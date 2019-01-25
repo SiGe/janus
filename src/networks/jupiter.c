@@ -177,7 +177,8 @@ jupiter_network_create(
   ret->get_traffic     = jupiter_get_traffic;
   ret->get_dataplane   = jupiter_get_dataplane;
   ret->drain_switch    = jupiter_drain_switch;;
-  ret->undrain_switch  = jupiter_undrain_switch;;
+  ret->undrain_switch  = jupiter_undrain_switch;
+  ret->free            = jupiter_network_free;
 
   ret->clone   = 0;
   ret->save    = 0;
@@ -304,7 +305,7 @@ int jupiter_get_traffic (struct network_t *net, struct traffic_matrix_t const **
 }
 
 
-void jupiter_network_free(struct jupiter_network_t *net) {
+void jupiter_network_free(struct network_t *net) {
   free(net);
 }
 

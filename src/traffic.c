@@ -21,6 +21,23 @@ int _tmti_next(struct traffic_matrix_trace_iter_t *iter) {
     return 1;
 }
 
+int _tmti_length(struct traffic_matrix_trace_iter_t *iter) {
+  return iter->trace->num_indices;
+}
+
+void _tmti_go_to(struct traffic_matrix_trace_iter_t *iter, trace_time_t time) {
+  for (uint32_t i = 0; i < iter->trace->num_indices; ++i) {
+    trace_time_t cur = 0;
+    traffic_matrix_trace_get_nth_key(iter->trace, i, &cur);
+    if (cur == time) {
+      iter->state = i;
+      return;
+    }
+  }
+
+  iter->state = iter->trace->num_indices;
+}
+
 int _tmti_end(struct traffic_matrix_trace_iter_t *iter) {
     return iter->state >= iter->trace->num_indices;
 }
@@ -45,10 +62,12 @@ static struct traffic_matrix_trace_iter_t *_tmt_iter(
     iter->state = 0;
     iter->trace = trace;
     iter->begin = _tmti_begin;
+    iter->go_to = _tmti_go_to;
     iter->next  = _tmti_next;
     iter->end   = _tmti_end;
     iter->get   = _tmti_get;
     iter->free  = _tmti_free;
+    iter->length = _tmti_length;
 
     return iter;
 }
@@ -449,7 +468,7 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_load(
   FILE *index = fopen(fname, "ab+");
   FILE *data = fopen(fdata, "ab+");
 
-  info("Opening %s data and %s index files.", fdata, fname);
+  info("Trace: %.40s and %.40s files.", fdata, fname);
 
   if (!index || !data) {
     panic("Couldn't find the associated index or data file.");

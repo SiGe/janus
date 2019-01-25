@@ -15,6 +15,9 @@
 #define EWMA_DEFAULT_INDEX_SIZE 4000
 #define EWMA_DEFAULT_CACHE_SIZE 4000
 
+#define PRED_SUFFIX ".pred."
+#define ERROR_SUFFIX ".error."
+
 struct predictor_ewma_t *predictor_ewma_create(
     bw_t exp_coeff, uint16_t steps, char const *name) {
   if (steps > EWMA_MAX_TM_STRIDE)
@@ -25,7 +28,7 @@ struct predictor_ewma_t *predictor_ewma_create(
 
   char error_name[PATH_MAX+1] = {0};
   strncat(error_name, name, PATH_MAX);
-  strncat(error_name, ".error", PATH_MAX);
+  strncat(error_name, ERROR_SUFFIX, PATH_MAX);
 
   ewma->exp_coeff   = exp_coeff;
   ewma->error_traces = malloc(sizeof(struct traffix_matrix_trace *) * steps);
@@ -36,7 +39,7 @@ struct predictor_ewma_t *predictor_ewma_create(
     char num[INT_MAX_LEN];
     snprintf(num, INT_MAX_LEN, "%d", i);
     strncat(pred_name, name, PATH_MAX);
-    strncat(pred_name, ".pred.", PATH_MAX);
+    strncat(pred_name, PRED_SUFFIX, PATH_MAX);
     strncat(pred_name, num, PATH_MAX);
     ewma->pred_traces[i] = traffic_matrix_trace_create(
         EWMA_DEFAULT_CACHE_SIZE, EWMA_DEFAULT_INDEX_SIZE, pred_name);
@@ -47,7 +50,7 @@ struct predictor_ewma_t *predictor_ewma_create(
     char num[INT_MAX_LEN];
     snprintf(num, INT_MAX_LEN, "%d", i);
     strncat(error_name, name, PATH_MAX);
-    strncat(error_name, ".error.", PATH_MAX);
+    strncat(error_name, ERROR_SUFFIX, PATH_MAX);
     strncat(error_name, num, PATH_MAX);
     ewma->error_traces[i] = traffic_matrix_trace_create(
         EWMA_DEFAULT_CACHE_SIZE, EWMA_DEFAULT_INDEX_SIZE, error_name);
@@ -376,6 +379,7 @@ void predictor_ewma_build(
   predictor_ewma_save(p);
 
   //TODO: REMOVE THIS
+  /*
   struct traffic_matrix_trace_t *pri = pe->error_traces[pe->steps-1];
   for (uint32_t i = 0; i < pri->num_indices; ++i) {
     trace_time_t key = 0;
@@ -383,6 +387,7 @@ void predictor_ewma_build(
     traffic_matrix_trace_get(pri, key, &tm);
     traffic_matrix_free(tm);
   }
+  */
 }
 
 void predictor_ewma_save(struct predictor_t *predictor) {
@@ -403,4 +408,49 @@ void predictor_ewma_free(struct predictor_t *predictor) {
   free(pe->error_traces);
   free(pe->pred_traces);
   free(pe);
+}
+
+
+static void predictor_ewma_free_error_only(struct predictor_t *predictor) {
+  TO_E(predictor);
+
+  for (uint32_t i = 0; i < pe->steps; ++i) {
+    traffic_matrix_trace_free(pe->error_traces[i]);
+  }
+  free(pe->error_traces);
+  free(pe);
+}
+
+void predictor_ewma_build_panic(
+    struct predictor_t *p, 
+    struct traffic_matrix_trace_t *trace) {
+  (void)p;
+  (void)trace;
+  panic("Cannot build an ewma predictor that is loaded from file.");
+}
+
+struct predictor_ewma_t *predictor_ewma_load(char const *dir, char const *fname, int steps, int cache_size) {
+  if (!dir_exists(dir))
+    return 0;
+
+  // Load the error matrix
+  // TODO: Not a good idea but unfortunately this object should be "different"
+  // than the typical EWMA thing Probably a better idea not to have a "build"
+  // function in the predictor.  It's sort of meaningless to begin with.
+  //
+  // - Omid 1/23/2019
+  struct predictor_ewma_t *ewma = malloc(sizeof(struct predictor_ewma_t));
+  ewma->error_traces = malloc(sizeof(struct traffix_matrix_trace *) * steps);
+  ewma->build = predictor_ewma_build_panic;
+  ewma->predict = predictor_ewma_predict;
+  ewma->free = predictor_ewma_free_error_only;
+  ewma->steps = steps;
+
+  for (uint32_t i = 0; i < steps; ++i) {
+    char fpath[PATH_MAX] = {0};
+    sprintf(fpath, "%s" PATH_SEPARATOR "%s" ERROR_SUFFIX "%d", dir, fname, i);
+    ewma->error_traces[i] = traffic_matrix_trace_load(cache_size, fpath);
+  }
+
+  return ewma;
 }

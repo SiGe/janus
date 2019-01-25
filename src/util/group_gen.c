@@ -306,7 +306,6 @@ static
 void _dual_npart_state_build(
     struct dual_npart_iter_state_t *s) {
     // Try to extract the state.
-    // PRINT the state of the network
     uint32_t *st = s->state;
     uint32_t *stl = &s->state_length; *stl = 0;
 
