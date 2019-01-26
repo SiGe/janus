@@ -209,3 +209,42 @@ exec_simulate(
   free(networks);
   return rvar;
 }
+
+risk_cost_t exec_plan_cost(struct exec_t *exec,
+    struct expr_t *expr, struct mop_t **mops,
+    uint32_t nmops, trace_time_t start) {
+  struct _network_dp_t *net_dp = freelist_get(exec->net_dp);
+  struct network_t *net = net_dp->net;
+  struct dataplane_t *dp = &net_dp->dp;
+  risk_cost_t cost = 0;
+
+  struct traffic_matrix_trace_t *trace = exec->trace;
+  struct traffic_matrix_trace_iter_t *iter = trace->iter(trace);
+  iter->go_to(iter, start);
+
+  struct traffic_matrix_t *tm = 0;
+  int violations = 0;
+  for (uint32_t i = 0; i < nmops; ++i) {
+    mops[i]->pre(mops[i], net);
+
+    for (uint32_t step = 0; step < expr->mop_duration; ++step) {
+      iter->get(iter, &tm);
+
+      /* Network traffic */
+      net->set_traffic(net, tm);
+      net->get_dataplane(net, dp);
+      maxmin(dp);
+
+      violations += dataplane_count_violations(dp, 0);
+      dataplane_free_resources(dp);
+
+      iter->next(iter);
+    }
+
+    mops[i]->post(mops[i], net);
+  }
+
+  freelist_return(exec->net_dp, net_dp);
+  cost = violations;
+  return cost;
+}

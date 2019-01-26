@@ -51,9 +51,6 @@ struct expr_t {
     char *traffic_training;
     char *network_string;
 
-    risk_func_t *risk_violation;
-    risk_func_t *risk_delay;
-
     struct network_t *network;
     trace_time_t mop_duration;
 
@@ -65,6 +62,7 @@ struct expr_t {
     //TODO: Change this from Jupiter to arbitrary topology later on ...
     struct jupiter_sw_up_list_t upgrade_list;
     struct jupiter_located_switch_t *located_switches;
+    int nlocated_switches;
 
     // Freedom degree for the upgrades
     uint32_t *upgrade_freedom;
@@ -89,6 +87,8 @@ struct expr_t {
 
     // Planning criteria
     struct criteria_time_t *criteria_time;
+    risk_func_t risk_violation_cost;
+    criteria_length_t criteria_plan_length;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const* argv);

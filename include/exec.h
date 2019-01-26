@@ -7,6 +7,7 @@ struct exec_t {
   void (*validate) (struct exec_t *, struct expr_t const *expr);
   void (*run)      (struct exec_t *, struct expr_t *expr);
 
+  struct traffic_matrix_trace_t *trace;
   struct freelist_repo_t *net_dp;
 };
 
@@ -35,8 +36,8 @@ struct predictor_t *exec_ewma_cache_build_or_load(struct expr_t const *expr);
  * Should also probably pass other criteria to this to ensure we are within the
  * bound.
  */
-risk_cost_t plan_cost(
-    struct expr_t *expr, struct mop_t **mops,
+risk_cost_t exec_plan_cost(
+    struct exec_t *exec, struct expr_t *expr, struct mop_t **mops,
     uint32_t nmops, trace_time_t start);
 
 struct rvar_t *

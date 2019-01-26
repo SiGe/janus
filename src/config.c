@@ -10,11 +10,53 @@
 
 #include "config.h"
 
-static risk_func_t *risk_violation_name_to_func(char const *name) {
-  return 0;
+risk_cost_t _rvc_cost(struct rvar_t const *rvar) {
+  return rvar->percentile(rvar, 0.99); //expected(rvar);
 }
 
-static risk_func_t *risk_delay_name_to_func(char const *name) {
+static risk_func_t risk_violation_name_to_func(char const *name) {
+  return _rvc_cost;
+}
+
+static int _cutoff_at(struct criteria_time_t *ct, uint32_t length) {
+  return ct->steps >= length;
+}
+
+static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
+  char *ptr = strstr(name, "cutoff-at-");
+
+  if (ptr == 0)
+    panic("Unsupported criteria_time function: %s", name);
+
+  ptr += strlen("cutoff-at-");
+  struct criteria_time_t *ret = malloc(sizeof(struct criteria_time_t));
+  ret->acceptable = _cutoff_at;
+  ret->steps = atoi(ptr);
+
+  return ret;
+}
+
+static int _cl_maximize(int a1, int a2) {
+  if (a1 > a2) { return 1; }
+  else if (a1 == a2) { return 0; }
+  else if (a1 < a2) { return -1; }
+  return -1;
+}
+
+static int _cl_minimize (int a1, int a2) {
+  if (a1 > a2) { return -1; }
+  else if (a1 == a2) { return 0; }
+  else if (a1 < a2) { return 1; }
+  return -1;
+}
+
+static criteria_length_t risk_length_name_to_func(char const *name) {
+  if (strcmp(name, "maximize") == 0) {
+    return _cl_maximize;
+  } else if (strcmp(name, "minimize") == 0) {
+    return _cl_minimize;
+  }
+  panic("Unsupported length criteria: %s", name);
   return 0;
 }
 
@@ -111,10 +153,12 @@ static int config_handler(void *data,
   } else if (MATCH("predictor", "ewma-coeff")) {
     expr->ewma_coeff = atof(value);
   } else if (MATCH("criteria", "risk-violation")) {
-    expr->risk_violation = risk_violation_name_to_func(value);
-  } else if (MATCH("criteria", "risk-delay")) {
-    expr->risk_delay = risk_delay_name_to_func(value);
-  } else if (MATCH("criteria", "promised_throughput")) {
+    expr->risk_violation_cost = risk_violation_name_to_func(value);
+  } else if (MATCH("criteria", "criteria-time")) {
+    expr->criteria_time = risk_delay_name_to_func(value);
+  } else if (MATCH("criteria", "criteria-length")) {
+    expr->criteria_plan_length = risk_length_name_to_func(value);
+  } else if (MATCH("criteria", "promised-throughput")) {
     expr->promised_throughput = atof(value);
   } else if (MATCH("general", "network")) {
     info("Parsing jupiter config: %s", value);
@@ -164,6 +208,7 @@ _build_located_switch_group(struct expr_t *expr) {
     }
   }
   expr->located_switches = sws;
+  expr->nlocated_switches = nswitches;
 }
 
 static enum EXPR_ACTION
@@ -239,10 +284,6 @@ void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *con
   if (cmd_parse(argc, argv, expr) < 0) {
     panic("Couldn't parse the command line options.");
   }
-
-  expr->criteria_time = malloc(sizeof(struct criteria_time_t));
-  expr->criteria_time->acceptable = _step_count;
-  expr->criteria_time->steps = 6;
 
   expr->clone_network = expr_clone_network;
   _build_located_switch_group(expr);

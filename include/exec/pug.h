@@ -5,6 +5,7 @@
 struct plan_repo_t {
   int *plans;
   int plan_count;
+  int initial_plan_count;
   int max_plan_size;
   int plan_size_in_bytes;
   int cap;
@@ -22,7 +23,6 @@ struct exec_pug_t {
 
   struct predictor_t *pred;
   struct rvar_t      **steady_packet_loss;
-  struct traffic_matrix_trace_t *trace;
 
   int shortterm_samples;
 };

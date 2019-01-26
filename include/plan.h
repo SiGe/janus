@@ -26,6 +26,9 @@ struct mop_t {
 
   /* Free the mop */
   void        (*free)           (struct mop_t *);
+
+  /* Size of the mop */
+  int         (*size)           (struct mop_t *);
 };
 
 struct jupiter_switch_mop_t {
@@ -69,6 +72,12 @@ struct plan_iterator_t {
 
   /* Return the mop for a subplan with specific id */
   struct mop_t * (*mop_for)(struct plan_iterator_t *, int id);
+
+  /* Explain a specific mop in text format */
+  void (*explain)(struct plan_iterator_t *, int id);
+
+  /* This returns a preference score for a subplan */
+  double (*pref_score)(struct plan_iterator_t *, int id);
 
   /* Return a list of subplans for the current id */
   void (*plan)(struct plan_iterator_t *, int **ret, int *size);

@@ -282,14 +282,15 @@ void test_planner(struct expr_t *expr) {
 }
 
 struct exec_t *executor(struct expr_t *expr) {
-    if (expr->action == BUILD_LONGTERM) {
-        return exec_longterm_create();
-    } else if (expr->action == RUN_PUG) {
-        return exec_pug_create();
-    }
+  info("Running %d", expr->action);
+  if (expr->action == BUILD_LONGTERM) {
+    return exec_longterm_create();
+  } else if (expr->action == RUN_PUG) {
+    return exec_pug_create();
+  }
 
-    panic("Executor not implemented.");
-    return 0;
+  panic("Executor not implemented.");
+  return 0;
 }
 
 int main(int argc, char **argv) {
