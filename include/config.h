@@ -35,6 +35,7 @@ struct expr_execution_t {
 
 enum EXPR_ACTION {
     BUILD_LONGTERM, // Build the long-term cache files
+    TRAFFIC_STATS,  // Returns the traffic stats for the pods
 
     // Different simulators
     RUN_PUG,  
@@ -63,6 +64,12 @@ struct expr_t {
     struct jupiter_sw_up_list_t upgrade_list;
     struct jupiter_located_switch_t *located_switches;
     int nlocated_switches;
+
+    //TODO: Jupiter specific config ... should change later.
+    uint32_t num_cores;
+    uint32_t num_pods;
+    uint32_t num_tors_per_pod;
+    uint32_t num_aggs_per_pod;
 
     // Freedom degree for the upgrades
     uint32_t *upgrade_freedom;

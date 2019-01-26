@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <dirent.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdio.h>
 
@@ -247,4 +249,94 @@ risk_cost_t exec_plan_cost(struct exec_t *exec,
   freelist_return(exec->net_dp, net_dp);
   cost = violations;
   return cost;
+}
+
+#define STATS(x) { \
+  (x).mean += (x).sum; \
+  (x).max  = MAX((x).max, (x).sum); \
+  (x).min  = MIN((x).min, (x).sum); \
+  (x).sum   = 0; \
+}
+
+#define FIX_AVG(x, y) { \
+  (x).mean /= (y); \
+}\
+
+void exec_traffic_stats(
+    struct exec_t *exec,
+    struct expr_t *expr,
+    struct traffic_matrix_trace_iter_t *iter,
+    uint32_t ntms,
+    struct traffic_stats_t **ret_pod_stats,
+    uint32_t *ret_npods,
+    struct traffic_stats_t **ret_core_stats) {
+  struct traffic_matrix_t *tm = 0;
+
+  uint32_t tidx = 0;
+  uint32_t num_tors = expr->num_pods * expr->num_tors_per_pod;
+
+  struct traffic_stats_t *pods = malloc(sizeof(struct traffic_stats_t) * expr->num_pods);
+  memset(pods, 0, sizeof(struct traffic_stats_t) * expr->num_pods);
+  for (uint32_t i = 0; i < expr->num_pods; ++i) {
+    pods[i].in.min = INFINITY;
+    pods[i].out.min= INFINITY;
+    pods[i].id = i;
+  }
+  struct traffic_stats_t *spod = 0, *dpod = 0;
+  struct traffic_stats_t *core = malloc(sizeof(struct traffic_stats_t));
+  memset(core, 0, sizeof(struct traffic_stats_t));
+  core->in.min = INFINITY;
+  core->out.min = INFINITY;
+
+  while (!iter->end(iter) && tidx < ntms) {
+    iter->get(iter, &tm);
+    iter->next(iter);
+
+    for (uint32_t sp = 0; sp < expr->num_pods; ++sp) {
+      spod = &pods[sp];
+      for (uint32_t dp = 0; dp < expr->num_pods; ++dp) {
+        dpod = &pods[dp];
+        for (uint32_t st = 0; st < expr->num_tors_per_pod; ++st) {
+          for (uint32_t dt = 0; dt < expr->num_tors_per_pod; ++dt) {
+            uint32_t sid = sp * expr->num_tors_per_pod + st;
+            uint32_t did = dp * expr->num_tors_per_pod + dt;
+            uint32_t id = sid * num_tors + did;
+
+            bw_t tr = tm->bws[id].bw;
+            spod->out.sum += tr;
+            dpod->in.sum += tr;
+
+            if (spod != dpod) {
+              core->out.sum += tr;
+              core->in.sum += tr;
+            }
+          }
+        }
+      }
+    }
+
+    for (uint32_t i = 0; i < expr->num_pods; ++i) {
+      STATS(pods[i].in);
+      STATS(pods[i].out);
+    }
+
+    STATS(core->in);
+    STATS(core->out);
+    tidx++;
+  }
+
+  info("Read: %d", tidx);
+
+  for (uint32_t i = 0; i < expr->num_pods; ++i) {
+    FIX_AVG(pods[i].in, tidx);
+    FIX_AVG(pods[i].out, tidx);
+  }
+  FIX_AVG(core->out, tidx);
+  FIX_AVG(core->in, tidx);
+
+  assert(tm->num_pairs == num_tors * num_tors);
+
+  *ret_pod_stats = pods;
+  *ret_npods = expr->num_pods;
+  *ret_core_stats = core;
 }

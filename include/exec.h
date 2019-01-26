@@ -1,6 +1,8 @@
 #ifndef _EXECUTOR_H_
 #define _EXECUTOR_H_
 
+#include "dataplane.h"
+
 struct expr_t;
 
 struct exec_t {
@@ -10,6 +12,17 @@ struct exec_t {
   struct traffic_matrix_trace_t *trace;
   struct freelist_repo_t *net_dp;
 };
+
+struct stats_t {
+  bw_t min, max, mean, sum;
+};
+
+struct traffic_stats_t {
+  struct stats_t in;
+  struct stats_t out;
+  int    id;
+};
+
 
 #include "util/log.h"
 #include "plan.h"
@@ -48,4 +61,14 @@ exec_simulate(
     struct traffic_matrix_t **tms,
     uint32_t trace_length);
 
+
+// TODO: This requires the pod information, that's why we are passing expr.
+void exec_traffic_stats(
+    struct exec_t *exec,
+    struct expr_t *expr,
+    struct traffic_matrix_trace_iter_t *iter,
+    uint32_t ntms,
+    struct traffic_stats_t **ret_pod_stats,
+    uint32_t *ret_npods,
+    struct traffic_stats_t **ret_core_stats);
 #endif // 

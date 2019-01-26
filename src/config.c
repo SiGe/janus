@@ -60,7 +60,7 @@ static criteria_length_t risk_length_name_to_func(char const *name) {
   return 0;
 }
 
-static struct network_t *jupiter_string_to_network(char const *string) {
+static struct network_t *jupiter_string_to_network(struct expr_t *expr, char const *string) {
   uint32_t core, pod, app, tpp; bw_t bw;
   int tot_read;
 
@@ -72,6 +72,11 @@ static struct network_t *jupiter_string_to_network(char const *string) {
     panic("Bad format specifier for jupiter: %s", string);
   }
 
+  expr->num_cores = core;
+  expr->num_pods = pod;
+  expr->num_tors_per_pod = tpp;
+  expr->num_aggs_per_pod = app;
+
   //info("Creating a jupiter network with: %d, %d, %d, %d, %f", core, pod, app, tpp, bw);
 
   return (struct network_t *)jupiter_network_create(core, pod, app, tpp, bw);
@@ -79,7 +84,7 @@ static struct network_t *jupiter_string_to_network(char const *string) {
 
 
 static struct network_t *expr_clone_network(struct expr_t *expr) {
-  return jupiter_string_to_network(expr->network_string);
+  return jupiter_string_to_network(expr, expr->network_string);
 }
 
 static void jupiter_add_upgrade_group(char const *string, struct jupiter_sw_up_list_t *list) {
@@ -162,7 +167,7 @@ static int config_handler(void *data,
     expr->promised_throughput = atof(value);
   } else if (MATCH("general", "network")) {
     info("Parsing jupiter config: %s", value);
-    expr->network = jupiter_string_to_network(value);
+    expr->network = jupiter_string_to_network(expr, value);
     expr->network_string = strdup(value);
   } else if (MATCH_SECTION("upgrade")) {
     if (MATCH_NAME("switch-group")) {
@@ -228,6 +233,9 @@ parse_action(char const *arg) {
   } else if (strcmp(arg, "cap") == 0) {
     info("Running CAP.");
     return RUN_CAP;
+  } else if (strcmp(arg, "stats") == 0) {
+    info("Running STATS.");
+    return TRAFFIC_STATS;
   }
 
   panic("Invalid execution option: %s.", arg);

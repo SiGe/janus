@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include "dataplane.h"
 #include "exec/longterm.h"
 #include "exec/pug.h"
+#include "exec/stats.h"
 #include "freelist.h"
 #include "network.h"
 #include "plan.h"
@@ -287,6 +289,8 @@ struct exec_t *executor(struct expr_t *expr) {
     return exec_longterm_create();
   } else if (expr->action == RUN_PUG) {
     return exec_pug_create();
+  } else if (expr->action == TRAFFIC_STATS) {
+    return exec_traffic_stats_create();
   }
 
   panic("Executor not implemented.");
