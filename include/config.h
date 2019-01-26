@@ -94,7 +94,7 @@ struct expr_t {
 
     // Planning criteria
     struct criteria_time_t *criteria_time;
-    risk_func_t risk_violation_cost;
+    struct risk_cost_func_t *risk_violation_cost;
     criteria_length_t criteria_plan_length;
 };
 

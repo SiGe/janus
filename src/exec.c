@@ -225,6 +225,9 @@ risk_cost_t exec_plan_cost(struct exec_t *exec,
   iter->go_to(iter, start);
 
   struct traffic_matrix_t *tm = 0;
+  uint32_t num_tors = expr->num_pods * expr->num_tors_per_pod;
+  uint32_t num_tor_pairs = num_tors * num_tors;
+
   int violations = 0;
   for (uint32_t i = 0; i < nmops; ++i) {
     mops[i]->pre(mops[i], net);
@@ -237,7 +240,9 @@ risk_cost_t exec_plan_cost(struct exec_t *exec,
       net->get_dataplane(net, dp);
       maxmin(dp);
 
-      violations += dataplane_count_violations(dp, 0);
+      violations = dataplane_count_violations(dp, 0);
+      cost += expr->risk_violation_cost->cost( expr->risk_violation_cost,
+          ((rvar_type_t)violations/(rvar_type_t)(num_tor_pairs)));
       dataplane_free_resources(dp);
 
       iter->next(iter);
@@ -247,7 +252,6 @@ risk_cost_t exec_plan_cost(struct exec_t *exec,
   }
 
   freelist_return(exec->net_dp, net_dp);
-  cost = violations;
   return cost;
 }
 

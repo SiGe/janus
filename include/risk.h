@@ -26,17 +26,47 @@
  */
 
 typedef double risk_cost_t;
-typedef risk_cost_t (*risk_func_t)(struct rvar_t const *state);
+struct risk_cost_func_t;
+
+//typedef risk_cost_t (*risk_func_t)(struct rvar_t const *state);
+typedef risk_cost_t (*risk_func_t)(struct risk_cost_func_t*, rvar_type_t val);
 
 struct criteria_time_t {
   int (*acceptable) (struct criteria_time_t *, uint32_t length);
   int steps;
 };
 
-typedef int (*criteria_length_t)(int, int);
-
-/* Empty interface for now (?) Maybe change later for serialization/memoization? */
-struct risk_t {
+struct risk_cost_func_t {
+  risk_func_t cost;
+  risk_cost_t (*rvar_to_cost)(struct risk_cost_func_t *f, struct rvar_t *rvar);
 };
+
+struct _rcf_pair_t {
+  rvar_type_t step;
+  risk_cost_t cost;
+};
+
+struct risk_cost_func_step_t {
+  struct risk_cost_func_t;
+  struct _rcf_pair_t *pairs;
+  int nsteps;
+};
+
+struct risk_cost_func_linear_t {
+  struct risk_cost_func_t;
+};
+
+struct risk_cost_func_concave_t {
+  struct risk_cost_func_t;
+};
+
+struct risk_cost_func_convex_t {
+  struct risk_cost_func_t;
+};
+
+struct risk_cost_func_t *
+risk_cost_string_to_func(char const *func);
+
+typedef int (*criteria_length_t)(int, int);
 
 #endif // _RISK_H_

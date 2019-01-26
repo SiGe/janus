@@ -6,6 +6,7 @@
 #include "util/common.h"
 #include "inih/ini.h"
 #include "networks/jupiter.h"
+#include "risk.h"
 #include "util/log.h"
 
 #include "config.h"
@@ -14,8 +15,8 @@ risk_cost_t _rvc_cost(struct rvar_t const *rvar) {
   return rvar->percentile(rvar, 0.99); //expected(rvar);
 }
 
-static risk_func_t risk_violation_name_to_func(char const *name) {
-  return _rvc_cost;
+static struct risk_cost_func_t *risk_violation_name_to_func(char const *name) {
+  return risk_cost_string_to_func(name);
 }
 
 static int _cutoff_at(struct criteria_time_t *ct, uint32_t length) {

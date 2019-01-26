@@ -276,6 +276,7 @@ _long_term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
   risk_cost_t best_cost = INFINITY;
   int best_plan_idx = - 1;
   int best_plan_len = -1;
+  struct risk_cost_func_t *viol_cost = expr->risk_violation_cost;
 
   for (uint32_t i = 0; i < plans->plan_count; ++i) {
     risk = (struct rvar_t *)rvar->to_bucket(rvar, BUCKET_SIZE);
@@ -291,7 +292,7 @@ _long_term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
     }
 
     ptr += plans->max_plan_size;
-    risk_cost_t cost = expr->risk_violation_cost(risk);
+    risk_cost_t cost = viol_cost->rvar_to_cost(viol_cost, risk);
     if  (_best_plan_criteria(expr, cost, plan_len, 10, 
                                    best_cost, best_plan_len, 10)) {
       best_plan_idx = i;
