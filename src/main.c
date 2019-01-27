@@ -10,6 +10,7 @@
 #include "config.h"
 #include "dataplane.h"
 #include "exec/longterm.h"
+#include "exec/ltg.h"
 #include "exec/pug.h"
 #include "exec/stats.h"
 #include "freelist.h"
@@ -291,6 +292,8 @@ struct exec_t *executor(struct expr_t *expr) {
     return exec_pug_create();
   } else if (expr->action == TRAFFIC_STATS) {
     return exec_traffic_stats_create();
+  } else if (expr->action == RUN_LTG) {
+    return exec_ltg_create();
   }
 
   panic("Executor not implemented.");

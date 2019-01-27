@@ -333,3 +333,21 @@ jupiter_switch_plan_enumerator_iterator(
   return (struct plan_iterator_t *)_sup_init(
       (struct jupiter_switch_plan_enumerator_t*)planner);
 }
+
+struct mop_t *
+jupiter_mop_for(struct jupiter_located_switch_t **sws, uint32_t nsws) {
+  struct jupiter_switch_mop_t  *mop = malloc(sizeof(struct jupiter_switch_mop_t));
+  mop->pre  = _jupiter_mop_pre;
+  mop->post = _jupiter_mop_post;
+  mop->free = _jupiter_mop_free;
+  mop->size = _jupiter_mop_size;
+
+  mop->ncap = nsws;
+  mop->switches = malloc(sizeof(struct jupiter_located_switch_t *) * nsws);
+  mop->nswitches = nsws;
+
+  for (uint32_t i = 0; i < nsws; ++i) {
+    mop->switches[i] = sws[i];
+  }
+  return (struct mop_t *)mop;
+}

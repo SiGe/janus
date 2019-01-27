@@ -37,7 +37,7 @@ risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rv
       }
     }
 
-    int nbuckets = 1000;
+    int nbuckets = 100;
     if (low == high)
       high = low + 1;
     rvar_type_t bucket_size = (high - low) / nbuckets;

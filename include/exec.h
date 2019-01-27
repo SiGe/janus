@@ -64,8 +64,8 @@ exec_simulate(
 
 // TODO: This requires the pod information, that's why we are passing expr.
 void exec_traffic_stats(
-    struct exec_t *exec,
-    struct expr_t *expr,
+    struct exec_t const *exec,
+    struct expr_t const *expr,
     struct traffic_matrix_trace_iter_t *iter,
     uint32_t ntms,
     struct traffic_stats_t **ret_pod_stats,

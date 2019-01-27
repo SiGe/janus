@@ -12,7 +12,10 @@
 #include "config.h"
 
 risk_cost_t _rvc_cost(struct rvar_t const *rvar) {
-  return rvar->percentile(rvar, 0.99); //expected(rvar);
+  //return rvar->percentile(rvar, 0.999); //expected(rvar);
+  //return rvar->percentile(rvar, 1); //expected(rvar);
+  //
+  return rvar->expected(rvar); //expected(rvar);
 }
 
 static struct risk_cost_func_t *risk_violation_name_to_func(char const *name) {

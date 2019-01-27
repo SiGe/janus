@@ -188,45 +188,6 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
   return out;
 }
 
-static void
-_exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
-  int subplan_count = 0;
-  TO_PUG(exec);
-
-  pug->trace = traffic_matrix_trace_load(400, expr->traffic_test);
-  if (pug->trace == 0)
-    panic("Couldn't load the traffic matrix file: %s", expr->traffic_test);
-
-  pug->pred = exec_ewma_cache_build_or_load(expr);
-  if (pug->pred == 0)
-    panic("Could't load the predictor.");
-
-  pug->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
-  if (pug->steady_packet_loss == 0)
-    panic("Couldn't load the long-term RVAR cache.");
-
-  if (expr->criteria_time == 0)
-    panic("Time criteria not set.");
-
-  /* TODO: This shouldn't be jupiter specific 
-   *
-   * Omid - 1/25/2019
-   * */
-  struct jupiter_switch_plan_enumerator_t *en = jupiter_switch_plan_enumerator_create(
-      expr->upgrade_list.num_switches,
-      expr->located_switches,
-      expr->upgrade_freedom,
-      expr->upgrade_nfreedom);
-  pug->iter = en->iter((struct plan_t *)en);
-  pug->planner = (struct plan_t *)en;
-
-  pug->plans = _plans_get(exec, expr);
-  if (pug->plans == 0)
-    panic("Couldn't build the plan repository.");
-
-  info("Found %d valid plans.", pug->plans->plan_count);
-}
-
 static struct rvar_t *
 _short_term_risk(struct exec_t *exec, struct expr_t *expr,
     int subplan, trace_time_t now, trace_time_t low, trace_time_t high, int *ret_switch_count) {
@@ -327,7 +288,7 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
 
   //double optimal_subplan_size = ((double)expr->nlocated_switches / (double)expr->criteria_time->steps);
   int *subplans = _plans_remaining_subplans(exec);
-  info("Planning for time %d", at);
+  // info("Planning for time %d", at);
   int finished = 1;
   for (uint32_t i = 1; i < pug->plans->_subplan_count; ++i) {
     if (subplans[i] != 1)
@@ -363,7 +324,6 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     struct rvar_t *st_risk = _short_term_risk(exec, expr, i, at, err_low, err_high, &subplan_size);
     risk_cost_t cost = _long_term_best_plan_to_finish(exec, expr, 
         st_risk, plans->_cur_index + 1, &plan_idx, &plan_length);
-
 
     if (_best_plan_criteria(expr,
           cost, plan_length, perf_score,
@@ -410,14 +370,16 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at
     finished = _exec_pug_find_best_next_subplan(
         exec, expr, at, best_plan_cost, best_plan_len, best_plan_subplans);
 
-    pug->iter->explain(pug->iter, best_plan_subplans[plans->_cur_index]);
+    // pug->iter->explain(pug->iter, best_plan_subplans[plans->_cur_index]);
 
     if (finished)
       break;
 
+    info("Estimated cost of %d(th) subplan is: %f", plans->_cur_index, *best_plan_cost);
     _plan_invalidate_not_equal(
         plans, best_plan_subplans[plans->_cur_index], plans->_cur_index);
     plans->_cur_index += 1;
+
     running_cost += *best_plan_cost;
     at += expr->mop_duration;
   }
@@ -446,6 +408,45 @@ _exec_mops_for_free(struct exec_t *exec, struct expr_t *expr,
   free(mops);
 }
 
+static void
+_exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
+  int subplan_count = 0;
+  TO_PUG(exec);
+
+  pug->trace = traffic_matrix_trace_load(400, expr->traffic_test);
+  if (pug->trace == 0)
+    panic("Couldn't load the traffic matrix file: %s", expr->traffic_test);
+
+  pug->pred = exec_ewma_cache_build_or_load(expr);
+  if (pug->pred == 0)
+    panic("Could't load the predictor.");
+
+  pug->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
+  if (pug->steady_packet_loss == 0)
+    panic("Couldn't load the long-term RVAR cache.");
+
+  if (expr->criteria_time == 0)
+    panic("Time criteria not set.");
+
+  /* TODO: This shouldn't be jupiter specific 
+   *
+   * Omid - 1/25/2019
+   * */
+  struct jupiter_switch_plan_enumerator_t *en = jupiter_switch_plan_enumerator_create(
+      expr->upgrade_list.num_switches,
+      expr->located_switches,
+      expr->upgrade_freedom,
+      expr->upgrade_nfreedom);
+  pug->iter = en->iter((struct plan_t *)en);
+  pug->planner = (struct plan_t *)en;
+
+  pug->plans = _plans_get(exec, expr);
+  if (pug->plans == 0)
+    panic("Couldn't build the plan repository.");
+
+  info("Found %d valid plans.", pug->plans->plan_count);
+}
+
 static void 
 _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
   TO_PUG(exec);
@@ -455,7 +456,7 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
   int          best_plan_len = -1;
   int         *best_plan_subplans  = malloc(sizeof(int) * plans->max_plan_size);
 
-  for (uint32_t i = 50; i < 400; i += 50) {
+  for (uint32_t i = 50; i < 400; i += 10) {
     trace_time_t at = i;
 
     risk_cost_t estimated_cost = _exec_pug_best_plan_at(exec, expr, at, &best_plan_cost, &best_plan_len, best_plan_subplans);
@@ -463,8 +464,8 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
     risk_cost_t actual_cost = exec_plan_cost(exec, expr, mops, best_plan_len, at);
     _exec_mops_for_free(exec, expr, mops, best_plan_len);
 
-    info("[%d] Estimate cost of the best plan (%d) is: %f", at, best_plan_len, estimated_cost);
-    info("[%d] Actual cost of the best plan (%d) is: %f", at, best_plan_len, actual_cost);
+    //(void)(estimated_cost);
+    info("[%4d] Actual cost of the best plan (%d) is: %4.3f : %4.3f", at, best_plan_len, actual_cost, estimated_cost);
   }
   free(best_plan_subplans);
 }

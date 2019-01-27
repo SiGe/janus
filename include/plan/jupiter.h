@@ -76,5 +76,8 @@ void jupiter_switch_plan_enumerator_free(
 struct plan_iterator_t*
 jupiter_switch_plan_enumerator_iterator(struct plan_t *planner);
 
+struct mop_t *jupiter_mop_for(
+    struct jupiter_located_switch_t **, uint32_t);
+
 #endif //  _PLAN_JUPITER_H_
 
