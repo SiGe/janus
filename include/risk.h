@@ -39,6 +39,7 @@ struct criteria_time_t {
 struct risk_cost_func_t {
   risk_func_t cost;
   risk_cost_t (*rvar_to_cost)(struct risk_cost_func_t *f, struct rvar_t *rvar);
+  struct rvar_t * (*rvar_to_rvar)(struct risk_cost_func_t *f, struct rvar_t *rvar, rvar_type_t);
 };
 
 struct _rcf_pair_t {
@@ -54,6 +55,7 @@ struct risk_cost_func_step_t {
 
 struct risk_cost_func_linear_t {
   struct risk_cost_func_t;
+  double slope;
 };
 
 struct risk_cost_func_concave_t {

@@ -24,8 +24,9 @@ struct expr_cache_t {
   /* Rvar directory */
   char const *rvar_directory;
 
-  /* EWMA directory */
+  /* Predictor directories */
   char const *ewma_directory;
+  char const *perfect_directory;
 };
 
 struct expr_execution_t {
@@ -47,6 +48,13 @@ enum EXPR_ACTION {
     RUN_UNKNOWN,
 };
 
+enum EXPR_VERBOSE {
+  VERBOSE_NONE = 0,
+  VERBOSE_SUBPLANS = 3,
+  VERBOSE_SHOW_ME_PLAN_RISK = 4,
+  VERBOSE_SHOW_ME_EVERYTHING = 5,
+};
+
 struct expr_t {
     char *traffic_test;
     char *traffic_training;
@@ -55,7 +63,10 @@ struct expr_t {
     struct network_t *network;
     trace_time_t mop_duration;
 
+    // Predictor stuff
     float ewma_coeff;
+    char *predictor_string;
+
 
     // Min throughput promised to the user
     bw_t promised_throughput;
@@ -96,8 +107,11 @@ struct expr_t {
     struct criteria_time_t *criteria_time;
     struct risk_cost_func_t *risk_violation_cost;
     criteria_length_t criteria_plan_length;
+
+    // Verbosity
+    enum EXPR_VERBOSE verbose;
 };
 
-void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const* argv);
+void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const * argv);
 
 #endif // _CONFIG_H_

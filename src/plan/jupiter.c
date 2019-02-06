@@ -220,8 +220,9 @@ double _sup_pref_score(struct plan_iterator_t *iter, int id) {
   for (uint32_t i = 0; i < jiter->state->tuple_size; ++i) {
     struct jupiter_group_t *group = &groups[i];
     float portion = (float)jiter->_tuple_tmp[i] / (float)group->group_size;
-    pref_score += 1/(portion + 1);
-    pref_score += (jiter->_tuple_tmp[i] != 0);
+    pref_score += portion;
+    //pref_score += 1/(portion + 1);
+    //pref_score += (jiter->_tuple_tmp[i] != 0);
   }
   return pref_score;
 }
@@ -273,6 +274,9 @@ struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
     for (uint32_t j = 0; j < group->nclasses; ++j) {
       struct jupiter_class_t *class = &group->classes[j];
       int sw_to_up = (int)(ceil(class->nswitches * portion));
+      if (sw_to_up >= class->nswitches)
+        sw_to_up = class->nswitches;
+
       if (mop->nswitches + sw_to_up >= mop->ncap) {
         mop->ncap = mop->ncap * 2 + sw_to_up;
         mop->switches = realloc(mop->switches, sizeof(struct jupiter_located_switch_t *) * mop->ncap);

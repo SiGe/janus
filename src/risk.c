@@ -9,7 +9,15 @@
 #include "risk.h"
 
 risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rvar) {
-  risk_cost_t out = 0;
+  //return rvar->percentile(rvar, 0.95);
+  //return rvar->percentile(rvar, 0.999);
+  return rvar->expected(rvar);
+}
+
+struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *rvar, rvar_type_t bucket_size) {
+  if (bucket_size == 0)
+    bucket_size = 1;
+
   struct rvar_t *ret = 0;
 
   if (rvar->_type == SAMPLED) {
@@ -21,6 +29,7 @@ risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rv
     for (uint32_t i = 0; i < rs->num_samples; ++i) {
       rss->vals[i] = f->cost(f, rs->vals[i]);
     }
+    rvar_sample_finalize((struct rvar_sample_t *)ret, rs->num_samples);
   } else if (rvar->_type == BUCKETED){
     /* If bucket, create a new bucket variable where low = min(cost) and num buckets = (max(cost) - min(cost))/100?? */
     struct rvar_bucket_t *rs = (struct rvar_bucket_t *)rvar;
@@ -37,10 +46,10 @@ risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rv
       }
     }
 
-    int nbuckets = 100;
     if (low == high)
       high = low + 1;
-    rvar_type_t bucket_size = (high - low) / nbuckets;
+
+    int nbuckets = ceil((high - low) / bucket_size);
     ret = rvar_bucket_create(low, bucket_size, nbuckets);
     bucket = rs->low;
     for (uint32_t i = 0; i < rs->nbuckets; ++i) {
@@ -53,10 +62,7 @@ risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rv
     }
 
   }
-
-  out = ret->percentile(ret, 0.999);
-  ret->free(ret);
-  return out;
+  return ret;
 }
 
 #define EPS 1e-6
@@ -76,6 +82,12 @@ step_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   return r->pairs[0].cost;
 }
 
+risk_cost_t
+linear_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
+  struct risk_cost_func_linear_t *r = (struct risk_cost_func_linear_t *)t;
+  return (val) * r->slope;
+}
+
 int _rcf_cmp(
     void const *v1, void const *v2) {
   struct _rcf_pair_t *p1 = (struct _rcf_pair_t *)v1;
@@ -86,7 +98,20 @@ int _rcf_cmp(
   else                          return  0;
 }
 
-struct risk_cost_func_t *
+static struct risk_cost_func_t *
+risk_cost_linear_from_string(char const *string) {
+  struct risk_cost_func_linear_t *ret = malloc(sizeof(struct risk_cost_func_linear_t));
+  ret->cost = linear_func_cost;
+  ret->rvar_to_rvar = _default_rvar_to_rvar;
+  ret->rvar_to_cost = _default_rvar_to_cost;
+
+  ret->slope = atof(string);
+  info("Created a linear function for the risk.");
+  return (struct risk_cost_func_t *)ret;
+}
+
+
+static struct risk_cost_func_t *
 risk_cost_stepped_from_string(char const *string) {
   struct risk_cost_func_step_t *ret = malloc(sizeof(struct risk_cost_func_step_t));
   ret->cost = step_func_cost;
@@ -116,6 +141,7 @@ risk_cost_stepped_from_string(char const *string) {
 
   qsort(ret->pairs, nsteps, sizeof(struct _rcf_pair_t), _rcf_cmp);
 
+  ret->rvar_to_rvar = _default_rvar_to_rvar;
   ret->rvar_to_cost = _default_rvar_to_cost;
   ret->cost = step_func_cost;
 
@@ -132,8 +158,10 @@ risk_cost_string_to_func(char const *value) {
   sscanf(value, "%[^-]-%s", func_name, rest);
   struct risk_cost_func_t *ret = 0;
 
-  if (strcmp(func_name,  "stepped") == 0) {
+  if        (strcmp(func_name,  "stepped") == 0) {
     ret = risk_cost_stepped_from_string(rest);
+  } else if (strcmp(func_name, "linear") == 0) {
+    ret = risk_cost_linear_from_string(rest);
   } else {
     panic("Couldn't find the function: %s", value);
   }

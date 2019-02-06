@@ -97,3 +97,34 @@ int file_read(FILE *f, char **out) {
   *out = ret;
   return index + nread;
 }
+
+int fd_path(int fd, char **buf) {
+  char *ret = 0;
+#ifdef _WIN32
+#		error "Phuck Windows."
+#elif __APPLE__
+	if (fcntl(fd, F_GETPATH, ret) != -1)
+		return -1;
+  ret = malloc(sizeof(char) * PATH_MAX);
+  *buf = ret;
+	return 0;
+#elif __linux__
+    // linux
+  ret = malloc(sizeof(char) * PATH_MAX);
+  char name[1024] = {0};;
+  snprintf(name, 1024, "/proc/self/fd/%d", fd);
+  int size = readlink(name, ret, PATH_MAX);
+  if (size == -1){
+    free(ret);
+		return -1;
+  }
+  ret[size] = 0;
+  *buf = ret;
+	return 0;
+#else
+#   error "Unknown compiler"
+#endif
+
+  *buf = ret;
+	return 0;
+}

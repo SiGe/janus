@@ -8,7 +8,8 @@
 #include "config.h"
 #include "freelist.h"
 #include "network.h"
-#include "predictors/ewma.h"
+#include "predictors/rotating_ewma.h"
+#include "predictors/perfect.h"
 #include "util/common.h"
 
 #include "exec.h"
@@ -21,17 +22,25 @@ struct _rvar_cache_builder_parallel {
   pthread_mutex_t *lock;
 };
 
-struct predictor_t *exec_ewma_cache_build_or_load(struct expr_t const *expr) {
-  struct traffic_matrix_trace_t *trace = traffic_matrix_trace_load(1, expr->traffic_test);
-  struct predictor_ewma_t *ewma = predictor_ewma_load(
-      expr->cache.ewma_directory,
-      EXEC_EWMA_PREFIX, expr->mop_duration + 1, trace->num_indices);
+struct predictor_t *exec_perfect_cache_build_or_load(
+    struct exec_t *exec, struct expr_t const *expr) {
+  struct predictor_perfect_t *perfect = predictor_perfect_load(exec->trace);
 
+  return (struct predictor_t *)perfect;
+}
+
+struct predictor_t *exec_ewma_cache_build_or_load(
+    struct exec_t *exec, struct expr_t const *expr) {
+  struct predictor_rotating_ewma_t *ewma = predictor_rotating_ewma_load(
+      expr->cache.ewma_directory, EXEC_EWMA_PREFIX,
+      expr->mop_duration + 1, exec->trace->num_indices, exec->trace);
+
+  /* If we succeeded in loading the EWMA predictor */
   if (ewma) {
-    traffic_matrix_trace_free(trace);
     return (struct predictor_t *)ewma;
   }
 
+  /* Else create the EWMA predictor */
   if (!dir_exists(expr->cache.ewma_directory)) {
     info("Creating EWMA cache directory.");
     dir_mk(expr->cache.ewma_directory);
@@ -40,10 +49,9 @@ struct predictor_t *exec_ewma_cache_build_or_load(struct expr_t const *expr) {
   info("Building the EWMA cache files.");
   char path[PATH_MAX] = {0};
   snprintf(path, PATH_MAX - 1, "%s"PATH_SEPARATOR"%s", expr->cache.ewma_directory, EXEC_EWMA_PREFIX);
-  ewma = predictor_ewma_create(expr->ewma_coeff, expr->mop_duration + 1, path);
-  ewma->build((struct predictor_t *)ewma, trace);
-  predictor_ewma_save((struct predictor_t *)ewma);
-  traffic_matrix_trace_free(trace);
+  ewma = predictor_rotating_ewma_create(expr->ewma_coeff, expr->mop_duration + 1, path);
+  ewma->build((struct predictor_t *)ewma, exec->trace_training);
+  predictor_rotating_ewma_save((struct predictor_t *)ewma);
 
   return (struct predictor_t *)ewma;
 }
@@ -86,6 +94,15 @@ exec_rvar_cache_load(struct expr_t const *expr, int *count) {
     panic("Couldn't open the rvar_cache dir: %s", cache_dir);
     return 0;
   }
+
+  // if (expr->verbose >= VERBOSE_SHOW_ME_EVERYTHING) {
+  //   for (uint32_t i = 0; i < nfiles; ++i) {
+  //     info("Loaded %d subplan.", i);
+  //     //ret[i]->plot(ret[i]);
+  //   }
+  // }
+
+  *count = nfiles;
 
   return ret;
 }
@@ -148,14 +165,13 @@ _exec_net_dp_free(
   }
 }
 
-struct rvar_t *
-exec_simulate(
+rvar_type_t *
+exec_simulate_ordered(
     struct exec_t *exec,
     struct expr_t *expr,
     struct mop_t *mop,
     struct traffic_matrix_t **tms,
     uint32_t trace_length) {
-
   pthread_mutex_t mut;
   if (pthread_mutex_init(&mut, 0) != 0)
     panic("Couldn't initiate the mutex.");
@@ -194,7 +210,7 @@ exec_simulate(
     data[j].expr = expr;
   }
 
-  struct rvar_t *rvar = (struct rvar_t *)rvar_monte_carlo_parallel(
+  rvar_type_t *vals= rvar_monte_carlo_parallel_ordered(
       _sim_network_for_trace_parallel, 
       data, trace_length,
       sizeof(struct _rvar_cache_builder_parallel), 0);
@@ -209,7 +225,18 @@ exec_simulate(
   }
 
   free(networks);
-  return rvar;
+  return vals;
+}
+
+struct rvar_t *
+exec_simulate(
+    struct exec_t *exec,
+    struct expr_t *expr,
+    struct mop_t *mop,
+    struct traffic_matrix_t **tms,
+    uint32_t trace_length) {
+  rvar_type_t *vals = exec_simulate_ordered(exec, expr, mop, tms, trace_length);
+  return rvar_sample_create_with_vals(vals, trace_length);
 }
 
 risk_cost_t exec_plan_cost(
@@ -226,7 +253,9 @@ risk_cost_t exec_plan_cost(
 
   struct traffic_matrix_trace_t *trace = exec->trace;
   struct traffic_matrix_trace_iter_t *iter = trace->iter(trace);
-  iter->go_to(iter, start + expr->mop_duration);
+
+  // This should match what pug does ...
+  iter->go_to(iter, start + 1);
 
   struct traffic_matrix_t *tm = 0;
   uint32_t num_tors = expr->num_pods * expr->num_tors_per_pod;
@@ -239,6 +268,9 @@ risk_cost_t exec_plan_cost(
 
     for (uint32_t step = 0; step < expr->mop_duration; ++step) {
       iter->get(iter, &tm);
+
+      if (!tm)
+        panic("Traffic matrix is nil.  Possibly reached the end of the trace?");
 
       /* Network traffic */
       net->set_traffic(net, tm);
@@ -253,7 +285,8 @@ risk_cost_t exec_plan_cost(
       iter->next(iter);
     }
 
-    info("Actual cost if the %d(th) subplan is: %f", i, subplan_cost);
+    info("%d(th) subplan (%d switches) cost is: %f", 
+        i, mops[i]->size(mops[i]), subplan_cost);
     cost += subplan_cost;
 
     mops[i]->post(mops[i], net);
@@ -292,7 +325,7 @@ void exec_traffic_stats(
   for (uint32_t i = 0; i < expr->num_pods; ++i) {
     pods[i].in.min = INFINITY;
     pods[i].out.min= INFINITY;
-    pods[i].id = i;
+    pods[i].pod_id = i;
   }
   struct traffic_stats_t *spod = 0, *dpod = 0;
   struct traffic_stats_t *core = malloc(sizeof(struct traffic_stats_t));
@@ -352,3 +385,120 @@ void exec_traffic_stats(
   *ret_npods = expr->num_pods;
   *ret_core_stats = core;
 }
+
+
+static int _ts_cmp(void const *v1, void const *v2) {
+  struct traffic_stats_t *t1 = (struct traffic_stats_t *)v1;
+  struct traffic_stats_t *t2 = (struct traffic_stats_t *)v2;
+
+  if       (t1->in.max < t2->in.max) return -1;
+  else if  (t1->in.max > t2->in.max) return  1;
+
+  return 0;
+}
+
+struct exec_critical_path_stats_t *exec_critical_path_analysis(
+    struct exec_t const *exec, struct expr_t const *expr,
+    struct traffic_matrix_trace_iter_t *iter,
+    uint32_t iter_length) {
+
+  struct traffic_stats_t *pod_stats = 0;
+  struct traffic_stats_t *core_stats = 0;
+  uint32_t num_pods = 0;
+
+  /* Get traffic stats for the long-term planner */
+  exec_traffic_stats(
+      exec, expr, iter, iter_length,
+      &pod_stats, &num_pods, &core_stats);
+
+  qsort(pod_stats, num_pods, sizeof(struct traffic_stats_t), _ts_cmp);
+  struct exec_critical_path_stats_t *plan = malloc(
+      sizeof(struct exec_critical_path_stats_t));
+  plan->num_paths = 0;
+  uint32_t num_groups = num_pods + 1 /* core switches */;
+
+  // This is the maximum size of the path
+  plan->paths = malloc(sizeof(struct exec_critical_path_t) * num_groups);
+  memset(plan->paths, 0, sizeof(struct exec_critical_path_t) * num_groups);
+  struct exec_critical_path_t *paths = plan->paths;
+
+
+  /* The rest of this section builds the critical path component for the
+   * upgrade.  The way it works is quite simple.  Get the max bandwidth of each
+   * pod and the core switches.  Get the number of switches that we are
+   * upgrading in each pod/core.  The critical path would be the path with the
+   * max bandwidth/#upgrades */
+
+  for (uint32_t i = 0; i < expr->num_pods; ++i) {
+    uint32_t id = pod_stats[i].pod_id;
+    paths[id].bandwidth = pod_stats[i].in.max;
+
+    // Max number of switches to upgrade
+    paths[id].sws = malloc(sizeof(
+          struct jupiter_located_switch_t *) * expr->num_aggs_per_pod);
+  }
+  paths[num_groups - 1].bandwidth = core_stats->in.max;
+  paths[num_groups - 1].sws = malloc(
+      sizeof(struct jupiter_located_switch_t *) * expr->num_cores);
+
+  for (uint32_t i = 0; i < expr->nlocated_switches; ++i) {
+    struct jupiter_located_switch_t *sw = &expr->located_switches[i];
+    paths[sw->pod].pod = sw->pod;
+    paths[sw->pod].type = sw->type;
+    if (sw->type == AGG) {
+      paths[sw->pod].sws[paths[sw->pod].num_switches++] = sw;
+    } else if (sw->type == CORE) {
+      paths[num_groups - 1].sws[paths[num_groups - 1].num_switches++] = sw;
+    } else {
+      panic("Unsupported switch type: %d", sw->type);
+    }
+  }
+
+  for (uint32_t i = 0; i < expr->num_pods; ++i) {
+    uint32_t id = pod_stats[i].pod_id;
+    paths[id].bandwidth = pod_stats[i].in.max;
+  }
+  paths[num_groups - 1].bandwidth = core_stats->in.max;
+  plan->num_paths = num_groups;
+
+  free(pod_stats);
+  free(core_stats);
+
+  return plan;
+}
+
+void exec_critical_path_analysis_update(
+    struct exec_t const *exec, struct expr_t const *expr,
+    struct traffic_matrix_t **tm, uint32_t ntms,
+    struct exec_critical_path_stats_t *stats) {
+  struct traffic_matrix_trace_iter_t *iter = 
+    traffic_matrix_iter_from_tms(tm, ntms);
+
+  struct traffic_stats_t *pod_stats = 0, *core_stats = 0;
+  uint32_t num_pods = 0;
+ 
+  // Get the traffic stats and update the paths
+  exec_traffic_stats(exec, expr, iter, ntms, 
+      &pod_stats, &num_pods, &core_stats);
+
+  for (uint32_t i = 0; i < stats->num_paths; ++i) {
+    if (stats->paths[i].type == CORE) {
+      stats->paths[i].cur_bandwidth = core_stats->in.max;
+    } else if (stats->paths[i].type == AGG) {
+      stats->paths[i].cur_bandwidth = pod_stats[stats->paths[i].pod].in.max;
+    }
+  }
+}
+
+struct predictor_t *exec_predictor_create(struct exec_t *exec, struct expr_t const *expr, char const *value) {
+  if        (strcmp(value, "ewma") == 0) {
+    info("Loading EWMA predictor.");
+    return exec_ewma_cache_build_or_load(exec, expr);
+  } else if (strcmp(value, "perfect") == 0) {
+    info("Loading PERFECT predictor.");
+    return exec_perfect_cache_build_or_load(exec, expr);
+  }
+  return 0;
+}
+
+

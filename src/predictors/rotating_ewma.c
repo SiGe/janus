@@ -6,9 +6,9 @@
 
 #include "util/common.h"
 #include "util/log.h"
-#include "predictors/ewma.h"
+#include "predictors/rotating_ewma.h"
 
-#define TO_E(p) struct predictor_ewma_t *pe = (struct predictor_ewma_t *)(p)
+#define TO_E(p) struct predictor_rotating_ewma_t *pe = (struct predictor_rotating_ewma_t *)(p)
 #define INDEX(p, j) (p)%(j)
 #define EWMA(n, o, coeff) (((n) * (coeff)) + (o) * (1 - (coeff)))
 
@@ -18,119 +18,85 @@
 #define PRED_SUFFIX ".pred."
 #define ERROR_SUFFIX ".error."
 
-struct predictor_ewma_t *predictor_ewma_create(
-    bw_t exp_coeff, uint16_t steps, char const *name) {
-  if (steps > EWMA_MAX_TM_STRIDE)
-    panic("Too many steps for prediction using this EWMA" 
-        "predictor.  Update EWMA_MAX_TM_STRIDE in config.h");
-
-  struct predictor_ewma_t *ewma = malloc(sizeof(struct predictor_ewma_t));
-
-  char error_name[PATH_MAX+1] = {0};
-  strncat(error_name, name, PATH_MAX);
-  strncat(error_name, ERROR_SUFFIX, PATH_MAX);
-
-  ewma->exp_coeff   = exp_coeff;
-  ewma->error_traces = malloc(sizeof(struct traffix_matrix_trace *) * steps);
-  ewma->pred_traces  = malloc(sizeof(struct traffix_matrix_trace *) * steps);
-
-  for (uint16_t i = 0; i < steps; ++i) {
-    char pred_name[PATH_MAX+1] = {0};
-    char num[INT_MAX_LEN];
-    snprintf(num, INT_MAX_LEN, "%d", i);
-    strncat(pred_name, name, PATH_MAX);
-    strncat(pred_name, PRED_SUFFIX, PATH_MAX);
-    strncat(pred_name, num, PATH_MAX);
-    ewma->pred_traces[i] = traffic_matrix_trace_create(
-        EWMA_DEFAULT_CACHE_SIZE, EWMA_DEFAULT_INDEX_SIZE, pred_name);
-  }
-
-  for (uint16_t i = 0; i < steps; ++i) {
-    char error_name[PATH_MAX+1] = {0};
-    char num[INT_MAX_LEN];
-    snprintf(num, INT_MAX_LEN, "%d", i);
-    strncat(error_name, name, PATH_MAX);
-    strncat(error_name, ERROR_SUFFIX, PATH_MAX);
-    strncat(error_name, num, PATH_MAX);
-    ewma->error_traces[i] = traffic_matrix_trace_create(
-        EWMA_DEFAULT_CACHE_SIZE, EWMA_DEFAULT_INDEX_SIZE, error_name);
-  }
-
-  ewma->real_trace  = 0;
-  ewma->predict     = predictor_ewma_predict;
-  ewma->build       = predictor_ewma_build;
-  ewma->free        = predictor_ewma_free;
-  ewma->steps       = steps;
-
-  return ewma;
-}
-
-#define TO_PI(p) struct predictor_ewma_iterator_t *iter =\
-    (struct predictor_ewma_iterator_t *)(p)
+#define TO_PI(p) struct predictor_rotating_ewma_iterator_t *iter =\
+    (struct predictor_rotating_ewma_iterator_t *)(p)
 static void _pe_begin(
     struct predictor_iterator_t *pe) {
   TO_PI(pe);
 
-  iter->pos = iter->s + 1;
+  iter->pos = 0;
 }
 
 static int _pe_next(
-    struct predictor_iterator_t *pe) {
-  TO_PI(pe);
+    struct predictor_iterator_t *piter) {
+  TO_PI(piter);
+  iter->pos++;
 
-  if (iter->pos <=  iter->e) {
-    iter->pos++;
-    return 1;
-  }
+  if (iter->pos >= iter->num_samples)
+    iter->pos = iter->num_samples;
 
-  return 0;
+  return iter->pos == iter->num_samples;
 }
 
 static int _pe_end(
-    struct predictor_iterator_t *pe) {
-  TO_PI(pe);
+    struct predictor_iterator_t *piter) {
+  TO_PI(piter);
 
-  return (iter->pos > iter->e);
+  return (iter->pos >= iter->num_samples);
 }
 
-static struct traffic_matrix_t * _pe_cur(
+static struct traffic_matrix_trace_iter_t * _pe_cur(
     struct predictor_iterator_t *pi) {
   TO_PI(pi);
   TO_E(iter->predictor);
 
-  trace_time_t step = iter->pos - iter->s;
+  struct traffic_matrix_t **tms = 
+    malloc(sizeof(struct traffic_matrix_t *) * pe->steps);
 
-  struct traffic_matrix_t *err = 0, *out = 0;
-  traffic_matrix_trace_get(
-      pe->error_traces[step],
-      iter->s, &err);
+  trace_time_t offset = iter->num_samples / 2;
 
-  out = traffic_matrix_add(iter->tm, err);
-  traffic_matrix_free(err);
-  return out;
+  for (uint32_t step = 1; step < pe->steps; ++step) {
+    struct traffic_matrix_t *tm = 0;
+    traffic_matrix_trace_get(
+        pe->error_traces[step],
+        iter->s + iter->pos - offset, &tm);
+    assert(tm != 0);
+    assert(iter->tm_now != 0);
+    tms[step-1] = traffic_matrix_add(tm, iter->tm_now);
+    traffic_matrix_free(tm);
+  }
+
+  struct traffic_matrix_trace_iter_t *ret = 
+    traffic_matrix_iter_from_tms(tms, pe->steps);
+  return ret;
 }
 
 static void _pe_free(
     struct predictor_iterator_t *pe) {
   TO_PI(pe);
+  traffic_matrix_free(iter->tm_now);
+  iter->tm_now = 0;
   free(iter);
 }
 
-
+static int _pe_length(struct predictor_iterator_t *pre) {
+  TO_PI(pre);
+  return iter->num_samples;
+}
 
 /* Returns an array of traffic matrices */
-struct predictor_iterator_t *predictor_ewma_predict(
-    struct predictor_t *pre, struct traffic_matrix_t const *tm,
-    trace_time_t s, trace_time_t e) {
+static struct predictor_iterator_t *predictor_rotating_ewma_predict(
+    struct predictor_t *pre, trace_time_t now, trace_time_t end) {
 
   TO_E(pre);
-  if (e - s >= pe->steps) {
-    panic("Cannot predict that far into the future: %d, %d (num steps: %d)", e, s, pe->steps);
+  if (end - now >= pe->steps || end - now < 0) {
+    panic("Cannot predict that far into the future. Asking for range [%d, %d] (num steps: %d)", 
+        now, end, pe->steps);
     return 0;
   }
 
-  struct predictor_ewma_iterator_t *iter = malloc(
-      sizeof(struct predictor_ewma_iterator_t));
+  struct predictor_rotating_ewma_iterator_t *iter = malloc(
+      sizeof(struct predictor_rotating_ewma_iterator_t));
 
 
   iter->begin = _pe_begin;
@@ -138,59 +104,45 @@ struct predictor_iterator_t *predictor_ewma_predict(
   iter->free = _pe_free;
   iter->cur = _pe_cur;
   iter->next = _pe_next;
+  iter->length = _pe_length;
 
-  iter->s = s;
-  iter->e = e;
+  iter->s = now;
+  iter->e = end;
+  iter->tm_now = 0;
   iter->predictor = pre;
-  iter->tm = tm;
+  iter->num_samples = pe->sample;
+  traffic_matrix_trace_get(pe->real_trace, iter->s, &iter->tm_now);
+  //info("Creating a an iterator ...: %p, %p, %u, %u", iter, iter->tm_now, now, iter->e);
 
   return (struct predictor_iterator_t *)iter;
 }
 
 
-struct _ewma_rotating_predictor_t {
+struct _rotating_ewma_rotating_predictor_t {
   struct traffic_matrix_t *pred[EWMA_MAX_TM_STRIDE];
   struct traffic_matrix_t *prev[EWMA_MAX_TM_STRIDE];
   struct traffic_matrix_t *error[EWMA_MAX_TM_STRIDE];
   struct traffic_matrix_t *real[EWMA_MAX_TM_STRIDE];
   uint16_t index;
   uint16_t size;
-  struct predictor_ewma_t *ewma;
+  struct predictor_rotating_ewma_t *rotating_ewma;
   trace_time_t keys[EWMA_MAX_TM_STRIDE];
 };
 
-int _ewma_predictor_rotating_func(
+int _rotating_ewma_predictor_rotating_func(
     struct traffic_matrix_t *future_tm, 
     trace_time_t time,
     void *metadata) {
 
-  struct _ewma_rotating_predictor_t *setting = 
-    (struct _ewma_rotating_predictor_t *)metadata;
-  struct predictor_ewma_t *pe = setting->ewma;
+  struct _rotating_ewma_rotating_predictor_t *setting = 
+    (struct _rotating_ewma_rotating_predictor_t *)metadata;
+  struct predictor_rotating_ewma_t *pe = setting->rotating_ewma;
 
   // Allocate enough TMs for predictions
   uint32_t index = INDEX(setting->index, setting->size);
   setting->keys[index] = time;
 
   struct traffic_matrix_t *tm = setting->real[index];
-
-  // Build the prediction matrices
-  /*
-  for (uint32_t i = 0; i < setting->size; ++i) {
-    setting->pred[i] = malloc(
-      sizeof(struct traffic_matrix_t) +
-      sizeof(struct pair_bw_t) * tm->num_pairs);
-    setting->pred[i]->num_pairs = tm->num_pairs;
-  }
-
-  // Build space for error matrices
-  for (uint32_t i = 0; i < setting->size; ++i) {
-    setting->error[i] = malloc(
-      sizeof(struct traffic_matrix_t) +
-      sizeof(struct pair_bw_t) * tm->num_pairs);
-    setting->error[i]->num_pairs = tm->num_pairs;
-  }
-  */
 
   // Set the pointers
   // Used to compute the errors
@@ -222,13 +174,6 @@ int _ewma_predictor_rotating_func(
       // Error is from the previous run
       error_stride[i]->bw =
         real_stride[INDEX(i+index-1, setting->size)]->bw - pred_stride[i]->bw;
-
-      /*
-      info("@%d PREDICTION FOR %d is %f (error=%f, real=%f)", 
-          setting->keys[INDEX(index+i, setting->size)], i, 
-          pred_stride[i]->bw, error_stride[i]->bw,
-          real_stride[INDEX(i+index-1, setting->size)]->bw);
-      */
     }
 
     for (uint32_t i = 1; i < setting->size; ++i) {
@@ -244,13 +189,11 @@ int _ewma_predictor_rotating_func(
   }
   
   for (uint32_t i = 1; i < setting->size; ++i) {
-    // We have padded the first i pred with i zero matrices
-    // for the first i key.  The ith prediction is time + ith
-    // key
+    // We have padded the first i pred with i zero matrices for the first i key.
+    // The ith prediction is time + ith key
     traffic_matrix_trace_add(pe->pred_traces[i], 
         setting->pred[i], setting->keys[INDEX(index+i, setting->size)]);
 
-    //info("Adding key for %d's error matrix (time=%d)", i, setting->keys[INDEX(index+i, setting->size)]);
     traffic_matrix_trace_add(pe->error_traces[i], 
         setting->error[i], setting->keys[INDEX(index+i, setting->size)]);
   }
@@ -269,8 +212,7 @@ int _ewma_predictor_rotating_func(
 }
 
 // 1 + p + p^2 + ... p^n = (1 + p^(n+1))/(1 + p)
-// 
-void predictor_ewma_build(
+void predictor_rotating_ewma_build(
     struct predictor_t *p, 
     struct traffic_matrix_trace_t *trace) {
   TO_E(p);
@@ -287,14 +229,14 @@ void predictor_ewma_build(
   traffic_matrix_trace_get(trace, time, &tm);
   uint32_t num_pairs = tm->num_pairs;
 
-  struct _ewma_rotating_predictor_t rpt = {
+  struct _rotating_ewma_rotating_predictor_t rpt = {
     .pred = {0},
     .prev = {0},
     .error= {0},
     .real = {0},
     .index = 0,
     .size = pe->steps,
-    .ewma = pe,
+    .rotating_ewma = pe,
     .keys = {0},
   };
 
@@ -342,7 +284,7 @@ void predictor_ewma_build(
   }
 
   trace_time_t last = 0;
-  /* Execute the ewma_predictor_rotating func */
+  /* Execute the rotating_ewma_predictor_rotating func */
   uint32_t end = 0;
   if (pe->steps < trace->num_indices)
     end = trace->num_indices - pe->steps;
@@ -354,7 +296,7 @@ void predictor_ewma_build(
     if (!tm)
       panic("TM is null.  Expected a TM for key: %d", index->time);
 
-    if (!_ewma_predictor_rotating_func(tm, index->time, &rpt))
+    if (!_rotating_ewma_predictor_rotating_func(tm, index->time, &rpt))
       break;
   }
 
@@ -363,7 +305,7 @@ void predictor_ewma_build(
     start = trace->num_indices - pe->steps;
 
   for (uint64_t i = start, j = 0; i < trace->num_indices; ++i, ++j) {
-    if (!_ewma_predictor_rotating_func(
+    if (!_rotating_ewma_predictor_rotating_func(
           traffic_matrix_zero(num_pairs), last + j + 1, &rpt))
       break;
   }
@@ -376,21 +318,10 @@ void predictor_ewma_build(
   }
 
   traffic_matrix_free(zero_tm);
-  predictor_ewma_save(p);
-
-  //TODO: REMOVE THIS
-  /*
-  struct traffic_matrix_trace_t *pri = pe->error_traces[pe->steps-1];
-  for (uint32_t i = 0; i < pri->num_indices; ++i) {
-    trace_time_t key = 0;
-    traffic_matrix_trace_get_nth_key(pri, i, &key);
-    traffic_matrix_trace_get(pri, key, &tm);
-    traffic_matrix_free(tm);
-  }
-  */
+  predictor_rotating_ewma_save(p);
 }
 
-void predictor_ewma_save(struct predictor_t *predictor) {
+void predictor_rotating_ewma_save(struct predictor_t *predictor) {
   TO_E(predictor);
   for (uint32_t i = 0; i < pe->steps; ++i) {
     traffic_matrix_trace_save(pe->pred_traces[i]);
@@ -398,7 +329,7 @@ void predictor_ewma_save(struct predictor_t *predictor) {
   }
 }
 
-void predictor_ewma_free(struct predictor_t *predictor) {
+void predictor_rotating_ewma_free(struct predictor_t *predictor) {
   TO_E(predictor);
 
   for (uint32_t i = 0; i < pe->steps; ++i) {
@@ -411,7 +342,7 @@ void predictor_ewma_free(struct predictor_t *predictor) {
 }
 
 
-static void predictor_ewma_free_error_only(struct predictor_t *predictor) {
+static void predictor_rotating_ewma_free_error_only(struct predictor_t *predictor) {
   TO_E(predictor);
 
   for (uint32_t i = 0; i < pe->steps; ++i) {
@@ -421,36 +352,88 @@ static void predictor_ewma_free_error_only(struct predictor_t *predictor) {
   free(pe);
 }
 
-void predictor_ewma_build_panic(
+static void predictor_rotating_ewma_build_panic(
     struct predictor_t *p, 
     struct traffic_matrix_trace_t *trace) {
   (void)p;
   (void)trace;
-  panic("Cannot build an ewma predictor that is loaded from file.");
+  panic("Cannot build an rotating_ewma predictor that is loaded from file.");
 }
 
-struct predictor_ewma_t *predictor_ewma_load(char const *dir, char const *fname, int steps, int cache_size) {
+struct predictor_rotating_ewma_t *predictor_rotating_ewma_load(
+    char const *dir, char const *fname, int steps, int cache_size,
+    struct traffic_matrix_trace_t *trace) {
   if (!dir_exists(dir))
     return 0;
 
   // Load the error matrix
-  // TODO: Not a good idea but unfortunately this object should be "different"
-  // than the typical EWMA thing Probably a better idea not to have a "build"
-  // function in the predictor.  It's sort of meaningless to begin with.
+  // TODO: Not a good idea but unfortunately this object should behave
+  // "differently" than the object returned by _create. Probably a better idea
+  // not to have a "build" function in the predictor.  It's sort of meaningless
+  // to begin with.
   //
   // - Omid 1/23/2019
-  struct predictor_ewma_t *ewma = malloc(sizeof(struct predictor_ewma_t));
-  ewma->error_traces = malloc(sizeof(struct traffix_matrix_trace *) * steps);
-  ewma->build = predictor_ewma_build_panic;
-  ewma->predict = predictor_ewma_predict;
-  ewma->free = predictor_ewma_free_error_only;
-  ewma->steps = steps;
+  struct predictor_rotating_ewma_t *rotating_ewma = malloc(sizeof(struct predictor_rotating_ewma_t));
+  rotating_ewma->error_traces = malloc(sizeof(struct traffix_matrix_trace *) * steps);
+  rotating_ewma->build = predictor_rotating_ewma_build_panic;
+  rotating_ewma->predict = predictor_rotating_ewma_predict;
+  rotating_ewma->free = predictor_rotating_ewma_free_error_only;
+  rotating_ewma->steps = steps;
+  rotating_ewma->real_trace = trace;
+  rotating_ewma->sample = 40;
 
   for (uint32_t i = 0; i < steps; ++i) {
     char fpath[PATH_MAX] = {0};
     sprintf(fpath, "%s" PATH_SEPARATOR "%s" ERROR_SUFFIX "%d", dir, fname, i);
-    ewma->error_traces[i] = traffic_matrix_trace_load(cache_size, fpath);
+    rotating_ewma->error_traces[i] = traffic_matrix_trace_load(cache_size, fpath);
   }
 
-  return ewma;
+  return rotating_ewma;
+}
+
+struct predictor_rotating_ewma_t *predictor_rotating_ewma_create(
+    bw_t exp_coeff, uint16_t steps, char const *name) {
+  if (steps > EWMA_MAX_TM_STRIDE)
+    panic("Too many steps for prediction using this EWMA" 
+        "predictor.  Update EWMA_MAX_TM_STRIDE in config.h");
+
+  struct predictor_rotating_ewma_t *rotating_ewma = malloc(sizeof(struct predictor_rotating_ewma_t));
+
+  char error_name[PATH_MAX+1] = {0};
+  strncat(error_name, name, PATH_MAX);
+  strncat(error_name, ERROR_SUFFIX, PATH_MAX);
+
+  rotating_ewma->exp_coeff   = exp_coeff;
+  rotating_ewma->error_traces = malloc(sizeof(struct traffix_matrix_trace *) * steps);
+  rotating_ewma->pred_traces  = malloc(sizeof(struct traffix_matrix_trace *) * steps);
+
+  for (uint16_t i = 0; i < steps; ++i) {
+    char pred_name[PATH_MAX+1] = {0};
+    char num[INT_MAX_LEN];
+    snprintf(num, INT_MAX_LEN, "%d", i);
+    strncat(pred_name, name, PATH_MAX);
+    strncat(pred_name, PRED_SUFFIX, PATH_MAX);
+    strncat(pred_name, num, PATH_MAX);
+    rotating_ewma->pred_traces[i] = traffic_matrix_trace_create(
+        EWMA_DEFAULT_CACHE_SIZE, EWMA_DEFAULT_INDEX_SIZE, pred_name);
+  }
+
+  for (uint16_t i = 0; i < steps; ++i) {
+    char error_name[PATH_MAX+1] = {0};
+    char num[INT_MAX_LEN];
+    snprintf(num, INT_MAX_LEN, "%d", i);
+    strncat(error_name, name, PATH_MAX);
+    strncat(error_name, ERROR_SUFFIX, PATH_MAX);
+    strncat(error_name, num, PATH_MAX);
+    rotating_ewma->error_traces[i] = traffic_matrix_trace_create(
+        EWMA_DEFAULT_CACHE_SIZE, EWMA_DEFAULT_INDEX_SIZE, error_name);
+  }
+
+  rotating_ewma->real_trace  = 0;
+  rotating_ewma->predict     = predictor_rotating_ewma_predict;
+  rotating_ewma->build       = predictor_rotating_ewma_build;
+  rotating_ewma->free        = predictor_rotating_ewma_free;
+  rotating_ewma->steps       = steps;
+
+  return rotating_ewma;
 }

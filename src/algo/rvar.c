@@ -1,9 +1,12 @@
+#include <assert.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
+#include "gnuplot_i/gnuplot_i.h"
 #include "thpool/thpool.h"
 #include "util/common.h"
 #include "util/log.h"
@@ -13,6 +16,9 @@
 #define BUCKET_N(r) (r->nbuckets);
 #define BUCKET_H(r) (r->low + r->bucket_size * r->nbuckets);
 #define HEADER_SIZE (sizeof(enum RVAR_TYPE))
+
+#define RVAR_PLOT_PATH "/tmp/planner.rvar.XXXXXX"
+
 
 static char *_rvar_header(enum RVAR_TYPE type, char *buffer) {
   *(enum RVAR_TYPE*)buffer = type;
@@ -70,16 +76,65 @@ static char *_bucket_serialize(struct rvar_t *rvar, int *size) {
   return buffer;
 }
 
+static void
+_setup_gnuplot(gnuplot_ctrl *h1) {
+  gnuplot_cmd(h1, "set terminal dumb");
+  gnuplot_cmd(h1, "set nokey");
+}
+
+static void 
+_sample_plot(struct rvar_t const *rs) {
+  struct rvar_sample_t const *sample = (struct rvar_sample_t const*)(rs);
+  char buffer[] = RVAR_PLOT_PATH;
+  int fd = mkstemp(buffer);
+  if (fd == -1)
+    panic("Couldn't create the file for plotting :(");
+
+  char line[1024] = {0};
+  rvar_type_t index = 0;
+  rvar_type_t prev = sample->vals[0];
+
+  write(fd, "0\t0\n", 4);
+  for (int i = 0; i < sample->num_samples; ++i) {
+    if (sample->vals[i] == prev) {
+      index++;
+      continue;
+    }
+
+    snprintf(line, 1024, "%lf\t%lf\n", prev, index / sample->num_samples);
+    write(fd, line, strlen(line));
+
+    index = 0;
+    prev = sample->vals[i];
+    continue;
+  }
+
+  if (index != 0) {
+    snprintf(line, 1024, "%lf\t%lf\n", prev, index / sample->num_samples);
+    write(fd, line, strlen(line));
+  }
+
+  fsync(fd);
+  gnuplot_ctrl *h1 = gnuplot_init();
+  _setup_gnuplot(h1);
+  snprintf(line, 1024, "plot \"%s\" using 1:2 with boxes", buffer);
+  gnuplot_cmd(h1, line);
+  gnuplot_close(h1);
+  close(fd);
+}
+
 
 static rvar_type_t
 _sample_percentile(struct rvar_t const *rs, float percentile) {
     struct rvar_sample_t *r = (struct rvar_sample_t *)rs;
-    float fidx = percentile * r->num_samples;
+    float fidx = percentile * (r->num_samples - 1);
     float hidx = ceil(fidx);
     float lidx = floor(fidx);
 
     rvar_type_t hval = r->vals[(int)hidx];
     rvar_type_t lval = r->vals[(int)lidx];
+    if (hidx == lidx)
+      return hval;
 
     return ((hval * (hidx - fidx) + lval * (fidx - lidx)));
 }
@@ -157,15 +212,30 @@ void rvar_sample_init(struct rvar_sample_t *ret) {
     ret->free = _sample_free;
     ret->convolve = _sample_convolve;
     ret->to_bucket = _sample_to_bucket;
-    ret->_type = SAMPLED;
     ret->serialize = _sample_serialize;
+    ret->plot = _sample_plot;
+
+    ret->_type = SAMPLED;
 }
 
 struct rvar_t *rvar_sample_create(int nsamples) {
     struct rvar_sample_t *ret = malloc(sizeof(struct rvar_sample_t));
+    memset(ret, 0, sizeof(struct rvar_sample_t));
     ret->vals = malloc(sizeof(rvar_type_t) * nsamples);
     ret->num_samples = nsamples;
     rvar_sample_init(ret);
+    
+    return (struct rvar_t*)ret;
+}
+
+struct rvar_t *rvar_sample_create_with_vals(
+    rvar_type_t *vals, uint32_t nsize) {
+    struct rvar_sample_t *ret = malloc(sizeof(struct rvar_sample_t));
+    memset(ret, 0, sizeof(struct rvar_sample_t));
+    ret->vals = vals;
+    ret->num_samples = nsize;
+    rvar_sample_init(ret);
+    rvar_sample_finalize(ret, nsize);
     
     return (struct rvar_t*)ret;
 }
@@ -201,6 +271,30 @@ _bucket_expected(struct rvar_t const *rs) {
     return exp;
 }
 
+static void _bucket_plot(struct rvar_t const *rs) {
+  struct rvar_bucket_t const *buck = (struct rvar_bucket_t const*)(rs);
+  char buffer[] = RVAR_PLOT_PATH;
+  int fd = mkstemp(buffer);
+  if (fd == -1)
+    panic("Couldn't create the file for plotting :(");
+
+  char line[1024] = {0};
+  rvar_type_t x = buck->low;
+  for (int i = 0; i < buck->nbuckets; ++i) {
+    snprintf(line, 1024, "%lf\t%lf\n", (double)buck->buckets[i]/(double)buck->nbuckets, x);
+    write(fd, line, strlen(line));
+    x += buck->bucket_size;
+  }
+  fsync(fd);
+
+  gnuplot_ctrl *h1 = gnuplot_init();
+  _setup_gnuplot(h1);
+
+  snprintf(line, 1024, "plot \"%s\" using 1:2 with boxes", buffer);
+  gnuplot_cmd(h1, line);
+  gnuplot_close(h1);
+  close(fd);
+}
 
 static void _bucket_free(struct rvar_t *rs) {
     struct rvar_bucket_t *r = (struct rvar_bucket_t *)rs;
@@ -245,6 +339,7 @@ static struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_siz
     output->convolve = _bucket_convolve;
     output->serialize = _bucket_serialize;
     output->free = _bucket_free;
+    output->plot = _bucket_plot;
 
     return (struct rvar_t *)output;
 }
@@ -264,7 +359,7 @@ _float_comp(const void *v1, const void *v2) {
  * added to rvar and it isn't "optimized."
  * - Omid 1/22/2019
  * */
-static void _fix_rvar(struct rvar_sample_t *rv, uint32_t nsteps) {
+void rvar_sample_finalize(struct rvar_sample_t *rv, uint32_t nsteps) {
     /* TODO: This is so stupid, we shouldn't need to do this */
     rv->num_samples = nsteps;
     qsort(rv->vals, nsteps, sizeof(rvar_type_t), _float_comp);
@@ -282,7 +377,7 @@ struct rvar_sample_t *rvar_monte_carlo(
     }
 
     /* TODO: This is so stupid, we shouldn't need to do this */
-    _fix_rvar(ret, nsteps);
+    rvar_sample_finalize(ret, nsteps);
 
     return ret;
 }
@@ -310,7 +405,7 @@ struct rvar_sample_t *rvar_monte_carlo_multi(
 
     /* TODO: This is so stupid, we shouldn't need to do this */
     for (int i = 0; i < nvars; ++i) {
-      _fix_rvar(&vars[i], nsteps);
+      rvar_sample_finalize(&vars[i], nsteps);
     }
 
     free(ptrs);
@@ -320,23 +415,23 @@ struct rvar_sample_t *rvar_monte_carlo_multi(
 struct _monte_carlo_parallel_t {
   void *data;
   int  index;
-  struct rvar_sample_t *rv;
+  rvar_type_t *vals;
   monte_carlo_run_t runner;
 };
 
 static void _mcpd_rvar_runner(void *data) {
   struct _monte_carlo_parallel_t *mpcd = (struct _monte_carlo_parallel_t *)data;
   rvar_type_t ret = mpcd->runner(mpcd->data);
-  mpcd->rv->vals[mpcd->index] = ret;
+  mpcd->vals[mpcd->index] = ret;
 }
 
-struct rvar_sample_t *rvar_monte_carlo_parallel(
+rvar_type_t *rvar_monte_carlo_parallel_ordered(
     monte_carlo_run_t run,
     void *data,
     int nsteps,
     int dsize,
-    int num_threads) {
-
+    int num_threads
+) {
   if (num_threads == 0)
     num_threads = get_ncores() - 1;
     if (num_threads == 0)
@@ -345,12 +440,12 @@ struct rvar_sample_t *rvar_monte_carlo_parallel(
   threadpool thpool = thpool_init(num_threads);
 
   struct _monte_carlo_parallel_t *mcpd = malloc(sizeof(struct _monte_carlo_parallel_t) * nsteps);
-  struct rvar_sample_t *rv = (struct rvar_sample_t *)rvar_sample_create(nsteps);
+  rvar_type_t *vals = malloc(sizeof(rvar_type_t) * nsteps);
 
   for (uint32_t i = 0; i < nsteps; ++i) {
     mcpd[i].data = ((char *)data) + (dsize * i);
     mcpd[i].index = i;
-    mcpd[i].rv = rv;
+    mcpd[i].vals = vals;
     mcpd[i].runner = run;
   }
 
@@ -360,17 +455,20 @@ struct rvar_sample_t *rvar_monte_carlo_parallel(
 
   thpool_wait(thpool);
   thpool_destroy(thpool);
-  _fix_rvar(rv, nsteps);
 
-  /*
-  printf("RVs: ");
-  for (uint32_t i = 0; i < nsteps; ++i) {
-    printf("%f, ", rv->vals[i]);
-  }
-  printf("\n");
+  return vals;
+}
 
-  printf("Low: %f, High: %f", rv->low, rv->high);
-  */
+
+struct rvar_sample_t *rvar_monte_carlo_parallel(
+    monte_carlo_run_t run,
+    void *data,
+    int nsteps,
+    int dsize,
+    int num_threads) {
+  rvar_type_t *vals = rvar_monte_carlo_parallel_ordered(run, data, nsteps, dsize, num_threads);
+  struct rvar_sample_t *rv = (struct rvar_sample_t *)rvar_sample_create_with_vals(vals, nsteps);
+  rvar_sample_finalize(rv, nsteps);
 
   return rv;
 }
@@ -388,7 +486,7 @@ struct rvar_t *_rvar_deserialize_sample(char const *data) {
   }
 
   rv->num_samples = nsamples;
-  _fix_rvar(rv, nsamples);
+  rvar_sample_finalize(rv, nsamples);
 
   return (struct rvar_t *)rv;
 }

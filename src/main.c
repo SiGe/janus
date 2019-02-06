@@ -16,7 +16,7 @@
 #include "freelist.h"
 #include "network.h"
 #include "plan.h"
-#include "predictors/ewma.h"
+#include "predictors/rotating_ewma.h"
 #include "risk.h"
 #include "util/common.h"
 #include "util/log.h"
@@ -83,88 +83,6 @@ static void __attribute__((unused))
     traffic_matrix_trace_free(trace);
   }
 
-static void __attribute__((unused))
-  test_error_matrices(struct expr_t *expr) {
-#define NUM_STEPS 5
-    struct dataplane_t dp = {0};
-    struct traffic_matrix_trace_t *trace = traffic_matrix_trace_load(50, expr->traffic_test);
-    struct traffic_matrix_trace_iter_t *iter = trace->iter(trace);
-
-    /* Build a predictor */
-    struct predictor_t *pred = (struct predictor_t *)
-      predictor_ewma_create(0.8, NUM_STEPS + 1, expr->traffic_training);
-    pred->build(pred, trace);
-
-    uint32_t tm_idx = 1;
-    bw_t mlu        = 0;
-
-    int prev_viol[NUM_STEPS] = {0};
-    bw_t prev_mlu[NUM_STEPS] = {0};
-    struct traffic_matrix_t *tms[NUM_STEPS] = {0};
-
-    for (uint32_t i = 0; i < NUM_STEPS; ++i) {
-      tms[i] = traffic_matrix_zero(9216);
-    }
-
-    int viol_index   = 0;
-    trace_time_t time = 0;
-
-    for (iter->begin(iter); !iter->end(iter); iter->next(iter), time += 1) {
-      /* Predicted tm matrices */
-      struct predictor_iterator_t *piter = pred->predict(
-          pred, 
-          tms[viol_index], 
-          time, time + NUM_STEPS);
-
-      /* Compare prediction results against the real results */
-      int steps = 0;
-      struct traffic_matrix_t *tm = 0;
-      for (piter->begin(piter); !piter->end(piter); piter->next(piter), steps += 1) {
-        tm = piter->cur(piter);
-        if (tm == 0)
-          continue;
-
-        _simulate_network(expr->network, tm, &dp);
-        bw_t cur_mlu; int violations;
-        _get_violations_mlu_for_dataplane(&dp, &violations, &cur_mlu);
-
-        // compare cur_mlu with the proper index
-        int cmp_viol = prev_viol[(NUM_STEPS + viol_index + steps) % NUM_STEPS];
-        bw_t cmp_mlu = prev_mlu [(NUM_STEPS + viol_index + steps) % NUM_STEPS];
-
-        info("Prediction for time %d, step %d is %d (pred) vs. %d (real) (%f vs. %f)", 
-            time + steps, steps, violations, cmp_viol, cur_mlu, cmp_mlu);
-        traffic_matrix_free(tm);
-      }
-
-      iter->get(iter, &tm);
-      /* Real tm matrices */
-      _simulate_network(expr->network, tm, &dp);
-      bw_t cur_mlu; int violations;
-      _get_violations_mlu_for_dataplane(&dp, &violations, &cur_mlu);
-
-      // Update the violation index
-      viol_index += 1;
-      if (viol_index >= NUM_STEPS)
-        viol_index = 0;
-
-      prev_viol[viol_index] = violations;
-      prev_mlu[viol_index] = cur_mlu;
-
-      traffic_matrix_free(tms[viol_index]);
-      tms[viol_index] = tm;
-
-      if (violations != 0)
-        info("[TM %d] Number of violations: %d", tm_idx, violations);
-      tm_idx ++;
-
-      /* Don't forget to free the traffic matrix */
-    }
-    info("Maximum network MLU is %f", mlu);
-
-    iter->free(iter);
-    traffic_matrix_trace_free(trace);
-  }
 
 struct _rvar_cache_builder {
   struct network_t *network;

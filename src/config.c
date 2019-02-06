@@ -11,12 +11,14 @@
 
 #include "config.h"
 
-risk_cost_t _rvc_cost(struct rvar_t const *rvar) {
-  //return rvar->percentile(rvar, 0.999); //expected(rvar);
-  //return rvar->percentile(rvar, 1); //expected(rvar);
-  //
-  return rvar->expected(rvar); //expected(rvar);
-}
+static char* VERBOSITY_TEXT[] = {
+  "[0] Enjoy the silence.",
+  "[1] Room noise level",
+  "[2] Coffeeshop noise level",
+  "[3] Auditarium noise level",
+  "[4] Show me everything (with cool graphs. kthx.)",
+  "[5] No really, show me everything (graphs and kittens and donuts.)"
+};
 
 static struct risk_cost_func_t *risk_violation_name_to_func(char const *name) {
   return risk_cost_string_to_func(name);
@@ -161,6 +163,8 @@ static int config_handler(void *data,
     expr->mop_duration = atoi(value);
   } else if (MATCH("predictor", "ewma-coeff")) {
     expr->ewma_coeff = atof(value);
+  } else if (MATCH("predictor", "type")) {
+    expr->predictor_string = strdup(value);
   } else if (MATCH("criteria", "risk-violation")) {
     expr->risk_violation_cost = risk_violation_name_to_func(value);
   } else if (MATCH("criteria", "criteria-time")) {
@@ -185,6 +189,8 @@ static int config_handler(void *data,
     expr->cache.rvar_directory = strdup(value);
   } else if (MATCH("cache", "ewma-cache-dir")) {
     expr->cache.ewma_directory = strdup(value);
+  } else if (MATCH("cache", "perfect-cache-dir")) {
+    expr->cache.perfect_directory = strdup(value);
   }
 
   return 1;
@@ -269,7 +275,7 @@ parse_duration(char const *arg, uint32_t *start, uint32_t *end) {
 static int
 cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
   int opt = 0;
-  while ((opt = getopt(argc, argv, "a:r:")) != -1) {
+  while ((opt = getopt(argc, argv, "a:r:v")) != -1) {
     switch (opt) {
       case 'a':
         expr->action = parse_action(optarg);
@@ -279,6 +285,9 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
             &expr->cache.subplan_start,
             &expr->cache.subplan_end);
         break;
+
+      case 'v':
+        expr->verbose += 1;
     };
   }
   return 1;
@@ -290,12 +299,15 @@ int _step_count(struct criteria_time_t *crit, uint32_t length) {
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {
   info("Parsing config %s", ini_file);
+  expr->verbose = 0;
   if (ini_parse(ini_file, config_handler, expr) < 0) {
     panic("Couldn't load the ini file.");
   }
   if (cmd_parse(argc, argv, expr) < 0) {
     panic("Couldn't parse the command line options.");
   }
+
+  info("Running with verbosity: %s", VERBOSITY_TEXT[expr->verbose]);
 
   expr->clone_network = expr_clone_network;
   _build_located_switch_group(expr);

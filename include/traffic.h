@@ -74,6 +74,7 @@ struct traffic_matrix_t *traffic_matrix_multiply(
 struct traffic_matrix_trace_iter_t {
     struct traffic_matrix_trace_t *trace;
     uint32_t state;
+    uint32_t _begin, _end;
 
     void (*begin)(struct traffic_matrix_trace_iter_t *);
     void (*go_to)(struct traffic_matrix_trace_iter_t *, trace_time_t);
@@ -82,6 +83,14 @@ struct traffic_matrix_trace_iter_t {
     int  (*end)(struct traffic_matrix_trace_iter_t *);
     void (*get)(struct traffic_matrix_trace_iter_t *, struct traffic_matrix_t **);
     void (*free)(struct traffic_matrix_trace_iter_t *);
+
+    struct traffic_matrix_t* (*get_nocopy)(struct traffic_matrix_trace_iter_t *);
+};
+
+struct traffic_matrix_trace_iter_tms_t {
+  struct traffic_matrix_trace_iter_t;
+  struct traffic_matrix_t **tms;
+  uint32_t tms_length;
 };
 
 // Append only data-structure for working with traffic matrix traces
@@ -152,6 +161,12 @@ void traffic_matrix_trace_for_each(struct traffic_matrix_trace_t *t,
 
 // Outputs a new traffic matrix where all entries are zero
 struct traffic_matrix_t *traffic_matrix_zero(pair_id_t);
+
+struct traffic_matrix_trace_iter_t *traffic_matrix_iter_from_tms(
+    struct traffic_matrix_t **tm, uint32_t size);
+
+void trace_iterator_set_range(struct traffic_matrix_trace_iter_t *iter, 
+    uint32_t begin, uint32_t end);
 
 #endif // _TRAFFIC_H_
 

@@ -9,20 +9,25 @@
 #define TM_SIZE(p) (p->num_pairs * sizeof(struct pair_bw_t) + sizeof(struct traffic_matrix_t))
 
 void _tmti_begin(struct traffic_matrix_trace_iter_t *iter) {
-    iter->state = 0;
+    iter->state = iter->_begin;
 }
 
 int _tmti_next(struct traffic_matrix_trace_iter_t *iter) {
     iter->state += 1;
-    if (iter->state > iter->trace->num_indices) {
-        iter->state = iter->trace->num_indices;
+    if (iter->state > iter->_end) {
+        iter->state = iter->_end;
         return 0;
     }
     return 1;
 }
 
 int _tmti_length(struct traffic_matrix_trace_iter_t *iter) {
-  return iter->trace->num_indices;
+  return (iter->_end - iter->_begin) + 1;
+}
+
+struct traffic_matrix_t *_tmti_get_nocopy(struct traffic_matrix_trace_iter_t *iter) {
+  panic("TMTI doesn't support copy semantics. Use get.");
+  return 0;
 }
 
 void _tmti_go_to(struct traffic_matrix_trace_iter_t *iter, trace_time_t time) {
@@ -35,11 +40,11 @@ void _tmti_go_to(struct traffic_matrix_trace_iter_t *iter, trace_time_t time) {
     }
   }
 
-  iter->state = iter->trace->num_indices;
+  iter->state = iter->_end;
 }
 
 int _tmti_end(struct traffic_matrix_trace_iter_t *iter) {
-    return iter->state >= iter->trace->num_indices;
+    return iter->state >= iter->_end; 
 }
 
 void _tmti_get(struct traffic_matrix_trace_iter_t *iter, struct traffic_matrix_t **tm) {
@@ -66,10 +71,24 @@ static struct traffic_matrix_trace_iter_t *_tmt_iter(
     iter->next  = _tmti_next;
     iter->end   = _tmti_end;
     iter->get   = _tmti_get;
+    iter->get_nocopy = _tmti_get_nocopy;
     iter->free  = _tmti_free;
     iter->length = _tmti_length;
 
+    iter->_begin = 0;
+    iter->_end = trace->num_indices;
+
     return iter;
+}
+
+void trace_iterator_set_range(struct traffic_matrix_trace_iter_t *iter, 
+    uint32_t begin, uint32_t end) {
+  if (end == 0)
+    end = iter->trace->num_indices;
+
+  iter->_begin = begin;
+  iter->state = iter->_begin;
+  iter->_end = end;
 }
 
 void traffic_matrix_save(struct traffic_matrix_t *tm, FILE * f) {
@@ -546,4 +565,78 @@ int traffic_matrix_trace_get_nth_key(
 
   *ret =trace->indices[index].time;
   return SUCCESS;
+}
+
+#define TO_TTIT(x) struct traffic_matrix_trace_iter_tms_t *ttit = (struct traffic_matrix_trace_iter_tms_t *)(x)
+
+void _ttit_begin(struct traffic_matrix_trace_iter_t *iter) {
+  iter->state = 0;
+}
+
+int _ttit_end(struct traffic_matrix_trace_iter_t *iter) {
+  TO_TTIT(iter);
+  return iter->state >= ttit->tms_length;
+}
+
+int _ttit_next(struct traffic_matrix_trace_iter_t *iter) {
+  TO_TTIT(iter);
+  iter->state += 1;
+  if (iter->state >= ttit->tms_length)
+    iter->state = ttit->tms_length;
+  return 1;
+}
+
+void _ttit_get(struct traffic_matrix_trace_iter_t *iter, 
+    struct traffic_matrix_t **tm) {
+  TO_TTIT(iter);
+
+  /* Lose ownership of the TM here */
+  *tm = ttit->tms[ttit->state];
+  ttit->tms[ttit->state] = 0;
+
+  if (*tm == 0) {
+    assert(0);
+    panic("Requesting a TM that we do not own anymore.");
+  }
+}
+
+struct traffic_matrix_t *_ttit_get_nocopy(struct traffic_matrix_trace_iter_t *iter) {
+  TO_TTIT(iter);
+  return ttit->tms[ttit->state];
+}
+
+void _ttit_free(struct traffic_matrix_trace_iter_t *iter) {
+  free(iter);
+}
+
+int _ttit_length(struct traffic_matrix_trace_iter_t *iter) {
+  TO_TTIT(iter);
+  return ttit->tms_length;
+}
+
+void _ttit_go_to(struct traffic_matrix_trace_iter_t *iter, trace_time_t idx) {
+  TO_TTIT(iter);
+  ttit->state = idx;
+  if (ttit->state > ttit->tms_length)
+    ttit->state = ttit->tms_length;
+}
+
+struct traffic_matrix_trace_iter_t *traffic_matrix_iter_from_tms(
+    struct traffic_matrix_t **tm, uint32_t size) {
+  struct traffic_matrix_trace_iter_tms_t *iter = 
+    malloc(sizeof(struct traffic_matrix_trace_iter_tms_t));
+
+  iter->tms = tm;
+  iter->tms_length = size - 1;
+
+  iter->begin       = _ttit_begin;
+  iter->end         = _ttit_end;
+  iter->next        = _ttit_next;
+  iter->get         = _ttit_get;
+  iter->get_nocopy  = _ttit_get_nocopy;
+  iter->free        = _ttit_free;
+  iter->length      = _ttit_length;
+  iter->go_to       = _ttit_go_to;
+
+  return (struct traffic_matrix_trace_iter_t *)iter;
 }

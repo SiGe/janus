@@ -10,13 +10,15 @@
 #include "network.h"
 #include "plan.h"
 #include "predictor.h"
-#include "predictors/ewma.h"
+#include "predictors/rotating_ewma.h"
 #include "risk.h"
 #include "util/common.h"
 
 #include "exec/pug.h"
 
 #define TO_PUG(e) struct exec_pug_t *pug = (struct exec_pug_t *)e;
+//#define DEBUG(txt, ...) info(txt, __VA_ARGS__)
+#define DEBUG(txt, ...) {}
 
 // TODO: Criteria are in effect here ... Can add new criteria here or
 // .. change later.  Too messy at the moment.
@@ -27,9 +29,6 @@ _best_plan_criteria(
     struct expr_t *expr,
     risk_cost_t p1_cost, int p1_length, double p1_perf,
     risk_cost_t p2_cost, int p2_length, double p2_perf) {
-
-  //double p1_delta = fabs(p1_subplan_size - optimal_subplan_size);
-  //double p2_delta = fabs(p2_subplan_size - optimal_subplan_size);
 
   return ( (p1_cost  < p2_cost) ||  // If cost was lower
 
@@ -97,7 +96,7 @@ _plan_invalidate_not_equal(struct plan_repo_t *repo, int subplan, int step) {
     removed += 1;
   }
 
-  //info("removed: %d plans", removed);
+  //DEBUG("removed: %d plans", removed);
   repo->plan_count = last_index + 1;
 }
 
@@ -190,81 +189,133 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
 
 static struct rvar_t *
 _short_term_risk(struct exec_t *exec, struct expr_t *expr,
-    int subplan, trace_time_t now, trace_time_t low, trace_time_t high, int *ret_switch_count) {
+    int subplan, trace_time_t now, int *ret_switch_count) {
   TO_PUG(exec);
   struct mop_t *mop = pug->iter->mop_for(pug->iter, subplan);
-  int tm_count = (high - low + 1) * expr->mop_duration;
   *ret_switch_count = mop->size(mop);
 
+  //TODO: uncomment this
+  struct predictor_t *pred = pug->pred;
+  struct predictor_iterator_t *iter = pred->predict(pred, now, now + expr->mop_duration);
+
+  int num_samples = iter->length(iter);
+  int tm_count = num_samples * expr->mop_duration;
   struct traffic_matrix_t **tms = malloc(
       sizeof(struct traffic_matrix_t *) * tm_count);
-  struct predictor_t *pred = pug->pred;
-  struct traffic_matrix_trace_t *trace = pug->trace;
-
   int index = 0;
-  struct traffic_matrix_t *tm = 0;
-  traffic_matrix_trace_get(trace, now, &tm);
 
-  for (uint32_t i = low; i <= high; ++i) {
-    struct predictor_iterator_t *iter = pred->predict(pred, tm, i, i + expr->mop_duration);
-    for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
-      tms[index++] = iter->cur(iter);
+  for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
+    struct traffic_matrix_trace_iter_t *titer = iter->cur(iter);
+    for (titer->begin(titer); !titer->end(titer); titer->next(titer)) {
+      struct traffic_matrix_t *tm = 0;
+      titer->get(titer, &tm);
+      tms[index++] = tm;
     }
+    titer->free(titer);
   }
+  iter->free(iter);
+  assert(tm_count == index);
 
-  assert(index == tm_count);
-  struct rvar_t *ret = exec_simulate(exec, expr, mop, tms, tm_count);
+  /* The returned rvar_types are in the order they were passed to exec_simulate_ordered */
+  rvar_type_t *vals = exec_simulate_ordered(exec, expr, mop, tms, tm_count);
+  // struct rvar_t *plot_rvar = rvar_sample_create_with_vals(vals, num_samples); //expr->risk_violation_cost->rvar_to_rvar(expr->risk_violation_cost, ret, 0);
+  // plot_rvar->plot(plot_rvar);
+  // plot_rvar->free(plot_rvar);
 
   /* Free the allocated traffic matrices */
   for (uint32_t i = 0; i < tm_count; ++i) {
     traffic_matrix_free(tms[i]);
   }
-  traffic_matrix_free(tm);
 
+  /* Build the rvar for the cost of the short term planner */
+  index = 0;
+  struct risk_cost_func_t *func = expr->risk_violation_cost;
+  rvar_type_t *costs = malloc(sizeof(rvar_type_t) * num_samples);
+  for (uint32_t i = 0; i < num_samples; ++i) {
+    costs[i] = 0;
+    for (uint32_t j = 0; j < expr->mop_duration; ++j) {
+      costs[i] += func->cost(func, vals[index]);
+      index++;
+    }
+  }
+
+  struct rvar_t *ret = rvar_sample_create_with_vals(costs, num_samples); //expr->risk_violation_cost->rvar_to_rvar(expr->risk_violation_cost, ret, 0);
   return ret;
 }
 
-#define BUCKET_SIZE 0.001
+#define BUCKET_SIZE 1
 
 static risk_cost_t
 _long_term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr, 
-    struct rvar_t *rvar, int idx, int *ret_plan_idx, int *ret_plan_length) {
+    struct rvar_t *rvar, int idx, int *ret_plan_idx, int *ret_plan_length, 
+    int starting_subplan) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
   int *ptr = plans->plans;
 
-  struct rvar_t *risk = (struct rvar_t *)rvar->to_bucket(rvar, BUCKET_SIZE);
   risk_cost_t best_cost = INFINITY;
   int best_plan_idx = - 1;
   int best_plan_len = -1;
   struct risk_cost_func_t *viol_cost = expr->risk_violation_cost;
+  struct rvar_t *best_risk = 0;
+
+  struct rvar_t *cost_rvar = 0, *cost_rvar_tmp = 0;
+
+  rvar_type_t short_term_cost = viol_cost->rvar_to_cost(viol_cost, rvar); //viol_cost->rvar_to_rvar(viol_cost, rvar, 0);
+
+  rvar_type_t vals[] = {0};
+  struct rvar_t *zero_rvar = rvar_sample_create_with_vals(vals, 1);
 
   for (uint32_t i = 0; i < plans->plan_count; ++i) {
-    risk = (struct rvar_t *)rvar->to_bucket(rvar, BUCKET_SIZE);
     int plan_len = 0;
+    cost_rvar = (struct rvar_t *)zero_rvar->to_bucket(zero_rvar, BUCKET_SIZE);
+
+    // Build the cost of the remainder of the plan, aka, long-term
     for (uint32_t j = idx; j < plans->max_plan_size; ++j) {
+      // If there are no subplans left just return.
       if (ptr[j] == 0)
         break;
-      struct rvar_t *val = pug->steady_packet_loss[ptr[j]];
-      val = risk->convolve(risk, val, BUCKET_SIZE);
-      risk->free(risk);
-      risk = val;
+
+      for (uint32_t dur = 0; dur < expr->mop_duration; ++dur) {
+        cost_rvar_tmp = pug->steady_cost[ptr[j]];
+        cost_rvar_tmp = cost_rvar_tmp->convolve(cost_rvar_tmp, cost_rvar, BUCKET_SIZE);
+        cost_rvar->free(cost_rvar);
+        cost_rvar = cost_rvar_tmp;
+      }
+
       plan_len++;
     }
-
+    
+    // Move to the next plan
     ptr += plans->max_plan_size;
-    risk_cost_t cost = viol_cost->rvar_to_cost(viol_cost, risk);
+
+    // Calculate the cost of the remainder of the plan and sum it up with the short-term cost
+    risk_cost_t cost = (viol_cost->rvar_to_cost(viol_cost, cost_rvar) / (double)(plan_len + 1));
+    DEBUG("Starting subplan: %d, Short term cost: %lf, Long term cost: %lf", starting_subplan, short_term_cost, cost);
+    cost += short_term_cost;
+
     if  (_best_plan_criteria(expr, cost, plan_len, 10, 
                                    best_cost, best_plan_len, 10)) {
       best_plan_idx = i;
       best_cost = cost;
       best_plan_len = plan_len;
+      if (best_risk)
+        best_risk->free(best_risk);
+      best_risk = cost_rvar;
+    } else {
+      cost_rvar->free(cost_rvar);
     }
-
-    //assert(plan_len != 0);
-    risk->free(risk);
   }
 
+  if (expr->verbose >= VERBOSE_SHOW_ME_PLAN_RISK) {
+    info("Violation risk of best plan starting with %d (len: %d) is", starting_subplan, best_plan_len + idx);
+    if (best_risk)
+      best_risk->plot(best_risk);
+  }
+
+  DEBUG("Returning best plan cost for %d: %lf", starting_subplan, best_cost);
+  if (best_risk)
+    best_risk->free(best_risk);
   *ret_plan_idx = best_plan_idx;
   *ret_plan_length = best_plan_len;
   return best_cost;
@@ -279,17 +330,13 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
   risk_cost_t  best_plan_cost = INFINITY;
   int          best_plan_len = -1;
   int          best_subplan_size = 0;
-  double       best_perf_score = 0;
+  double       best_pref_score = 0;
 
   int         *best_plan_subplans  = ret_plan;
-  trace_time_t err_low  = at - 10;
-  trace_time_t err_high = at + 10;
 
-
-  //double optimal_subplan_size = ((double)expr->nlocated_switches / (double)expr->criteria_time->steps);
   int *subplans = _plans_remaining_subplans(exec);
-  // info("Planning for time %d", at);
   int finished = 1;
+  int best_subplan = 0;
   for (uint32_t i = 1; i < pug->plans->_subplan_count; ++i) {
     if (subplans[i] != 1)
       continue;
@@ -304,10 +351,8 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
      * 3) Find the best "long-term" sequence of actions to finish that plan
      * 4) Unfix that subplan and move to the next subplan.
      *
-     * By fixing and unfixing I mean setting the plans->_cur_index and also
-     * plans->plan_count to "correct" values:
-     *
-     * use _plan_invalidate_not_equal(
+     * By fixing and unfixing I mean playing with the plans->_cur_index and
+     * plans->plan_count values.
      *
      * - Omid 1/25/2019
      * */
@@ -317,21 +362,24 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     int plan_idx = 0;
     int plan_length = 0;
     int subplan_size = 0;
-    double perf_score = pug->iter->pref_score(pug->iter, i);
+    double pref_score = pug->iter->pref_score(pug->iter, i);
     _plan_invalidate_not_equal(plans, i, plans->_cur_index);
 
     // Assess the short term risk for subplans[i]
-    struct rvar_t *st_risk = _short_term_risk(exec, expr, i, at, err_low, err_high, &subplan_size);
+    // info("Subplan %d", i);
+    struct rvar_t *st_risk = _short_term_risk(exec, expr, i, at, &subplan_size);
     risk_cost_t cost = _long_term_best_plan_to_finish(exec, expr, 
-        st_risk, plans->_cur_index + 1, &plan_idx, &plan_length);
+        st_risk, plans->_cur_index + 1, &plan_idx, &plan_length, i);
+    // info("Total cost to finish: %lf", cost);
 
     if (_best_plan_criteria(expr,
-          cost, plan_length, perf_score,
-          best_plan_cost, best_plan_len, best_perf_score)) {
+          cost, plan_length, pref_score,
+          best_plan_cost, best_plan_len, best_pref_score)) {
       best_plan_cost = cost;
       best_plan_len = plan_length;
       best_subplan_size = subplan_size;
-      best_perf_score = perf_score;
+      best_pref_score = pref_score;
+      best_subplan = i;
       memcpy( best_plan_subplans, 
           plans->plans + (plan_idx * plans->max_plan_size), 
           plans->plan_size_in_bytes);
@@ -350,13 +398,14 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     *ret_plan_len = best_plan_len;
   }
 
+  DEBUG(">>>> Choosing subplan %d with cost %lf", best_subplan, best_plan_cost);
+
   return finished;
 }
 
 static risk_cost_t
 _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at,
     risk_cost_t *best_plan_cost, int *best_plan_len, int *best_plan_subplans) {
-  //risk_cost_t cost = 0;
   TO_PUG(exec);
 
   int finished = 0;
@@ -375,7 +424,7 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at
     if (finished)
       break;
 
-    info("Estimated cost of %d(th) subplan is: %f", plans->_cur_index, *best_plan_cost);
+    DEBUG("Estimated cost of %d(th) subplan is: %f", plans->_cur_index, *best_plan_cost);
     _plan_invalidate_not_equal(
         plans, best_plan_subplans[plans->_cur_index], plans->_cur_index);
     plans->_cur_index += 1;
@@ -417,13 +466,30 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
   if (pug->trace == 0)
     panic("Couldn't load the traffic matrix file: %s", expr->traffic_test);
 
-  pug->pred = exec_ewma_cache_build_or_load(expr);
-  if (pug->pred == 0)
-    panic("Could't load the predictor.");
+  pug->trace_training = traffic_matrix_trace_load(400, expr->traffic_training);
+  if (pug->trace == 0)
+    panic("Couldn't load the training traffic matrix file: %s", expr->traffic_test);
+
+  pug->pred = exec_predictor_create(exec, expr, expr->predictor_string);
 
   pug->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
   if (pug->steady_packet_loss == 0)
     panic("Couldn't load the long-term RVAR cache.");
+
+  /* Create the cost variables */
+  if (expr->risk_violation_cost == 0)
+    panic("Risk of violation cost not set.");
+
+  pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
+  info("Creating the steady cost random variables: %d", subplan_count);
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    pug->steady_cost[i] = expr->risk_violation_cost->rvar_to_rvar(
+        expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
+    // info("Plot of packet loss for subplan %d", i);
+    // pug->steady_packet_loss[i]->plot(pug->steady_packet_loss[i]);
+    // info("Plot of cost for subplan %d", i);
+    // pug->steady_cost[i]->plot(pug->steady_cost[i]);
+  }
 
   if (expr->criteria_time == 0)
     panic("Time criteria not set.");
@@ -456,23 +522,26 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
   int          best_plan_len = -1;
   int         *best_plan_subplans  = malloc(sizeof(int) * plans->max_plan_size);
 
-  for (uint32_t i = 50; i < 400; i += 10) {
+  for (uint32_t i = 50; i < 370; i += 10) {
     trace_time_t at = i;
 
-    risk_cost_t estimated_cost = _exec_pug_best_plan_at(exec, expr, at, &best_plan_cost, &best_plan_len, best_plan_subplans);
-    struct mop_t **mops = _exec_mops_for_create(exec, expr, best_plan_subplans, best_plan_len);
-    risk_cost_t actual_cost = exec_plan_cost(exec, expr, mops, best_plan_len, at);
+    risk_cost_t estimated_cost = _exec_pug_best_plan_at(
+        exec, expr, at, &best_plan_cost, &best_plan_len, best_plan_subplans);
+    struct mop_t **mops = _exec_mops_for_create(
+        exec, expr, best_plan_subplans, best_plan_len);
+    risk_cost_t actual_cost = exec_plan_cost(
+        exec, expr, mops, best_plan_len, at);
     _exec_mops_for_free(exec, expr, mops, best_plan_len);
 
-    //(void)(estimated_cost);
-    info("[%4d] Actual cost of the best plan (%d) is: %4.3f : %4.3f", at, best_plan_len, actual_cost, estimated_cost);
+    info("[%4d] Actual cost of the best plan (%d) is: %4.3f : %4.3f",
+        at, best_plan_len, actual_cost, estimated_cost);
   }
   free(best_plan_subplans);
 }
 
 struct exec_t *exec_pug_create(void) {
   struct exec_t *exec = malloc(sizeof(struct exec_pug_t));
-
+  exec->net_dp = 0;
   exec->validate = _exec_pug_validate;
   exec->run = _exec_pug_runner;
 

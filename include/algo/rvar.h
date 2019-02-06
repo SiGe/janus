@@ -19,6 +19,7 @@ struct rvar_t {
 
   void (*free)(struct rvar_t *);
   char * (*serialize)(struct rvar_t *, int *size);
+  void (*plot)(struct rvar_t const *);
 
   enum RVAR_TYPE _type;
 };
@@ -68,7 +69,18 @@ struct rvar_sample_t *rvar_monte_carlo_parallel(
     int num_threads        // Number of thread to use or 0 for automatic calculation
 );
 
+rvar_type_t *rvar_monte_carlo_parallel_ordered(
+    monte_carlo_run_t run, // Monte carlo runner
+    void *data,            // Data to pass to each instance of monte-carlo run (this should be an array of size nsteps)
+    int nsteps,            // Amount of data
+    int size,              // Size of each data segment
+    int num_threads        // Number of thread to use or 0 for automatic calculation
+);
+
+
 struct rvar_t *rvar_deserialize(char const *data);
+void rvar_sample_finalize(struct rvar_sample_t *rvar, uint32_t steps);
+struct rvar_t *rvar_sample_create_with_vals(rvar_type_t *vals, uint32_t nvals);
 
 //rvar_bucket_t *rvar_to_bucket(struct
 

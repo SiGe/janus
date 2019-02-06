@@ -23,6 +23,7 @@ struct exec_pug_t {
 
   struct predictor_t *pred;
   struct rvar_t      **steady_packet_loss;
+  struct rvar_t      **steady_cost;
 
   int shortterm_samples;
 };
