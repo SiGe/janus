@@ -47,27 +47,14 @@ void _warn(const char *fmt, ...) LOG(WARN, "93");
 void _warn(const char *fmt, ...) {}
 #endif
 
-
-/*
-// TODO jiaqi: you can change the output format here. both network->flows and
-// network->links are in the same order that you passed. To see what the
-// structures have take a look at types.h
-void network_print_flows(struct dataplane_t *network) {
-  printf("----------------------------------------\n");
-  struct flow_t *flow = 0;
-  for (int i = 0; i < network->num_flows; ++i) {
-    flow = &network->flows[i];
-    printf("flow %d: %.2f/%.2f (%.2f%%) -- %.2f.", i, flow->bw, flow->demand,
-        flow->bw/flow->demand * 100, (flow->demand - flow->bw));
-    printf("\n");
-  }
-  printf("----------------------------------------\n");
-  for (int i = 0; i < network->num_links; ++i) {
-    struct link_t *link = &network->links[i];
-    printf("link %d: %.2f/%.2f (%.2f%%) -- %.2f\n", i, link->used,
-        link->capacity, link->used/link->capacity * 100, (link->capacity -
-          link->used)/link->nactive_flows);
-  }
-  printf("----------------------------------------\n");
+void _text_block(const char *fmt, ...) {
+  char format[MAX_FORMAT_LENGTH] = {0};\
+  strcat(format, "\e[46;4;30m\n"); \
+  strcat(format, fmt);\
+  strcat(format, "\033[0m\n");\
+  strcat(format, "\033[1;33mINVOKED from [%s:%d]\033[0m\n");
+  va_list args;\
+  va_start(args, fmt);\
+  vfprintf(stderr, format, args);\
+  va_end(args);\
 }
-*/

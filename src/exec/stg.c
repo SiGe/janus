@@ -151,7 +151,7 @@ static risk_cost_t _exec_stg_best_subplan_at(
 
 static void 
 _exec_stg_runner(struct exec_t *exec, struct expr_t *expr) {
-  for (uint32_t i = 50; i < 400; i += 10) {
+  for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
     risk_cost_t actual_cost = _exec_stg_best_subplan_at(exec, expr, at);
     info("[%4d] Actual cost of the best plan (STG) is: %4.3f", at, actual_cost);

@@ -14,6 +14,7 @@ struct expr_t;
 struct exec_t {
   void (*validate) (struct exec_t *, struct expr_t const *expr);
   void (*run)      (struct exec_t *, struct expr_t *expr);
+  void (*explain)  (struct exec_t *);
 
   struct traffic_matrix_trace_t *trace;
   struct traffic_matrix_trace_t *trace_training;

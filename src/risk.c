@@ -10,8 +10,8 @@
 
 risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rvar) {
   //return rvar->percentile(rvar, 0.95);
-  //return rvar->percentile(rvar, 0.999);
-  return rvar->expected(rvar);
+  return rvar->percentile(rvar, 0.999);
+  //return rvar->expected(rvar);
 }
 
 struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *rvar, rvar_type_t bucket_size) {
@@ -106,7 +106,7 @@ risk_cost_linear_from_string(char const *string) {
   ret->rvar_to_cost = _default_rvar_to_cost;
 
   ret->slope = atof(string);
-  info("Created a linear function for the risk.");
+  info("Creating a linear function for the risk.");
   return (struct risk_cost_func_t *)ret;
 }
 
@@ -145,7 +145,7 @@ risk_cost_stepped_from_string(char const *string) {
   ret->rvar_to_cost = _default_rvar_to_cost;
   ret->cost = step_func_cost;
 
-  info("Created a step function for the risk.");
+  info("Creating a step function for the risk.");
   free(dup);
   return (struct risk_cost_func_t *)ret;
 }

@@ -181,11 +181,18 @@ _exec_longterm_validate(struct exec_t *exec, struct expr_t const *expr) {
   }
 }
 
+static void
+_exec_longterm_explain(struct exec_t *exec) {
+  text_block("Longterm generates cache files for pug and lpug planners.\n");
+}
+
 struct exec_t *exec_longterm_create(void) {
   struct exec_t *exec = malloc(sizeof(struct exec_longterm_t));
   exec->net_dp = 0;
+
   exec->validate = _exec_longterm_validate;
   exec->run = _exec_longterm_runner;
+  exec->explain = _exec_longterm_explain;
 
   return exec;
 }

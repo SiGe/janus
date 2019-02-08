@@ -37,12 +37,18 @@ void _exec_stats_runner(struct exec_t *exec, struct expr_t *expr) {
   info("Core [  ] stats: (%14.2f, %14.2f, %14.2f)", core->out.min, core->out.mean, core->out.max);
 }
 
+static void
+_exec_stats_explain(struct exec_t *exec) {
+  text_block("Stats prints traffic statistics for the pods and core groups.");
+}
+
 struct exec_t *exec_traffic_stats_create(void) {
   struct exec_t *exec = malloc(sizeof(struct exec_t));
-
   exec->net_dp = 0;
+
   exec->validate = _exec_stats_validator;
   exec->run = _exec_stats_runner;
+  exec->explain = _exec_stats_explain;
 
   return exec;
 }

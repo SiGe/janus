@@ -90,19 +90,28 @@ static risk_cost_t _exec_ltg_best_plan_at(
 
 static void 
 _exec_ltg_runner(struct exec_t *exec, struct expr_t *expr) {
-  for (uint32_t i = 50; i < 400; i += 10) {
+  for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
     risk_cost_t actual_cost = _exec_ltg_best_plan_at(exec, expr, at);
     info("[%4d] Actual cost of the best plan (LTG) is: %4.3f", at, actual_cost);
   }
 }
 
+static void
+_exec_ltg_explain(struct exec_t *exec) {
+  text_block(
+       "LTG divides an upgrade plan over the available planning intervals.\n"
+       "The length of the planning interval is set through the criteria-time\n"
+       " in the .ini file.\n");
+}
+
 struct exec_t *exec_ltg_create(void) {
   struct exec_t *exec = malloc(sizeof(struct exec_ltg_t));
-
   exec->net_dp = 0;
+
   exec->validate = _exec_ltg_validate;
   exec->run = _exec_ltg_runner;
+  exec->explain = _exec_ltg_explain;
 
   return exec;
 }

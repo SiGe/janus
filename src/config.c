@@ -185,6 +185,12 @@ static int config_handler(void *data,
     } else {
       panic("Upgrading %s not supported.", name);
     }
+  } else if (MATCH("scenario", "time-begin")) {
+    expr->scenario.time_begin = atoi(value);
+  } else if (MATCH("scenario", "time-end")) {
+    expr->scenario.time_end = atoi(value);
+  } else if (MATCH("scenario", "time-step")) {
+    expr->scenario.time_step = atoi(value);
   } else if (MATCH("cache", "rv-cache-dir")) {
     expr->cache.rvar_directory = strdup(value);
   } else if (MATCH("cache", "ewma-cache-dir")) {
@@ -232,19 +238,22 @@ parse_action(char const *arg) {
     info("Building long-term cache files.");
     return BUILD_LONGTERM;
   } else if (strcmp(arg, "pug") == 0) {
-    info("Running PUG.");
+    info("Choosing PUG.");
     return RUN_PUG;
+  } else if (strcmp(arg, "pug-long") == 0) {
+    info("Choosing PUG LONG.");
+    return RUN_PUG_LONG;
   } else if (strcmp(arg, "stg") == 0) {
-    info("Running STG.");
+    info("Choosing STG.");
     return RUN_STG;
   } else if (strcmp(arg, "ltg") == 0) {
-    info("Running LTG.");
+    info("Choosing LTG.");
     return RUN_LTG;
   } else if (strcmp(arg, "cap") == 0) {
-    info("Running CAP.");
+    info("Choosing CAP.");
     return RUN_CAP;
   } else if (strcmp(arg, "stats") == 0) {
-    info("Running STATS.");
+    info("Choosing STATS.");
     return TRAFFIC_STATS;
   }
 
@@ -275,7 +284,9 @@ parse_duration(char const *arg, uint32_t *start, uint32_t *end) {
 static int
 cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
   int opt = 0;
-  while ((opt = getopt(argc, argv, "a:r:v")) != -1) {
+  expr->explain = 0;
+  expr->verbose = 0;
+  while ((opt = getopt(argc, argv, "a:r:vx")) != -1) {
     switch (opt) {
       case 'a':
         expr->action = parse_action(optarg);
@@ -285,7 +296,8 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
             &expr->cache.subplan_start,
             &expr->cache.subplan_end);
         break;
-
+      case 'x':
+        expr->explain = 1;
       case 'v':
         expr->verbose += 1;
     };
@@ -307,7 +319,7 @@ void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *con
     panic("Couldn't parse the command line options.");
   }
 
-  info("Running with verbosity: %s", VERBOSITY_TEXT[expr->verbose]);
+  info("Using verbosity: %s", VERBOSITY_TEXT[expr->verbose]);
 
   expr->clone_network = expr_clone_network;
   _build_located_switch_group(expr);

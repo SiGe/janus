@@ -14,6 +14,7 @@ void _warn(char const *fmt, ...);
 void _error(char const *fmt, ...);
 void _panic(char const *fmt, ...);
 void _network_print_flows(struct dataplane_t *);
+void _text_block(char const *fmt, ...);
 
 #define panic(fmt, args...) { \
   _panic(fmt, __FILE__, __LINE__, ##args); \
@@ -34,6 +35,10 @@ void _network_print_flows(struct dataplane_t *);
 
 #define error(fmt, args...) { \
   _error(fmt, __FILE__, __LINE__, ##args); \
+}
+
+#define text_block(fmt, args...) { \
+  _text_block(fmt, ##args, __FILE__, __LINE__); \
 }
 
 #endif

@@ -2,6 +2,7 @@ BUILD_DIR = build
 BIN_DIR = bin
 BENCH_DIR = tests/benchmarks
 TARGET = main
+BINARY = netre
 
 CC = clang
 #CC = gcc
@@ -56,9 +57,9 @@ $(BUILD_DIR)/%.o: %.c
 	@$(CC) $(CFLAGS) $(EXTRA) $(CPPFLAGS) -c -o $@ $<
 
 $(TARGET): $(MAIN_OBJ)
-	@>&2 echo Building $@
+	@>&2 echo Building $(BINARY)
 	@mkdir -p $(BIN_DIR)
-	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
+	@$(CC) -o $(BIN_DIR)/$(BINARY) $^ $(LDFLAGS)
 
 test: $(TEST_OBJ)
 	@>&2 echo Building $@

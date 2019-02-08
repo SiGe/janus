@@ -40,6 +40,7 @@ enum EXPR_ACTION {
 
     // Different simulators
     RUN_PUG,  
+    RUN_PUG_LONG,  
     RUN_STG,
     RUN_LTG,
     RUN_CAP,
@@ -55,6 +56,10 @@ enum EXPR_VERBOSE {
   VERBOSE_SHOW_ME_EVERYTHING = 5,
 };
 
+struct scenario_t {
+  uint32_t time_begin, time_end, time_step;
+};
+
 struct expr_t {
     char *traffic_test;
     char *traffic_training;
@@ -67,7 +72,6 @@ struct expr_t {
     float ewma_coeff;
     char *predictor_string;
 
-
     // Min throughput promised to the user
     bw_t promised_throughput;
     
@@ -75,6 +79,9 @@ struct expr_t {
     struct jupiter_sw_up_list_t upgrade_list;
     struct jupiter_located_switch_t *located_switches;
     int nlocated_switches;
+
+    // Runtime scenario
+    struct scenario_t scenario;
 
     //TODO: Jupiter specific config ... should change later.
     uint32_t num_cores;
@@ -110,6 +117,7 @@ struct expr_t {
 
     // Verbosity
     enum EXPR_VERBOSE verbose;
+    int explain;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const * argv);
