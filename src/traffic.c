@@ -53,7 +53,6 @@ void _tmti_get(struct traffic_matrix_trace_iter_t *iter, struct traffic_matrix_t
         *tm = 0;
         return;
     }
-
     traffic_matrix_trace_get(iter->trace, time, tm);
 }
 

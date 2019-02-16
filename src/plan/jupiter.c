@@ -170,6 +170,43 @@ int _jupiter_mop_size(struct mop_t *mop) {
   return jop->nswitches;
 }
 
+char *_jupiter_mop_explain(struct mop_t *mop, struct network_t *net) {
+  struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
+  struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
+
+  size_t size = sizeof(int) * (jup->pod + 1 /* core switch group */);
+  int *sw_count = malloc(size);
+  memset(sw_count, 0, size);
+  int core_id = jup->pod; /* The last entry is the core switch count */
+
+  struct jupiter_located_switch_t *sw = 0;
+  for (int i = 0; i < jop->nswitches; ++i) {
+    sw = jop->switches[i];
+    if (sw->type == CORE) {
+      sw_count[core_id] += 1;
+    } else {
+      sw_count[sw->pod] += 1;
+    }
+  }
+
+  size = (5 /* name */ + 5 /*: [] */ + 5 /* sw-count */) * (jup->pod + 1);
+  char *ret = malloc(sizeof(char) * size);
+  memset(ret, 0, size);
+
+  for (int i = 0; i < jup->pod; ++i) {
+    char desc[80] = {0};
+    snprintf(desc, 80, "[P% 2d: % 3d], ", i, sw_count[i]);
+    strcat(ret, desc);
+  }
+
+  char desc[80] = {0};
+  snprintf(desc, 80, "[C: % 3d]", sw_count[jup->pod]);
+  strcat(ret, desc);
+
+  free(sw_count);
+  return ret;
+}
+
 int _jupiter_mop_post(struct mop_t *mop, struct network_t *net) {
   struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
@@ -220,21 +257,32 @@ double _sup_pref_score(struct plan_iterator_t *iter, int id) {
   for (uint32_t i = 0; i < jiter->state->tuple_size; ++i) {
     struct jupiter_group_t *group = &groups[i];
     float portion = (float)jiter->_tuple_tmp[i] / (float)group->group_size;
-    pref_score += portion;
+    //pref_score += (portion * (i + 1) * (i + 1));
+    pref_score += (portion);
+    //pref_score += (portion != 0);
     //pref_score += 1/(portion + 1);
     //pref_score += (jiter->_tuple_tmp[i] != 0);
   }
   return pref_score;
 }
 
-void _sup_explain(struct plan_iterator_t *iter, int id) {
+char *_sup_explain(struct plan_iterator_t *iter, int id) {
   TO_JITER(iter);
   jiter->state->to_tuple(jiter->state, id, jiter->_tuple_tmp);
-  printf("Upgrading: ");
+  size_t size = sizeof(char) * (10 * jiter->state->tuple_size + 5);
+  char *ret = malloc(size);
+  memset(ret, 0, size);
   struct jupiter_group_t *groups = jiter->planner->multigroup.groups;
+  strcat(ret, "(");
   for (uint32_t i = 0; i < jiter->state->tuple_size; ++i) {
     struct jupiter_group_t *group = &groups[i];
-    float portion = (float)jiter->_tuple_tmp[i] / (float)group->group_size;
+    //float portion = (float)jiter->_tuple_tmp[i] / (float)group->group_size;
+
+    char desc[80] = {0};
+    snprintf(desc, 80, "%2d/%2d, ", jiter->_tuple_tmp[i], group->group_size);//portion);
+    strcat(ret, desc);
+
+    /*
     for (uint32_t j = 0; j < group->nclasses; ++j) {
       struct jupiter_class_t *class = &group->classes[j];
       int sw_to_up = (int)(ceil(class->nswitches * portion));
@@ -243,8 +291,11 @@ void _sup_explain(struct plan_iterator_t *iter, int id) {
         printf(", ");
       }
     }
+    */
   }
-  printf("\n");
+  strcat(ret, ")");
+  // printf("\n");
+  return ret;
 }
 
 struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
@@ -291,6 +342,7 @@ struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
   mop->post = _jupiter_mop_post;
   mop->free = _jupiter_mop_free;
   mop->size = _jupiter_mop_size;
+  mop->explain = _jupiter_mop_explain;
 
   return (struct mop_t *)mop;
 }
@@ -345,6 +397,7 @@ jupiter_mop_for(struct jupiter_located_switch_t **sws, uint32_t nsws) {
   mop->post = _jupiter_mop_post;
   mop->free = _jupiter_mop_free;
   mop->size = _jupiter_mop_size;
+  mop->explain = _jupiter_mop_explain;
 
   mop->ncap = nsws;
   mop->switches = malloc(sizeof(struct jupiter_located_switch_t *) * nsws);

@@ -12,7 +12,6 @@
 #include "exec/longterm.h"
 #include "exec/ltg.h"
 #include "exec/pug.h"
-#include "exec/pug_long.h"
 #include "exec/stats.h"
 #include "freelist.h"
 #include "network.h"
@@ -38,9 +37,9 @@ struct exec_t *executor(struct expr_t *expr) {
   if (expr->action == BUILD_LONGTERM) {
     return exec_longterm_create();
   } else if (expr->action == RUN_PUG) {
-    return exec_pug_create();
+    return exec_pug_create_short_and_long_term();
   } else if (expr->action == RUN_PUG_LONG) {
-    return exec_pug_long_create();
+    return exec_pug_create_long_term_only();
   } else if (expr->action == TRAFFIC_STATS) {
     return exec_traffic_stats_create();
   } else if (expr->action == RUN_LTG) {

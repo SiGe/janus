@@ -254,7 +254,7 @@ risk_cost_t exec_plan_cost(
   struct traffic_matrix_trace_t *trace = exec->trace;
   struct traffic_matrix_trace_iter_t *iter = trace->iter(trace);
 
-  // This should match what pug does ...
+  // This should match what pug and other planners do ...
   iter->go_to(iter, start + 1);
 
   struct traffic_matrix_t *tm = 0;
@@ -283,6 +283,7 @@ risk_cost_t exec_plan_cost(
       dataplane_free_resources(dp);
 
       iter->next(iter);
+      traffic_matrix_free(tm);
     }
 
     info("%d(th) subplan (%d switches) cost is: %f", 

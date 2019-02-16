@@ -202,6 +202,7 @@ struct rvar_t *_sample_convolve(struct rvar_t const *left, struct rvar_t const *
             output->buckets[i + j] += ll_pdf * rr->buckets[j];
         }
     }
+    ll->free((struct rvar_t *)ll);
     return (struct rvar_t *)output;
 }
 
@@ -528,4 +529,10 @@ struct rvar_t *rvar_deserialize(char const *data) {
 
   panic("Unknown rvar_type_t: %d", type);
   return 0;
+}
+
+struct rvar_t *rvar_zero(void) {
+  rvar_type_t *vals = malloc(sizeof(rvar_type_t));
+  *vals = 0;
+  return rvar_sample_create_with_vals(vals, 1);
 }

@@ -80,6 +80,11 @@ static risk_cost_t _exec_ltg_best_plan_at(
     } 
 
     mops[i] = jupiter_mop_for(sws, idx);
+#if DEBUG_MODE
+    char *exp = mops[i]->explain(mops[i], expr->network);
+    info("MOp explanation: %s", exp);
+    free(exp);
+#endif
   }
 
   risk_cost_t cost = exec_plan_cost(exec, expr, mops, nsteps, at);

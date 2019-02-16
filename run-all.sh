@@ -29,15 +29,15 @@ run() {
   set_steps ${EXP} ${STEPS}
 
   echo "Running LTG."
-  make && ./bin/main experiments/${EXP}.ini -a ltg |& tee ltg.out >/dev/null
+  make && ./bin/netre experiments/${EXP}.ini -a ltg |& tee ltg.out >/dev/null
 
   echo "Running PUG perfect."
   set_predictor ${EXP} perfect
-  make && ./bin/main experiments/${EXP}.ini -a pug |& tee pug-perfect.out >/dev/null
+  make && ./bin/netre experiments/${EXP}.ini -a pug |& tee pug-perfect.out >/dev/null
 
   echo "Running PUG EWMA."
   set_predictor ${EXP} ewma
-  make && ./bin/main experiments/${EXP}.ini -a pug |& tee pug-ewma.out >/dev/null
+  make && ./bin/netre experiments/${EXP}.ini -a pug |& tee pug-ewma.out >/dev/null
 }
 
 stats_header() {

@@ -17,17 +17,26 @@ struct plan_repo_t {
 struct exec_pug_t {
   struct exec_t;
 
+  /* Plan repository */
   struct plan_repo_t     *plans;
+
+  /* Plan builder and iterator
+   * We initially go through all the plans and add them to the repository of
+   * plans so we don't have to iterate through them anymore */
   struct plan_t          *planner;
   struct plan_iterator_t *iter;
 
+  /* Predictor to use if any */
   struct predictor_t *pred;
+
+  /* Long term packet loss and cost random variables */
   struct rvar_t      **steady_packet_loss;
   struct rvar_t      **steady_cost;
 
-  int shortterm_samples;
+  struct rvar_t * (*short_term_risk) (struct exec_t *exec, struct expr_t *expr, int subplan, trace_time_t);
 };
 
-struct exec_t *exec_pug_create(void);
+struct exec_t *exec_pug_create_short_and_long_term(void);
+struct exec_t *exec_pug_create_long_term_only(void);
 
-#endif // _EXEC_PUG_H_
+#endif // _EXEC_PUG_LONG_H_

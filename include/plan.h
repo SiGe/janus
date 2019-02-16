@@ -29,6 +29,9 @@ struct mop_t {
 
   /* Size of the mop */
   int         (*size)           (struct mop_t *);
+
+  /* Explain the mop in the context of the network */
+  char *      (*explain)        (struct mop_t *, struct network_t *);
 };
 
 struct jupiter_switch_mop_t {
@@ -74,7 +77,7 @@ struct plan_iterator_t {
   struct mop_t * (*mop_for)(struct plan_iterator_t *, int id);
 
   /* Explain a specific mop in text format */
-  void (*explain)(struct plan_iterator_t *, int id);
+  char * (*explain)(struct plan_iterator_t *, int id);
 
   /* This returns a preference score for a subplan */
   double (*pref_score)(struct plan_iterator_t *, int id);

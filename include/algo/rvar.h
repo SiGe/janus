@@ -81,6 +81,7 @@ rvar_type_t *rvar_monte_carlo_parallel_ordered(
 struct rvar_t *rvar_deserialize(char const *data);
 void rvar_sample_finalize(struct rvar_sample_t *rvar, uint32_t steps);
 struct rvar_t *rvar_sample_create_with_vals(rvar_type_t *vals, uint32_t nvals);
+struct rvar_t *rvar_zero(void);
 
 //rvar_bucket_t *rvar_to_bucket(struct
 
