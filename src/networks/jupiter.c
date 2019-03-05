@@ -124,6 +124,8 @@ uint32_t static _setup_bandwidth_for_flows(
   size_t num_flows = 0;
   struct pair_bw_t const *pair = jup->tm->bws;
 
+  pair_id_t num_tors = jup->tor * jup->pod;
+
   flows = malloc(size);
   memset(flows, 0, size);
   *out = flows;
@@ -137,6 +139,8 @@ uint32_t static _setup_bandwidth_for_flows(
     /* Setup the flow */
     flows->demand = pair->bw;
     flows->bw = 0; flows->nlinks = 0;
+    flows->stor = i / num_tors;
+    flows->dtor = i % num_tors;
 
     /* Move the iterators */
     flows++; num_flows++; pair++;

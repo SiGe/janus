@@ -1,5 +1,5 @@
-#ifndef _RANDVAR_H_          
-#define _RANDVAR_H_         
+#ifndef _ALGO_RANDVAR_H_          
+#define _ALGO_RANDVAR_H_         
 
 #include <stdint.h>
 
@@ -20,6 +20,7 @@ struct rvar_t {
   void (*free)(struct rvar_t *);
   char * (*serialize)(struct rvar_t *, int *size);
   void (*plot)(struct rvar_t const *);
+  struct rvar_t * (*copy)(struct rvar_t const *);
 
   enum RVAR_TYPE _type;
 };
@@ -85,4 +86,4 @@ struct rvar_t *rvar_zero(void);
 
 //rvar_bucket_t *rvar_to_bucket(struct
 
-#endif // _RANDVAR_H_   
+#endif // _ALGO_RANDVAR_H_   

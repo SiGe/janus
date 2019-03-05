@@ -84,7 +84,8 @@ exec_rvar_cache_load(struct expr_t const *expr, int *count) {
       int index = atoi(ent->d_name);
       char *value = 0;
       file_read(cache_file, &value);
-      ret[index] = rvar_deserialize(value);
+      struct rvar_t *rv = rvar_deserialize(value);
+      ret[index] = rv;
       free(value);
       fclose(cache_file);
     }
@@ -94,13 +95,6 @@ exec_rvar_cache_load(struct expr_t const *expr, int *count) {
     panic("Couldn't open the rvar_cache dir: %s", cache_dir);
     return 0;
   }
-
-  // if (expr->verbose >= VERBOSE_SHOW_ME_EVERYTHING) {
-  //   for (uint32_t i = 0; i < nfiles; ++i) {
-  //     info("Loaded %d subplan.", i);
-  //     //ret[i]->plot(ret[i]);
-  //   }
-  // }
 
   *count = nfiles;
 

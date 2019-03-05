@@ -32,6 +32,7 @@ struct flow_t {
 
   uint8_t fixed;
   uint8_t nlinks;
+  uint16_t stor, dtor;
 
   bw_t bw;
   bw_t demand;

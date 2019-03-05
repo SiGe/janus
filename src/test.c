@@ -3,10 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "algo/array.h"
 #include "algo/maxmin.h"
 #include "algo/rvar.h"
+#include "plan/jupiter.h"
 #include "networks/jupiter.h"
-#include "predictors/ewma.h"
+#include "predictors/rotating_ewma.h"
 #include "util/group_gen.h"
 #include "util/log.h"
 
@@ -114,7 +116,7 @@ void test_jupiter_cluster(void) {
     maxmin(&dp);
   }
   dataplane_init(&dp);
-  jupiter_network_free((struct jupiter_network_t*)net);
+  jupiter_network_free((struct network_t*)net);
   free(tm);
 }
 
@@ -366,11 +368,15 @@ bw_t _const_traffic(trace_time_t _) {
 }
 
 void test_ewma(void) {
+  // TODO: Fix this later on.  This code is faulty atm.
+  //
+  // - Omid 03/05/2019
+  /*
   const bw_t base_bw = EWMA_BW;
   const bw_t coeff = EWMA_COEFF;
   const uint32_t steps = EWMA_STEPS;
 
-  struct predictor_ewma_t *ewma = predictor_ewma_create(coeff, steps, "ewma");
+  struct predictor_rotating_ewma_t *ewma = predictor_rotating_ewma_create(coeff, steps, "ewma");
   struct traffic_matrix_trace_t *trace = ewma_trace(base_bw);
   ewma->build((struct predictor_t *)ewma, trace);
 
@@ -410,6 +416,7 @@ void test_ewma(void) {
   traffic_matrix_free(tm);
   ewma->free((struct predictor_t *)ewma);
   traffic_matrix_trace_free(trace);
+  */
 }
 
 #define NUM_STATES 10
@@ -674,12 +681,46 @@ void test_planner(void) {
                 switches, freedom_degree, ndegree);
     struct plan_iterator_t *iter = planner->iter((struct plan_t *)planner);
 
-    struct mop_t *mop = 0;
     int size = 0;
-
-    for (iter->begin(iter); !iter->end(iter); iter->next(iter, &mop, &size)) {
+    for (iter->begin(iter); !iter->end(iter); size = iter->next(iter)) {
         info("%d\n", size);
     }
+}
+
+void test_array() {
+  struct array_t *arr = array_create(8, 10);
+  uint64_t val = 12;
+
+  for (uint32_t i = 0; i < 1000; ++i) {
+    val = i + val;
+    array_append(arr, &val);
+  }
+
+  size_t size = 0;
+  char *data = array_serialize(arr, &size);
+
+  struct array_t *arr_clone = array_deserialize(data, size);
+  free(data);
+
+  assert(array_size(arr) == array_size(arr_clone));
+  for (uint32_t i = 0; i < array_size(arr); ++i) {
+    uint64_t *d1 = (uint64_t *)array_get(arr, i);
+    uint64_t *d2 = (uint64_t *)array_get(arr_clone, i);
+
+    assert(*d1 == *d2);
+  }
+
+  info("Capacity of arr: %d", array_capacity(arr));
+  info("Capacity of arr_clone: %d", array_capacity(arr_clone));
+
+  array_append(arr, &val);
+  array_append(arr_clone, &val);
+
+  info("Capacity of arr: %d", array_capacity(arr));
+  info("Capacity of arr_clone: %d", array_capacity(arr_clone));
+
+  array_free(arr);
+  array_free(arr_clone);
 }
 
 int main(int argc, char **argv) {
@@ -691,7 +732,8 @@ int main(int argc, char **argv) {
   // TEST(dual_state);
   // TEST(tri_state);
   // TEST(rvar_bucket);
-  TEST(planner);
+  // TEST(planner);
+  TEST(array);
 
   //test_tri_state();
   return 0;

@@ -4,10 +4,16 @@ import os
 import random
 import sys
 
+import gnuplot as Gnuplot
+
 random.seed(10)
 numpy.random.seed(10)
 
 SETUP_TIME=50
+NTPP_RATIO=0.3
+
+FB_SEED_A = 11321
+FB_SEED_B = 51607
 
 def info(fmt, *args):
     print(fmt % args)
@@ -246,6 +252,24 @@ class ClampSampler(Pdf):
     def sample(self, n):
         return map(self._clamp, self._other.sample(n))
 
+class ToRSamplerUniform(Pdf):
+    def __init__(self, num_tors_per_pod, num_pods, size_dist):
+        self._ntpp = num_tors_per_pod
+        self._npod = num_pods
+        self._size_dist = size_dist
+
+    # Sample uniformly from the pods and the ToRs
+    def sample(self, n):
+        nt = self._ntpp * self._npod;
+        ret = []
+
+        for i in xrange(n):
+            ntors = self._size_dist.sample_one()
+            ret.append(numpy.random.choice(xrange(0, nt), ntors, replace=False).tolist())
+
+        return ret
+    
+
 class ToRSampler(Pdf):
     def __init__(self, num_tors_per_pod, num_pods, size_dist):
         self._ntpp = num_tors_per_pod
@@ -281,12 +305,18 @@ class TraceBuilder(object):
             traffic_summary_dist, 
             user_arrival_dist, 
             user_duration_dist,
-            user_size_dist):
+            user_size_dist,
+            rate_limiter = None):
         self._tsd = traffic_summary_dist
         self._uad = user_arrival_dist
         self._udd = user_duration_dist
         self._usd = user_size_dist
         self._duration = 0
+        self._rm = rate_limiter
+
+        if rate_limiter == None:
+            self._rm = lambda pair, vol: vol
+
 
     def _sample_user_arrival_and_duration(self, uat, ticks, interval):
         duration = self._duration
@@ -374,15 +404,21 @@ class TraceBuilder(object):
             self._sample_user_arrival_and_duration(users, tick + 4, interval)
             __idx = _add_next_users(__idx, users, tick, interval)
             for user in active_users:
-                assert user.start < tick + 1
-                assert user.end > tick
-                for pair, vol in user.tick(tick).iteritems():
+                #assert user.start < tick + 1
+                #assert user.end > tick
+
+                bws = user.tick(tick)
+                # print len(bws)
+                for pair, vol in bws.iteritems():
                     if pair not in tm:
                         tm[pair] = 0
                     tm[pair] += vol
 
             _del_dead_users(tick, interval)
             __idx = _clean_up_users(users, tick+1, __idx)
+
+            for pair, vol in tm.iteritems():
+                tm[pair] = self._rm(pair, vol)
 
             yield active_users, tm
 
@@ -400,6 +436,113 @@ def save_tm(tm, num_tors, fname):
                     traffic.append(str(tm[key]))
 
         trace.write("\n".join(traffic))
+
+def stats_gnuplot(tm, num_pods, num_tors_per_pod):
+    num_tors = num_pods * num_tors_per_pod
+    idx = 0
+    pod_tr = {}
+
+    sid = 0
+    for spod in xrange(num_pods):
+        for stor in xrange(num_tors_per_pod):
+            sid += 1
+            did = 0
+            for dpod in xrange(num_pods):
+                for dtor in xrange(num_tors_per_pod):
+                    did += 1
+                    key = (sid, did)
+                    if key not in tm:
+                        continue
+
+                    bw = tm[key]
+                    idx += 1
+
+
+                    key = (spod, dpod)
+                    if spod == dpod:
+                        key = (0, 0)
+                    if key not in pod_tr:
+                        pod_tr[key] = []
+                    pod_tr[key].append(bw)
+
+    data = sorted(pod_tr[(0, 0)])
+    dlen = len(data)
+    data_max = data[-1]
+    y = map(lambda x: (float(x)/dlen), xrange(dlen))
+    x = data
+
+    g = Gnuplot.Gnuplot(debug=0);
+    g('set terminal png')
+    g('set output "test.png"')
+    for i in range(1, 9):
+        dm = data_max * i / 8
+        print dm
+        g("set arrow from %d,0 to %d,1 nohead lc rgb 'red'" % (dm, dm))
+    g.plot(Gnuplot.Data(zip(x, y)))
+    exit(1)
+
+def stats_tm(tm, num_pods, num_tors_per_pod):
+    num_tors = num_pods * num_tors_per_pod
+    idx = 0
+    pod_tr = {}
+    pod_tr_count = {}
+
+    sid = 0
+    for spod in xrange(num_pods):
+        for stor in xrange(num_tors_per_pod):
+            sid += 1
+            did = 0
+            for dpod in xrange(num_pods):
+                for dtor in xrange(num_tors_per_pod):
+                    did += 1
+                    key = (sid, did)
+                    if key not in tm:
+                        continue
+
+                    bw = tm[key]
+                    idx += 1
+
+
+                    key = (spod, dpod)
+                    if key not in pod_tr:
+                        pod_tr[key] = 0
+                    pod_tr[key] += bw
+
+                    if key not in pod_tr_count:
+                        pod_tr_count[key] = 0
+                    if bw != 0:
+                        pod_tr_count[key] += 1
+
+    intra_pod = {}
+    intra_pod_count = {}
+    extra_pod = {}
+    extra_pod_count = {}
+
+    for pod in xrange(num_pods):
+        if pod not in intra_pod:
+            intra_pod[pod] = 0
+            intra_pod_count[pod] = 0
+        intra_pod[pod] += pod_tr[(pod, pod)]
+        intra_pod_count[pod] += pod_tr_count[(pod, pod)]
+
+    for spod in xrange(num_pods):
+        for dpod in xrange(num_pods):
+            if spod == dpod:
+                continue
+            key = (spod, dpod)
+            if spod not in extra_pod:
+                extra_pod[spod] = 0
+                extra_pod_count[spod] = 0
+            if key in pod_tr:
+                extra_pod[spod] += pod_tr[key]
+                extra_pod_count[spod] += pod_tr_count[key]
+
+    print "IntraPod", intra_pod
+    print "ExtraPod", extra_pod
+
+    print "IntraPodCount", intra_pod_count
+    print "ExtraPodCount", extra_pod_count
+
 
 def save_key(num_pods, num_tors_per_pod, fname):
     num_tors = num_pods * num_tors_per_pod
@@ -486,126 +629,292 @@ def load_trace(path, length):
         'traffic': traffic
     }
 
-def main():
-    # NUM_TORS_PER_POD = 10
-    # NUM_PODS = 10
-    # MAX_USER_SIZE=100
-    # MIN_USER_SIZE=1
-    # MAX_USER_DURATION=100
-    # MAX_USER_ARRIVAL_RATE=0.2
-    # TRACE_LENGTH=200
-    # TRAFFIC_VOLUME_POWER=10
+class Config(object):
+    def __init__(self, args):
+        self.DIR = args[0]
+        self.NUM_PODS = int(args[1])
+        self.NUM_TORS_PER_POD = int(args[2])
+        self.MAX_USER_SIZE = int(self.NUM_PODS * self.NUM_TORS_PER_POD * float(args[3]))
+        self.TRACE_LENGTH = int(args[4])
+        self.WEBSERVER_TRACE = args[5]
+        self.HADOOP_TRACE = args[6]
 
-    DIR = sys.argv[1]
-    NUM_PODS = int(sys.argv[2])
-    NUM_TORS_PER_POD = int(sys.argv[3])
-    MAX_USER_SIZE = int(NUM_PODS * NUM_TORS_PER_POD * float(sys.argv[4]))
-    TRACE_LENGTH = int(sys.argv[5])
-    WEBSERVER_TRACE=sys.argv[6]
-    HADOOP_TRACE=sys.argv[6]
+        # Possibly don't want to change these
+        self.MIN_USER_SIZE = self.MAX_USER_SIZE / 5
+        self.MAX_USER_DURATION = 100
+        self.MAX_USER_ARRIVAL_RATE = 0.1
+        self.TRAFFIC_VOLUME_POWER=10
 
-    FB_SEED_A = 11321
-    FB_SEED_B = 51607
+        self._hadoop_trace = None
+        self._webserver_trace = None
 
-    # Possibly don't want to change these
-    MIN_USER_SIZE = 1
-    MAX_USER_DURATION = 100
-    MAX_USER_ARRIVAL_RATE = 0.1
-    TRAFFIC_VOLUME_POWER=10
+    @property
+    def dir(self):
+        return self.DIR
 
-    if not os.path.exists(DIR):
-            os.makedirs(DIR)
+    @property
+    def num_pods(self):
+        return self.NUM_PODS
 
-    def traffic_summary(L, H, webserver, hadoop):
-        def get_pod(tor):
-            return tor/NUM_TORS_PER_POD
+    @property
+    def num_tors_per_pod(self):
+        return self.NUM_TORS_PER_POD
 
-        def p2p(pod, nfb_pods):
-            return ((pod * FB_SEED_A) + FB_SEED_B) % nfb_pods
+    @property
+    def num_tors(self):
+        return self.num_pods * self.num_tors_per_pod
 
-        def t2t(tor, nfb_tors):
-            return ((tor * FB_SEED_A) + FB_SEED_B) % nfb_tors
+    @property
+    def max_user_duration(self):
+        return self.MAX_USER_DURATION
 
-        def fb_gen(traffic_dist):
-            dist = traffic_dist
+    @property
+    def max_user_arrival_rate(self):
+        return self.MAX_USER_ARRIVAL_RATE
 
-            tr   = dist['traffic']
-            pc   = dist['pod_count']
-            tcf  = dist['tor_count_for']
-            lt   = dist['located_tor']
+    @property
+    def traffic_volumn_power_dist_param(self):
+        return self.TRAFFIC_VOLUME_POWER
 
-            def gen(src, dst, start_tick):
-                spod = get_pod(src)
-                dpod = get_pod(dst)
+    @property
+    def min_user_size(self):
+        return self.MIN_USER_SIZE
 
-                fspod = p2p(spod, pc)
-                fdpod = p2p(dpod, pc)
+    @property
+    def max_user_size(self):
+        return self.MAX_USER_SIZE
 
-                fsrc = t2t(src, tcf(fspod))
-                fdst = t2t(dst, tcf(fdpod))
+    @property
+    def trace_length(self):
+        return self.TRACE_LENGTH
 
-                flsrc = lt(fspod, fsrc)
-                fldst = lt(fdpod, fdst)
+    @property
+    def hadoop_trace_path(self):
+        return self.HADOOP_TRACE
 
-                # have to do one final translation from fsrc and fspod to located tor
+    @property
+    def hadoop_trace(self):
+        print self.hadoop_trace_path, self.trace_length
+        if not self._hadoop_trace:
+            self._hadoop_trace = load_trace(self.hadoop_trace_path, self.trace_length)
+        return self._hadoop_trace
 
-                # it could be the case that fsrc and fdst are the same after the translation
-                # in that case we just return 0
-                if (flsrc == fldst):
-                    return 0
+    @property
+    def webserver_trace_path(self):
+        return self.WEBSERVER_TRACE
 
-                return tr[start_tick][flsrc][fldst]
-            return gen
+    @property
+    def webserver_trace(self):
+        if not self._webserver_trace:
+            self._webserver_trace = load_trace(self.webserver_trace_path, self.trace_length)
+        return self._webserver_trace
 
-        def power_gen(src, dst, start_tick):
-            return IntSampler(
-                    MultiplySampler(random.randint(L, H), 
-                        PowerSampler(TRAFFIC_VOLUME_POWER)))
+def traffic_summary_tunable(intra_to_inter_pod_flow_count, 
+                            intra_to_inter_pod_flow_volume,
+                            traffic_low, traffic_high,
+                            config):
+    ntpp = config.num_tors_per_pod
+    num_tors = config.num_tors
+    ntt = ntpp * (ntpp - 1)
+    npp = (num_tors - ntpp) * (num_tors - ntpp)
 
-        hadoop_gen    = fb_gen(hadoop)
-        webserver_gen = fb_gen(webserver)
-        generator = random.choice([hadoop_gen, webserver_gen])
+    prob_flow_pp = float(ntt) / float(npp * intra_to_inter_pod_flow_count)
+    prob_flow_tt = 1.0
 
-        return TrafficSummary(generator)
+    if prob_flow_pp > 1.0:
+        prob_flow_tt = 1.0/prob_flow_pp
+        prob_flow_pp = 1.0
 
-    webserver = load_trace(WEBSERVER_TRACE, TRACE_LENGTH)
-    hadoop = load_trace(HADOOP_TRACE, TRACE_LENGTH)
+    tvol_high_pp = int(traffic_high / intra_to_inter_pod_flow_volume)
+    tvol_low_pp  = int(traffic_low  / intra_to_inter_pod_flow_volume)
+    tvol_high_tt = traffic_high
+    tvol_low_tt  = traffic_low
 
+    #variables = {'pp': 0, 'pv': 0, 'tt': 0, 'tv': 0, 'ts': set([]), 'ps': set([])}
+
+    def gen(src, dst, tick):
+        spod = src/ntpp
+        dpod = dst/ntpp
+
+        toss = random.random()
+        if (spod == dpod):
+            #variables['tt'] += 1
+            # intra-pod communication
+            if (toss <= prob_flow_tt):
+                #variables['tv'] += 1
+                #variables['ts'].add((src, dst, ))
+                return random.randint(tvol_low_tt, tvol_high_tt)
+            return 0
+        else:
+            #variables['pp'] += 1
+            if (toss <= prob_flow_pp):
+                #variables['pv'] += 1
+                #variables['ps'].add((src, dst, ))
+                return random.randint(tvol_low_pp, tvol_high_pp)
+            return 0
+
+    return TrafficSummary(gen)
+
+def traffic_summary_default(traffic_low_mult, traffic_high_mult, config):
+    def get_pod(tor):
+        return tor/config.num_tors_per_pod
+
+    def p2p(pod, nfb_pods):
+        return ((pod * FB_SEED_A) + FB_SEED_B) % nfb_pods
+
+    def t2t(tor, nfb_tors):
+        return ((tor * FB_SEED_A) + FB_SEED_B) % nfb_tors
+
+    def fb_gen(traffic_dist):
+        dist = traffic_dist
+
+        tr   = dist['traffic']
+        pc   = dist['pod_count']
+        tcf  = dist['tor_count_for']
+        lt   = dist['located_tor']
+
+        def gen(src, dst, start_tick):
+            spod = get_pod(src)
+            dpod = get_pod(dst)
+
+            fspod = p2p(spod, pc)
+            fdpod = p2p(dpod, pc)
+
+            fsrc = t2t(src, tcf(fspod))
+            fdst = t2t(dst, tcf(fdpod))
+
+            flsrc = lt(fspod, fsrc)
+            fldst = lt(fdpod, fdst)
+
+            # have to do one final translation from fsrc and fspod to located tor
+
+            # it could be the case that fsrc and fdst are the same after the translation
+            # in that case we just return 0
+            if (flsrc == fldst):
+                return 0
+
+            return tr[start_tick][flsrc][fldst]
+        return gen
+
+    def power_gen(src, dst, start_tick):
+        return IntSampler(
+                MultiplySampler(random.randint(traffic_low_mult, traffic_high_mult), 
+                    PowerSampler(config.traffic_volumn_power_dist_param)))
+
+    hadoop_gen    = fb_gen(config.hadoop_trace)
+    webserver_gen = fb_gen(config.webserver_trace)
+    generator = random.choice([hadoop_gen, webserver_gen])
+
+    return TrafficSummary(generator)
+
+
+def rate_limit_by(x):
+    def f(pair, vol):
+        if vol > x:
+            return x
+        return vol
+    return f
+
+def rate_limit_gentle_by(x):
+    def f(pair, vol):
+        if vol > x:
+            return numpy.random.normal(x, x/20, 1).tolist()[0]
+        return vol
+    return f
+
+def no_rate_limit():
+    def f(pair, vol):
+        return vol
+    return f
+
+# Default traffic generation parameters
+# Setting: try to put user VMs in the same pods
+def traffic_scenario_default(config):
     traffic_summaries = ExactPdfSampler([
-        traffic_summary(1, random.randint(1, 10000), webserver, hadoop)
+        traffic_summary_default(1, random.randint(1, 1), config)
         for _ in xrange(100)])
 
-    poisson_arrival  = MultiplySampler(MAX_USER_ARRIVAL_RATE, ExponentialSampler(10))
-    poisson_duration = MultiplySampler(MAX_USER_DURATION, PowerSampler(10))
-    tor_sampler = ToRSampler(NUM_TORS_PER_POD, NUM_PODS, 
-            ClampSampler(MIN_USER_SIZE, MAX_USER_SIZE, 
+    poisson_arrival  = MultiplySampler(config.max_user_arrival_rate, ExponentialSampler(10))
+    poisson_duration = MultiplySampler(config.max_user_duration, PowerSampler(10))
+    tor_sampler = ToRSampler(config.num_tors_per_pod, config.num_pods, 
+            ClampSampler(config.min_user_size, config.max_user_size, 
                 IntSampler(
-                    MultiplySampler(MAX_USER_SIZE, 
+                    MultiplySampler(config.max_user_size,
                         PowerSampler(10)))))
 
+    rate_limiter = rate_limit_gentle_by(400000);
+
+    return traffic_summaries, poisson_arrival, poisson_duration, tor_sampler, rate_limiter
+
+def traffic_scenario_bad_scheduler(config):
+    traffic_summaries = ExactPdfSampler([
+        traffic_summary_default(1, random.randint(1, 1), config)
+        for _ in xrange(100)])
+
+    poisson_arrival  = MultiplySampler(config.max_user_arrival_rate, ExponentialSampler(10))
+    poisson_duration = MultiplySampler(config.max_user_duration, PowerSampler(10))
+    tor_sampler = ToRSamplerUniform(config.num_tors_per_pod, config.num_pods, 
+            ClampSampler(config.min_user_size, config.max_user_size, 
+                IntSampler(
+                    MultiplySampler(config.max_user_size,
+                        PowerSampler(10)))))
+
+    return traffic_summaries, poisson_arrival, poisson_duration, tor_sampler, None
+
+def traffic_scenario_tunable(config):
+    ntpp = config.num_tors_per_pod
+    traffic_summaries = ExactPdfSampler([
+        traffic_summary_tunable(0.01, 400, 1, random.randint(1, 10000), config)
+        for _ in xrange(100)])
+
+    poisson_arrival  = MultiplySampler(config.max_user_arrival_rate, ExponentialSampler(10))
+    poisson_duration = MultiplySampler(config.max_user_duration, PowerSampler(10))
+    tor_sampler = ToRSamplerUniform(config.num_tors_per_pod, config.num_pods, 
+            ClampSampler(config.min_user_size, config.max_user_size, 
+                IntSampler(
+                    MultiplySampler(config.max_user_size,
+                        PowerSampler(0.1)))))
+
+    return traffic_summaries, poisson_arrival, poisson_duration, tor_sampler, None
+
+def traffic_scenario_tunable_fixed(config):
+    ntpp = config.num_tors_per_pod
+    traffic_summaries = ExactPdfSampler([traffic_summary_tunable(0.13*0.1439, 400, 10000, 10000, config)])
+    max_user_size = config.num_tors# - 1
+
+    poisson_arrival  = ClampSampler(0.1, 0.1,
+            MultiplySampler(config.max_user_arrival_rate, ExponentialSampler(10)))
+    poisson_duration = ClampSampler(4, 4,
+            MultiplySampler(config.max_user_duration, PowerSampler(10)))
+    tor_sampler = ToRSamplerUniform(config.num_tors_per_pod, config.num_pods, 
+            ClampSampler(max_user_size, max_user_size, IntSampler(
+                MultiplySampler(config.max_user_size,
+                    PowerSampler(0.1)))))
+
+    return traffic_summaries, poisson_arrival, poisson_duration, tor_sampler, None
+
+def main():
+    config = Config(sys.argv[1:])
+    if not os.path.exists(config.dir):
+        os.makedirs(config.dir)
+
     iterator = TraceBuilder(
-            traffic_summaries,
-            poisson_arrival, 
-            poisson_duration, 
-            tor_sampler).build(
-                ticks=TRACE_LENGTH, interval=1)
+                    *traffic_scenario_default(config)
+               ).build(ticks=config.trace_length, interval=1)
 
     for tick, data in enumerate(iterator):
-        pods = {}
-        tot_traffic = 0
-        users, tm = data
+        _, tm = data
         info("Saving %d - %d", tick, tick+1)
-        save_tm(tm, NUM_TORS_PER_POD * NUM_PODS, os.path.join(DIR, ("%08d" % tick) + ".tsv"))
-    save_key(NUM_PODS, NUM_TORS_PER_POD, os.path.join(DIR, "key.tsv"))
+        save_tm(tm, config.num_tors, os.path.join(config.dir, ("%08d" % tick) + ".tsv"))
+        stats_tm(tm, config.num_pods, config.num_tors_per_pod)
+        #if tick > 60:
+        #    stats_gnuplot(tm, config.num_pods, config.num_tors_per_pod)
+    save_key(config.num_pods, config.num_tors_per_pod, os.path.join(config.dir, "key.tsv"))
 
 if __name__ == '__main__':
     if len(sys.argv) != 8:
         usage()
-
     main()
-    #NumpyCacher(numpy.random.choice
-
-
 
 # Inadmissible Traffic fix:
 #   ... Rate limit the users causing the inadmissibility.

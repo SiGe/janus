@@ -17,6 +17,7 @@
 #include "exec/pug.h"
 
 #define TO_PUG(e) struct exec_pug_t *pug = (struct exec_pug_t *)e;
+#define EXP(p) ((p)->expected((struct rvar_t *)(p)))
 
 #if DEBUG_MODE == 1
 #define DEBUG(txt, ...) info(txt, ##__VA_ARGS__);
@@ -199,11 +200,9 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
 static struct rvar_t *
 _short_term_risk_using_long_term_cache(struct exec_t *exec, struct expr_t *expr, int subplan, trace_time_t now) {
   TO_PUG(exec);
-  struct rvar_sample_t *rv = (struct rvar_sample_t *)pug->steady_cost[subplan];
-  size_t size = sizeof(rvar_type_t) * rv->num_samples;
-  rvar_type_t *vals = malloc(size);
-  memcpy(vals, rv->vals, size);
-  return rvar_sample_create_with_vals(vals, rv->num_samples);
+  struct rvar_t *rv = pug->steady_cost[subplan];
+  struct rvar_t *ret = rv->copy(rv);
+  return ret;
 }
 
 static struct rvar_t *
@@ -304,6 +303,7 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
     ptr += plans->max_plan_size;
 
     struct rvar_t *sum = cost_rvar->convolve(cost_rvar, rvar, BUCKET_SIZE);
+    //info("COST: %lf, %lf + %lf", EXP(sum), EXP(cost_rvar), EXP(rvar));
     // Calculate the cost of the remainder of the plan and sum it up with the short-term cost
     //risk_cost_t long_term_cost = (viol_cost->rvar_to_cost(viol_cost, cost_rvar)); // / (double)(plan_len + 1));
     //risk_cost_t cost = long_term_cost + short_term_cost;
@@ -542,8 +542,13 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
   pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
   info("Creating the steady cost random variables: %d", subplan_count);
   for (uint32_t i = 0; i < subplan_count; ++i) {
-    pug->steady_cost[i] = expr->risk_violation_cost->rvar_to_rvar(
+    struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
+    //rv->plot(rv);
+    pug->steady_cost[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
+    //pug->steady_cost[i]->plot(pug->steady_cost[i]);
+    info("RV: %lf, BUCKET: %lf", rv->expected(rv), pug->steady_cost[i]->expected(pug->steady_cost[i]));
+    rv->free(rv);
     // info("Plot of packet loss for subplan %d", i);
     // pug->steady_packet_loss[i]->plot(pug->steady_packet_loss[i]);
     // info("Plot of cost for subplan %d", i);

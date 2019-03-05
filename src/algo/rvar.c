@@ -44,6 +44,24 @@ static char *_sample_serialize(struct rvar_t *rvar, int *size) {
   return buffer;
 }
 
+static struct rvar_t *_sample_copy(struct rvar_t const *rvar) {
+  struct rvar_sample_t *rv = (struct rvar_sample_t *)rvar;
+  size_t size = sizeof(rvar_type_t) * rv->num_samples;
+  rvar_type_t *vals = malloc(size);
+  memcpy(vals, rv->vals, size);
+  return rvar_sample_create_with_vals(vals, rv->num_samples);
+}
+
+
+static struct rvar_t *_bucket_copy(struct rvar_t const *rvar) {
+  struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvar;
+// Create a bucketized RVar value
+  struct rvar_bucket_t *ret = (struct rvar_bucket_t *)rvar_bucket_create(rv->low, rv->bucket_size, rv->nbuckets);
+  size_t size = sizeof(rvar_type_t) * rv->nbuckets;
+  memcpy(ret->buckets, rv->buckets, size);
+  return (struct rvar_t *)ret;
+}
+
 static char *_bucket_serialize(struct rvar_t *rvar, int *size) {
   struct rvar_bucket_t *rv = (struct rvar_bucket_t*)rvar;
   *size = HEADER_SIZE + sizeof(rvar_type_t) /* bucket_size */
@@ -160,10 +178,12 @@ _sample_to_bucket(struct rvar_t const *rs, rvar_type_t bucket_size) {
     struct rvar_t *ret = rvar_bucket_create(r->low, bucket_size, num_buckets);
     struct rvar_bucket_t *rb = (struct rvar_bucket_t *)ret;
 
-#define TO_BUCKET(bs, l, v) ((int)(floor((v - l)/bs)))
+    rvar_type_t *val = r->vals;
+    rvar_type_t low = r->low;
 
     for (int i = 0; i < r->num_samples; ++i) {
-        rb->buckets[TO_BUCKET(bucket_size, r->low, r->vals[i])]++;
+      rb->buckets[(int)((*val - low)/bucket_size)]++;
+      val++;
     }
 
     for (int i = 0; i < num_buckets; ++i) {
@@ -215,6 +235,7 @@ void rvar_sample_init(struct rvar_sample_t *ret) {
     ret->to_bucket = _sample_to_bucket;
     ret->serialize = _sample_serialize;
     ret->plot = _sample_plot;
+    ret->copy = _sample_copy;
 
     ret->_type = SAMPLED;
 }
@@ -341,6 +362,7 @@ static struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_siz
     output->serialize = _bucket_serialize;
     output->free = _bucket_free;
     output->plot = _bucket_plot;
+    output->copy = _bucket_copy;
 
     return (struct rvar_t *)output;
 }
