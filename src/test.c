@@ -4,12 +4,13 @@
 #include <string.h>
 
 #include "algo/array.h"
+#include "algo/group_gen.h"
 #include "algo/maxmin.h"
 #include "algo/rvar.h"
 #include "plan/jupiter.h"
 #include "networks/jupiter.h"
 #include "predictors/rotating_ewma.h"
-#include "util/group_gen.h"
+#include "util/monte_carlo.h"
 #include "util/log.h"
 
 #include "plan.h"
@@ -612,7 +613,7 @@ rvar_type_t _mc_run(void *data) {
 
 void test_rvar_bucket(void) {
   int index = 0;
-  struct rvar_t *r = (struct rvar_t*)rvar_monte_carlo(_mc_run, 2, &index);
+  struct rvar_t *r = (struct rvar_t*)monte_carlo_rvar(_mc_run, 2, &index);
 
   info("Convolve RR");
   struct rvar_t *rr = r->convolve(r, r, 1);
@@ -731,9 +732,9 @@ int main(int argc, char **argv) {
   // TEST(group_state);
   // TEST(dual_state);
   // TEST(tri_state);
-  // TEST(rvar_bucket);
+  TEST(rvar_bucket);
   // TEST(planner);
-  TEST(array);
+  // TEST(array);
 
   //test_tri_state();
   return 0;

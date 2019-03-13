@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include "algo/array.h"
 #include "algo/maxmin.h"
 #include "config.h"
 #include "freelist.h"
@@ -11,6 +12,7 @@
 #include "predictors/rotating_ewma.h"
 #include "predictors/perfect.h"
 #include "util/common.h"
+#include "util/monte_carlo.h"
 
 #include "exec.h"
 
@@ -56,8 +58,8 @@ struct predictor_t *exec_ewma_cache_build_or_load(
   return (struct predictor_t *)ewma;
 }
 
-struct rvar_t **
-exec_rvar_cache_load(struct expr_t const *expr, int *count) {
+struct array_t **
+exec_rvar_cache_load_into_array(struct expr_t const *expr, int *count) {
   char const *cache_dir = expr->cache.rvar_directory;
 
   DIR *dir = 0;
@@ -66,7 +68,7 @@ exec_rvar_cache_load(struct expr_t const *expr, int *count) {
   if (nfiles == 0)
     return 0;
 
-  struct rvar_t **ret = malloc(sizeof(struct rvar_t *) * nfiles);
+  struct array_t **ret = malloc(sizeof(struct array_t *) * nfiles);
   info("Total number of cache files: %d", nfiles);
 
   if ((dir = opendir(cache_dir)) != NULL) {
@@ -83,9 +85,10 @@ exec_rvar_cache_load(struct expr_t const *expr, int *count) {
       *ptr = 0;
       int index = atoi(ent->d_name);
       char *value = 0;
-      file_read(cache_file, &value);
-      struct rvar_t *rv = rvar_deserialize(value);
-      ret[index] = rv;
+      size_t nbytes = file_read(cache_file, &value);
+      struct array_t *arr = array_deserialize(value, nbytes);
+      ret[index] = arr;
+
       free(value);
       fclose(cache_file);
     }
@@ -98,6 +101,28 @@ exec_rvar_cache_load(struct expr_t const *expr, int *count) {
 
   *count = nfiles;
 
+  return ret;
+}
+
+struct rvar_t **
+exec_rvar_cache_load(struct expr_t const *expr, int *count) {
+  struct array_t **arr = exec_rvar_cache_load_into_array(expr, count);
+  if (!arr) {
+    panic("Could not load the rvar cache files.");
+    return 0;
+  }
+
+  int ncount = *count;
+  struct rvar_t **ret = malloc(sizeof(struct rvar_t *) * ncount);
+
+  for (int i = 0; i < ncount; ++i) {
+    rvar_type_t *vals = 0;
+    int nvals = array_transfer_ownership(arr[i], (void**)&vals);
+    free(arr[i]);
+    ret[i] = rvar_sample_create_with_vals(vals, nvals);
+  }
+
+  free(arr);
   return ret;
 }
 
@@ -204,7 +229,7 @@ exec_simulate_ordered(
     data[j].expr = expr;
   }
 
-  rvar_type_t *vals= rvar_monte_carlo_parallel_ordered(
+  rvar_type_t *vals= monte_carlo_parallel_ordered_rvar(
       _sim_network_for_trace_parallel, 
       data, trace_length,
       sizeof(struct _rvar_cache_builder_parallel), 0);
@@ -318,8 +343,8 @@ void exec_traffic_stats(
   struct traffic_stats_t *pods = malloc(sizeof(struct traffic_stats_t) * expr->num_pods);
   memset(pods, 0, sizeof(struct traffic_stats_t) * expr->num_pods);
   for (uint32_t i = 0; i < expr->num_pods; ++i) {
+    pods[i].out.min = INFINITY;
     pods[i].in.min = INFINITY;
-    pods[i].out.min= INFINITY;
     pods[i].pod_id = i;
   }
   struct traffic_stats_t *spod = 0, *dpod = 0;

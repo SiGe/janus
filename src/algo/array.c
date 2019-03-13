@@ -7,7 +7,7 @@
 
 struct array_t *array_create(int data_size, int capacity) {
   if (data_size <= 0 || capacity <= 0) {
-    panic("Array data size or capacity are zero.");
+    panic("Array data size or capacity are <= 0.");
     return 0;
   }
 
@@ -20,8 +20,24 @@ struct array_t *array_create(int data_size, int capacity) {
   return ret;
 }
 
+struct array_t *array_from_vals(void *data, int data_size, int size) {
+  if (data_size <= 0 || size <= 0) {
+    panic("Array data size or capacity are <= 0.");
+    return 0;
+  }
+
+  struct array_t *ret = malloc(sizeof(struct array_t));
+  ret->data_size = data_size;
+  ret->capacity = size;
+  ret->count = size;
+  ret->data = data;
+
+  return ret;
+}
+
 void array_free(struct array_t *arr) {
-  free(arr->data);
+  if (arr->data)
+    free(arr->data);
   free(arr);
 }
 
@@ -101,4 +117,35 @@ inline int array_size(struct array_t *arr) {
 
 inline int array_capacity(struct array_t *arr) {
   return arr->capacity;
+}
+
+int array_transfer_ownership(struct array_t *arr, void **data) {
+  *data = arr->data;
+  int ret = arr->count;
+
+  arr->count = 0;
+  arr->capacity = 0;
+  arr->data = 0;
+
+  return ret;
+}
+
+void *array_splice(struct array_t *arr, int start, int end, int *size) {
+  if (!arr)
+    return 0;
+
+  // Sanitization of input
+  if (start < 0)
+    start = 0;
+
+  if (end >= array_size(arr))
+    end = array_size(arr) - 1;
+
+  size_t copy_size = (end - start + 1) * arr->data_size;
+  void *ret = malloc(copy_size);
+  void *data_start = (void *)((char *)arr->data + (arr->data_size * start));
+  memcpy(ret, data_start, copy_size);
+
+  *size = end - start + 1;
+  return ret;
 }

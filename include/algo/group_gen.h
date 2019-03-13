@@ -1,5 +1,5 @@
-#ifndef _GROUP_GEN_H_
-#define _GROUP_GEN_H_
+#ifndef _ALGO_GROUP_GEN_H_
+#define _ALGO_GROUP_GEN_H_
 
 #include <stdint.h>
 #include <stdlib.h>

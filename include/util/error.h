@@ -1,5 +1,5 @@
-#ifndef _ERROR_H_
-#define _ERROR_H_
+#ifndef _UTIL_ERROR_H_
+#define _UTIL_ERROR_H_
 
 enum {
   /* Everything ... a ... ok! */

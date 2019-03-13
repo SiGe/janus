@@ -1,5 +1,5 @@
-#ifndef _COMMON_H_
-#define _COMMON_H_
+#ifndef _UTIL_COMMON_H_
+#define _UTIL_COMMON_H_
 
 #include <stdio.h>
 
@@ -50,6 +50,6 @@ int dir_mk(char const *dname);
 int dir_num_files(char const *dname);
 
 int fd_path(int, char **);
-int file_read(FILE *, char **);
+size_t file_read(FILE *, char **);
 
 #endif

@@ -66,7 +66,7 @@ int dir_num_files(char const *dname) {
   return file_count;
 }
 
-int file_read(FILE *f, char **out) {
+size_t file_read(FILE *f, char **out) {
   size_t cap = 8192;
   size_t nbytes = 1024;
   size_t index = 0;

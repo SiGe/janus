@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "algo/array.h"
 #include "algo/maxmin.h"
 #include "util/common.h"
 #include "util/debug.h"
@@ -12,7 +13,6 @@
 #include "plan.h"
 #include "predictor.h"
 #include "risk.h"
-#include "util/common.h"
 
 #include "exec/pug.h"
 
@@ -518,7 +518,6 @@ _exec_mops_for_free(struct exec_t *exec, struct expr_t *expr,
 
 static void
 _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
-  int subplan_count = 0;
   TO_PUG(exec);
 
   pug->trace = traffic_matrix_trace_load(400, expr->traffic_test);
@@ -530,30 +529,6 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
     panic("Couldn't load the training traffic matrix file: %s", expr->traffic_test);
 
   pug->pred = exec_predictor_create(exec, expr, expr->predictor_string);
-
-  pug->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
-  if (pug->steady_packet_loss == 0)
-    panic("Couldn't load the long-term RVAR cache.");
-
-  /* Create the cost variables */
-  if (expr->risk_violation_cost == 0)
-    panic("Risk of violation cost not set.");
-
-  pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
-  info("Creating the steady cost random variables: %d", subplan_count);
-  for (uint32_t i = 0; i < subplan_count; ++i) {
-    struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
-        expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
-    //rv->plot(rv);
-    pug->steady_cost[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
-    //pug->steady_cost[i]->plot(pug->steady_cost[i]);
-    info("RV: %lf, BUCKET: %lf", rv->expected(rv), pug->steady_cost[i]->expected(pug->steady_cost[i]));
-    rv->free(rv);
-    // info("Plot of packet loss for subplan %d", i);
-    // pug->steady_packet_loss[i]->plot(pug->steady_packet_loss[i]);
-    // info("Plot of cost for subplan %d", i);
-    // pug->steady_cost[i]->plot(pug->steady_cost[i]);
-  }
 
   if (expr->criteria_time == 0)
     panic("Time criteria not set.");
@@ -589,6 +564,8 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
   for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
 
+    pug->prepare_steady_cost(exec, expr, at);
+
     risk_cost_t estimated_cost = _exec_pug_best_plan_at(
         exec, expr, at, &best_plan_cost, &best_plan_len, best_plan_subplans);
     struct mop_t **mops = _exec_mops_for_create(
@@ -597,8 +574,10 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
         exec, expr, mops, best_plan_len, at);
     _exec_mops_for_free(exec, expr, mops, best_plan_len);
 
-    info("[%4d] Actual cost of the best plan (%d) is: %4.3f : %4.3f",
+    info("[%4d] Actual cost of the best plan (%02d) is: %4.3f : %4.3f",
         at, best_plan_len, actual_cost, estimated_cost);
+
+    pug->release_steady_cost(exec, expr, at);
   }
   free(best_plan_subplans);
 }
@@ -616,19 +595,121 @@ _exec_pug_short_and_long_explain(struct exec_t *exec) {
       "You can set the predictor that pug uses through the .ini file.");
 }
 
-
-struct exec_t *exec_pug_create_long_term_only(void) {
-  struct exec_t *exec = malloc(sizeof(struct exec_pug_t));
-  exec->net_dp = 0;
-
-  exec->validate = _exec_pug_validate;
-  exec->run = _exec_pug_runner;
-  exec->explain = _exec_pug_long_explain;
-
+static void
+prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
   TO_PUG(exec);
-  pug->short_term_risk = _short_term_risk_using_long_term_cache;
+  // We have already loaded the steady_packet_loss
+  if (pug->steady_packet_loss != 0)
+    return;
 
-  return exec;
+  // Load the steady_packet_loss data
+  int subplan_count = 0;
+  pug->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
+  if (pug->steady_packet_loss == 0)
+    panic("Couldn't load the long-term RVAR cache.");
+
+  /* Create the cost variables */
+  if (expr->risk_violation_cost == 0)
+    panic("Risk of violation cost not set.");
+
+  pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
+  info("Preparing the steady_cost cache");
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
+        expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
+    //rv->plot(rv);
+    pug->steady_cost[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
+    //pug->steady_cost[i]->plot(pug->steady_cost[i]);
+    rv->free(rv);
+  }
+}
+
+static void
+release_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+  // Does nothing
+  return;
+}
+
+static void
+prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+  TO_PUG(exec);
+
+  int subplan_count = 0;
+  struct array_t **arr = exec_rvar_cache_load_into_array(expr, &subplan_count);
+  if (arr == 0) {
+    panic("Couldn't load the RVAR array.");
+    return;
+  }
+
+  /* Create the cost variables */
+  if (expr->risk_violation_cost == 0)
+    panic("Risk of violation cost not set.");
+
+  assert(pug->steady_packet_loss == 0);
+  assert(pug->steady_cost == 0);
+
+  pug->steady_packet_loss = malloc(sizeof(struct rvar_t *) * subplan_count);
+  pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
+
+  trace_time_t start, end;
+
+  trace_time_t backtrack_time = expr->pug_backtrack_traffic_count;
+  int pug_backtrack = expr->pug_is_backtrack;
+
+  if (pug_backtrack) {
+    end = time;
+    if (time < backtrack_time) {
+      start = 0;
+    } else {
+      start = time - backtrack_time;
+    }
+    if (start == end) {
+      end = start + 1;
+    }
+  } else {
+    start = time;
+    end = start + backtrack_time;
+    if (end >= exec->trace->num_indices) {
+      end = exec->trace->num_indices - 1;
+    }
+    if (start >= end) {
+      start = end - 1;
+    }
+  }
+
+
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    void *data = 0; int data_size = 0;
+    data = array_splice(arr[i], start, end, &data_size);
+    pug->steady_packet_loss[i] = rvar_sample_create_with_vals(data, data_size);
+
+    struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
+        expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
+    pug->steady_cost[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
+    rv->free(rv);
+  }
+}
+
+static void
+release_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+  TO_PUG(exec);
+  // Things are already released no need to do anything about them.
+  if (!pug->steady_packet_loss)
+    return;
+
+  for (int i = 0; i < pug->plans->_subplan_count; ++i) {
+    struct rvar_t *rv = pug->steady_packet_loss[i];
+    rv->free(rv);
+
+    rv = pug->steady_cost[i];
+    rv->free(rv);
+  }
+
+  free(pug->steady_packet_loss);
+  free(pug->steady_cost);
+
+  pug->steady_packet_loss = 0;
+  pug->steady_cost = 0;
 }
 
 struct exec_t *exec_pug_create_short_and_long_term(void) {
@@ -640,7 +721,45 @@ struct exec_t *exec_pug_create_short_and_long_term(void) {
   exec->explain = _exec_pug_short_and_long_explain;
 
   TO_PUG(exec);
+  pug->steady_packet_loss = 0;
+  pug->steady_cost = 0;
   pug->short_term_risk = _short_term_risk_using_predictor;
+  pug->prepare_steady_cost = prepare_steady_cost_static;
+  pug->release_steady_cost = release_steady_cost_static;
 
+  return exec;
+}
+
+struct exec_t *exec_pug_create_long_term_only(void) {
+  struct exec_t *exec = malloc(sizeof(struct exec_pug_t));
+  exec->net_dp = 0;
+
+  exec->validate = _exec_pug_validate;
+  exec->run = _exec_pug_runner;
+  exec->explain = _exec_pug_long_explain;
+
+  TO_PUG(exec);
+  pug->steady_packet_loss = 0;
+  pug->steady_cost = 0;
+  pug->short_term_risk = _short_term_risk_using_long_term_cache;
+  pug->prepare_steady_cost = prepare_steady_cost_static;
+  pug->release_steady_cost = release_steady_cost_static;
+  return exec;
+}
+
+struct exec_t *exec_pug_create_lookback(void) {
+  struct exec_t *exec = malloc(sizeof(struct exec_pug_t));
+  exec->net_dp = 0;
+
+  exec->validate = _exec_pug_validate;
+  exec->run = _exec_pug_runner;
+  exec->explain = _exec_pug_long_explain;
+
+  TO_PUG(exec);
+  pug->steady_packet_loss = 0;
+  pug->steady_cost = 0;
+  pug->short_term_risk = _short_term_risk_using_predictor;
+  pug->prepare_steady_cost = prepare_steady_cost_dynamic;
+  pug->release_steady_cost = release_steady_cost_dynamic;
   return exec;
 }

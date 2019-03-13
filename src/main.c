@@ -25,7 +25,7 @@ void usage(const char *fname) {
   const char *usage_message = ""
     "usage: %s <experiment-setting ini file> [OPTIONS]\n"
 		"\nAvailable options:\n"
-		"\t-a [ACTION]\t Choose an action: pug, pug-long, ltg, stats, long-term\n"
+		"\t-a [ACTION]\t Choose an action: pug, pug-long, pug-lookback, ltg, stats, long-term\n"
 		"\t-x\t\t Explain the action\n"
 		"";
 
@@ -40,6 +40,8 @@ struct exec_t *executor(struct expr_t *expr) {
     return exec_pug_create_short_and_long_term();
   } else if (expr->action == RUN_PUG_LONG) {
     return exec_pug_create_long_term_only();
+  } else if (expr->action == RUN_PUG_LOOKBACK) {
+    return exec_pug_create_lookback();
   } else if (expr->action == TRAFFIC_STATS) {
     return exec_traffic_stats_create();
   } else if (expr->action == RUN_LTG) {

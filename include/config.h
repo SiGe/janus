@@ -41,6 +41,7 @@ enum EXPR_ACTION {
     // Different simulators
     RUN_PUG,  
     RUN_PUG_LONG,  
+    RUN_PUG_LOOKBACK,
     RUN_STG,
     RUN_LTG,
     RUN_CAP,
@@ -118,6 +119,10 @@ struct expr_t {
     // Verbosity
     enum EXPR_VERBOSE verbose;
     int explain;
+
+    // Pug related configuration
+    trace_time_t pug_backtrack_traffic_count;
+    int          pug_is_backtrack;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const * argv);

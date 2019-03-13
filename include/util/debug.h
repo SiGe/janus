@@ -1,5 +1,5 @@
-#ifndef _DEBUG_H_
-#define _DEBUG_H_
+#ifndef _UTIL_DEBUG_H_
+#define _UTIL_DEBUG_H_
 
 #define DEBUG_MODE 0
 

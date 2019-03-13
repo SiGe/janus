@@ -5,8 +5,9 @@
 
 #include "networks/jupiter.h"
 
+#include "algo/group_gen.h"
+
 #include "util/common.h"
-#include "util/group_gen.h"
 #include "util/log.h"
 
 #include "plan.h"

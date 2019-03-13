@@ -173,6 +173,16 @@ static int config_handler(void *data,
     expr->criteria_plan_length = risk_length_name_to_func(value);
   } else if (MATCH("criteria", "promised-throughput")) {
     expr->promised_throughput = atof(value);
+  } else if (MATCH("pug", "backtrack-traffic-count")) {
+    expr->pug_backtrack_traffic_count = atoi(value);
+  } else if (MATCH("pug", "backtrack-direction")) {
+    if (strcmp(value, "forward") == 0) {
+      expr->pug_is_backtrack = 0;
+    } else if (strcmp(value, "backward") == 0){
+      expr->pug_is_backtrack = 1;
+    } else {
+      panic("Invalid [pug]->backtrack_direction.");
+    }
   } else if (MATCH("general", "network")) {
     info("Parsing jupiter config: %s", value);
     expr->network = jupiter_string_to_network(expr, value);
@@ -243,6 +253,9 @@ parse_action(char const *arg) {
   } else if (strcmp(arg, "pug-long") == 0) {
     info("Choosing PUG LONG.");
     return RUN_PUG_LONG;
+  } else if (strcmp(arg, "pug-lookback") == 0) {
+    info("Choosing PUG LOOKBACK.");
+    return RUN_PUG_LOOKBACK;
   } else if (strcmp(arg, "stg") == 0) {
     info("Choosing STG.");
     return RUN_STG;
@@ -312,6 +325,9 @@ int _step_count(struct criteria_time_t *crit, uint32_t length) {
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {
   info("Parsing config %s", ini_file);
   expr->verbose = 0;
+  expr->pug_is_backtrack = 1;
+  expr->pug_backtrack_traffic_count = 10;
+
   if (ini_parse(ini_file, config_handler, expr) < 0) {
     panic("Couldn't load the ini file.");
   }

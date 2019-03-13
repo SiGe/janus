@@ -1,6 +1,6 @@
 #include <math.h>
 
-#include "util/group_gen.h"
+#include "algo/group_gen.h"
 #include "util/common.h"
 #include "util/log.h"
 #include "networks/jupiter.h"

@@ -2,14 +2,15 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include "algo/array.h"
 #include "algo/maxmin.h"
-#include "util/common.h"
 #include "config.h"
 #include "dataplane.h"
 #include "network.h"
 #include "freelist.h"
 #include "plan.h"
 #include "util/common.h"
+#include "util/monte_carlo.h"
 
 #include "exec/longterm.h"
 
@@ -120,7 +121,7 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
       data[j].expr = expr;
     }
 
-    struct rvar_t *rvar = (struct rvar_t *)rvar_monte_carlo_parallel(
+    rvar_type_t *vals = monte_carlo_parallel_ordered_rvar(
         _sim_network_for_trace_parallel, 
         data, trace_length,
         sizeof(struct _rvar_cache_builder_parallel), 0);
@@ -129,8 +130,10 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
       mop->post(mop, networks[j].net);
     }
 
-    int ser_size = 0;
-    char *value = rvar->serialize(rvar, &ser_size);
+    size_t ser_size = 0;
+    struct array_t *arr_data = array_from_vals(vals, sizeof(rvar_type_t), trace_length);
+    char *value = array_serialize(arr_data, &ser_size);
+    // char *value = rvar->serialize(rvar, &ser_size);
     sprintf(path, "%s"PATH_SEPARATOR"%05d.tsv", expr->cache.rvar_directory, i);
     FILE *rvar_file = fopen(path, "w+");
 
@@ -145,7 +148,12 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
     free(value);
     fclose(rvar_file);
 
-    info("Generated rvar for %ith subplan (expected viol: %f)", i, rvar->expected(rvar));
+    rvar_type_t expected = 0;
+    for (uint32_t i = 0; i < array_size(arr_data); ++i) {
+      expected += *(rvar_type_t *)array_get(arr_data, i);
+    }
+
+    info("Generated rvar for %ith subplan (expected viol: %f)", i, expected / array_size(arr_data));
     free(mop);
   }
 

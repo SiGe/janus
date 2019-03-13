@@ -34,9 +34,13 @@ struct exec_pug_t {
   struct rvar_t      **steady_cost;
 
   struct rvar_t * (*short_term_risk) (struct exec_t *exec, struct expr_t *expr, int subplan, trace_time_t);
+
+  void (*prepare_steady_cost) (struct exec_t *exec, struct expr_t *expr, trace_time_t);
+  void (*release_steady_cost) (struct exec_t *exec, struct expr_t *expr, trace_time_t);
 };
 
 struct exec_t *exec_pug_create_short_and_long_term(void);
 struct exec_t *exec_pug_create_long_term_only(void);
+struct exec_t *exec_pug_create_lookback(void);
 
 #endif // _EXEC_PUG_LONG_H_

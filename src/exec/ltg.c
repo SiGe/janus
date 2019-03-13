@@ -98,7 +98,7 @@ _exec_ltg_runner(struct exec_t *exec, struct expr_t *expr) {
   for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
     risk_cost_t actual_cost = _exec_ltg_best_plan_at(exec, expr, at);
-    info("[%4d] Actual cost of the best plan (LTG) is: %4.3f", at, actual_cost);
+    info("[%4d] Actual cost of the best plan (%02d) is: %4.3f : %4.3f", at, expr->criteria_time->steps, actual_cost, actual_cost);
   }
 }
 

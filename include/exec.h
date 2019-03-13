@@ -38,6 +38,7 @@ struct traffic_stats_t {
 #define EXEC_EWMA_PREFIX "traffic"
 
 struct rvar_t **exec_rvar_cache_load(struct expr_t const *expr, int *size);
+struct array_t **exec_rvar_cache_load_into_array(struct expr_t const *expr, int *count);
 
 /* Returns or builds the EWMA cache for the expr_t. */
 struct predictor_t *exec_ewma_cache_build_or_load(struct exec_t *, struct expr_t const *expr);

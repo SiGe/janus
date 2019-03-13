@@ -4,8 +4,6 @@
 #include <stdint.h>
 
 typedef double rvar_type_t;
-typedef rvar_type_t (*monte_carlo_run_t)(void *);
-typedef void (*monte_carlo_run_multi_t)(void *, rvar_type_t **, int);
 
 enum RVAR_TYPE {
   SAMPLED, BUCKETED,
@@ -24,7 +22,6 @@ struct rvar_t {
 
   enum RVAR_TYPE _type;
 };
-
 
 // Create a bucketized RVar value
 struct rvar_t *rvar_bucket_create(rvar_type_t, rvar_type_t, uint32_t);
@@ -49,34 +46,6 @@ struct rvar_bucket_t {
   uint32_t    nbuckets;
   rvar_type_t *buckets;
 };
-
-
-// Monte carlo methods for keeping single or multiple RVs
-struct rvar_sample_t *rvar_monte_carlo(
-    monte_carlo_run_t run,
-    int nsteps,
-    void *data);
-
-struct rvar_sample_t *rvar_monte_carlo_multi(
-    monte_carlo_run_multi_t run,
-    int nsteps, int nvars,
-    void *data);
-
-struct rvar_sample_t *rvar_monte_carlo_parallel(
-    monte_carlo_run_t run, // Monte carlo runner
-    void *data,            // Data to pass to each instance of monte-carlo run (this should be an array of size nsteps)
-    int nsteps,            // Amount of data
-    int size,              // Size of each data segment
-    int num_threads        // Number of thread to use or 0 for automatic calculation
-);
-
-rvar_type_t *rvar_monte_carlo_parallel_ordered(
-    monte_carlo_run_t run, // Monte carlo runner
-    void *data,            // Data to pass to each instance of monte-carlo run (this should be an array of size nsteps)
-    int nsteps,            // Amount of data
-    int size,              // Size of each data segment
-    int num_threads        // Number of thread to use or 0 for automatic calculation
-);
 
 
 struct rvar_t *rvar_deserialize(char const *data);

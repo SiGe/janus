@@ -4,8 +4,7 @@
 
 #include "util/log.h"
 
-#include "util/group_gen.h"
-
+#include "algo/group_gen.h"
 
 #define max(a, b) ((a) > (b)) ? (a) : (b)
 
