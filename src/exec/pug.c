@@ -260,21 +260,19 @@ _short_term_risk_using_predictor(struct exec_t *exec, struct expr_t *expr,
 
 static risk_cost_t
 _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr, 
-    struct rvar_t *rvar, int idx, int *ret_plan_idx, int *ret_plan_length) {
+    struct rvar_t *rvar, int idx, int *ret_plan_idx, int *ret_plan_length,
+    int cur_step) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
   int *ptr = plans->plans;
 
   risk_cost_t best_cost = INFINITY;
-  //risk_cost_t best_term_cost = 0, best_short_term_cost = 0;
   int best_plan_idx = - 1;
   int best_plan_len = -1;
   struct risk_cost_func_t *viol_cost = expr->risk_violation_cost;
   struct rvar_t *best_risk = 0;
 
   struct rvar_t *cost_rvar = 0, *cost_rvar_tmp = 0;
-
-  //rvar_type_t short_term_cost = viol_cost->rvar_to_cost(viol_cost, rvar); //viol_cost->rvar_to_rvar(viol_cost, rvar, 0);
 
   // Create a zeroed rvar for initial cost
   struct rvar_t *zero_rvar = rvar_zero();
@@ -303,11 +301,11 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
     ptr += plans->max_plan_size;
 
     struct rvar_t *sum = cost_rvar->convolve(cost_rvar, rvar, BUCKET_SIZE);
-    //info("COST: %lf, %lf + %lf", EXP(sum), EXP(cost_rvar), EXP(rvar));
-    // Calculate the cost of the remainder of the plan and sum it up with the short-term cost
-    //risk_cost_t long_term_cost = (viol_cost->rvar_to_cost(viol_cost, cost_rvar)); // / (double)(plan_len + 1));
-    //risk_cost_t cost = long_term_cost + short_term_cost;
     risk_cost_t cost = viol_cost->rvar_to_cost(viol_cost, sum);
+
+    // TODO: Do I need to change the cost anywhere else?
+    cost += expr->criteria_time->cost(expr->criteria_time, cur_step + plan_len + 1); 
+
     sum->free(sum);
 
     if  (_best_plan_criteria(expr, cost, plan_len, 10, 
@@ -315,8 +313,6 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
       best_plan_idx = i;
       best_cost = cost;
       best_plan_len = plan_len;
-      //best_term_cost = long_term_cost;
-      //best_short_term_cost = short_term_cost;
       if (best_risk)
         best_risk->free(best_risk);
       best_risk = cost_rvar;
@@ -344,7 +340,7 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
 static int
 _exec_pug_find_best_next_subplan(struct exec_t *exec,
     struct expr_t *expr, trace_time_t at, risk_cost_t *ret_cost,
-    int *ret_plan_len, int *ret_plan) {
+    int *ret_plan_len, int *ret_plan, int cur_step) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
   risk_cost_t  best_plan_cost = INFINITY;
@@ -395,7 +391,8 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     // Assess the short term risk for subplans[i]
     struct rvar_t *st_risk = pug->short_term_risk(exec, expr, i, at);
     risk_cost_t cost = _term_best_plan_to_finish(exec, expr, 
-        st_risk, plans->_cur_index + 1, &plan_idx, &plan_length);
+        st_risk, plans->_cur_index + 1, &plan_idx, &plan_length, cur_step);
+
 #if DEBUG_MODE
     DEBUG("Short Term Cost: %lf", expr->risk_violation_cost->rvar_to_cost(expr->risk_violation_cost, st_risk));
     info("Total cost to finish: %lf", cost);
@@ -466,7 +463,8 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at
 
   while (1) {
     finished = _exec_pug_find_best_next_subplan(
-        exec, expr, at, best_plan_cost, best_plan_len, best_plan_subplans);
+        exec, expr, at, best_plan_cost, best_plan_len, best_plan_subplans,
+        plans->_cur_index);
 
 #if DEBUG_MODE
     _print_freedom_plan(exec, expr, *best_plan_len, best_plan_subplans);
@@ -613,7 +611,7 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
     panic("Risk of violation cost not set.");
 
   pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
-  info("Preparing the steady_cost cache");
+  info("Preparing the steady_cost cache.");
   for (uint32_t i = 0; i < subplan_count; ++i) {
     struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
@@ -622,6 +620,7 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
     //pug->steady_cost[i]->plot(pug->steady_cost[i]);
     rv->free(rv);
   }
+  info("Done preparing the steady_cost cache.");
 }
 
 static void

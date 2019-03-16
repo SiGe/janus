@@ -5,6 +5,22 @@
 
 typedef double rvar_type_t;
 
+// Random variable datastructures
+//
+// There are two types of random variables:
+//
+// 1) Sampled: where the sampled data is kept in an array (lossless).
+// 2) Bucketed: where a summary of data is kept in a histogram (lossy).
+//
+// Most operations (e.g., convolutions) on the sampled data result in a bucketed
+// output to save memory space.
+//
+// TODO: Can probably extend to add a sparse random variable too, incase the
+// probability distribution is too skewed.
+//
+// TODO: Should add a warning when the bucket size is too small (or
+// automatically choose the bucket size somehow).
+
 enum RVAR_TYPE {
   SAMPLED, BUCKETED,
 };

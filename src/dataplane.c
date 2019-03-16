@@ -50,17 +50,12 @@ int dataplane_count_violations(struct dataplane_t const *dp, float max_bandwidth
     max_bandwidth = INFINITY;
 
   int violations = 0;
-  //info("START");
   for (int flow_id = 0; flow_id < dp->num_flows; ++flow_id) {
     struct flow_t *flow = &dp->flows[flow_id];
     if (flow->bw < flow->demand && flow->bw < max_bandwidth) {
-      //info("Flow %d, %d: %lf / %lf", flow->stor, flow->dtor, flow->bw, flow->demand);
       violations +=1 ;
     }
   }
-  //info("END");
-
-  //exit(1);
 
   return violations;
 }

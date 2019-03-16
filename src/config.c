@@ -28,6 +28,21 @@ static int _cutoff_at(struct criteria_time_t *ct, uint32_t length) {
   return ct->steps >= length;
 }
 
+static risk_cost_t _cutoff_zero_cost(struct criteria_time_t *ct, int step) {
+  return 0;
+}
+
+static risk_cost_t _cutoff_cost(struct criteria_time_t *ct, int step) {
+  if (step < 1)
+    panic("Asking for the cost of a plan before it has started: %d", step);
+
+  if (step > ct->steps) {
+    panic("Cannot ask for the cost of cutoff after the number of allowed steps: %d > %d", step, ct->steps);
+  }
+
+  return ct->steps_cost[step - 1];
+}
+
 static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
   char *ptr = strstr(name, "cutoff-at-");
 
@@ -37,7 +52,44 @@ static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
   ptr += strlen("cutoff-at-");
   struct criteria_time_t *ret = malloc(sizeof(struct criteria_time_t));
   ret->acceptable = _cutoff_at;
-  ret->steps = atoi(ptr);
+
+  char *tmp = strdup(ptr);
+  char *cur = tmp;
+  while (*cur != 0 && *cur != '/') {
+    info("cur: %c", *cur);
+    cur++;
+  }
+
+  if (*cur == 0) {
+    info("No time cost provided assuming zero cost for time.");
+    ret->steps = atoi(tmp);
+    ret->cost = _cutoff_zero_cost;
+    free(tmp);
+    return ret;
+  }
+
+  *cur = 0;
+  ret->steps = atoi(tmp);
+  ret->steps_cost = malloc(sizeof(risk_cost_t) * ret->steps);
+
+  // Read the rest of the 
+  int idx = 0; cur++;
+  char *pch = strtok(cur, ",");
+  risk_cost_t sum = 0;
+  while (pch != 0 && idx < ret->steps) {
+    sum += atof(pch);
+    ret->steps_cost[idx] = sum;
+    pch = strtok(0, ",");
+    idx++;
+  }
+
+  if (idx != ret->steps)
+    panic("Not enough numbers passed to cutoff time criteria cost function.  Format is: cutoff-at-[NSTEPS]/STEP1_COST,STEP2_COST,...STEPN_COST");
+
+  if (pch != 0)
+    panic("Too many numbers passed to cutoff time criteria cost function.  Format is: cutoff-at-[NSTEPS]/STEP1_COST,STEP2_COST,...STEPN_COST");
+
+  ret->cost = _cutoff_cost;
 
   return ret;
 }

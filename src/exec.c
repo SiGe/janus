@@ -313,7 +313,9 @@ risk_cost_t exec_plan_cost(
   }
 
   freelist_return(exec->net_dp, net_dp);
-  return cost;
+
+  risk_cost_t time_cost = expr->criteria_time->cost(expr->criteria_time, nmops);
+  return cost + time_cost;
 }
 
 #define STATS(x) { \

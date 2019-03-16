@@ -3,16 +3,16 @@
 
 #include <pthread.h>
 
-// implementation of a threadsafe free list
+/* Implementation of a threadsafe freelist */
 struct freelist_t {
   struct freelist_t *next;
   void *data;
 };
 
 struct freelist_repo_t {
-  /* TODO: Bad naming :( fix later */
-  struct freelist_t *free; // This is actually the list of items that have been borrowed
-  struct freelist_t *busy; // This is actually the list of items that are "free"
+  /* TODO: Bad naming fix later */
+  struct freelist_t *free; // This is the list of items that have been borrowed
+  struct freelist_t *busy; // This is the list of items that are "free"
   pthread_mutex_t lock;
   struct freelist_t *_data;
   int size;

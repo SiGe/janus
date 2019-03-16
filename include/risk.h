@@ -32,8 +32,13 @@ struct risk_cost_func_t;
 typedef risk_cost_t (*risk_func_t)(struct risk_cost_func_t*, rvar_type_t val);
 
 struct criteria_time_t {
-  int (*acceptable) (struct criteria_time_t *, uint32_t length);
-  int steps;
+  int         (*acceptable) (struct criteria_time_t *, uint32_t length);
+
+  // Cost of finishing the step in step steps
+  risk_cost_t (*cost)       (struct criteria_time_t *, int step);
+
+  int          steps;
+  risk_cost_t *steps_cost;
 };
 
 struct risk_cost_func_t {

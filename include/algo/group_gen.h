@@ -5,6 +5,32 @@
 #include <stdlib.h>
 #include <string.h>
 
+// A data structure for keeping the state of a group iterator.  Accepts an
+// integer and returns all the possible sets of integers that add up to that
+// numbers.
+//
+// E.g., for group_iter_t 4, the possible ways to get to 4 are:
+// 1, 1, 1, 1
+// 1, 1, 2
+// 1, 3
+// 2, 2
+// 4
+//
+// Use npart_create to create a group integer with a single tuple.
+// Use dual_npart_create to combine multiple group_iter_t (can be used
+// recursively)
+//
+// E.g., to get to (4, 4) can use the following sets of summations:
+//
+// (1, 0), (1, 0), (1, 0) ... (0, 1)
+// ...
+// (1, 1), (1, 1), (1, 1) ... (1, 1)
+// ...
+// (4, 4)
+//
+// Probably needs some refactoring---some of the variables are unused, but the
+// interfaces should be working fine.
+//
 struct group_iter_t {
   void (*begin)(struct group_iter_t *);
   int  (*next)(struct group_iter_t *);
