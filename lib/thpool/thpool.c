@@ -324,7 +324,8 @@ static void* thread_do(struct thread* thread_p){
   /* Use prctl instead to prevent using _GNU_SOURCE flag and implicit declaration */
   prctl(PR_SET_NAME, thread_name);
 #elif defined(__APPLE__) && defined(__MACH__)
-  pthread_setname_np(thread_name);
+  //pthread_setname_np(thread_name);
+  //err("thread_do(): pthread_setname_np is not supported on this system");
 #else
   err("thread_do(): pthread_setname_np is not supported on this system");
 #endif

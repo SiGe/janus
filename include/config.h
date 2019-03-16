@@ -2,7 +2,7 @@
 #define _CONFIG_H_
 
 #include "plan.h"
-#include "plan/jupiter.h"
+#include "plans/jupiter.h"
 #include "risk.h"
 #include "traffic.h"
 

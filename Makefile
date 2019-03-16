@@ -46,7 +46,10 @@ OPT = -O0 -pg -g
 endif
 
 CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=gnu11 -fms-extensions -Wno-microsoft-anon-tag -Ilib/ -pthread
-LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=gnu11 -flto -Ilib/ -pthread
+LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=gnu11 -flto -Ilib/
+ifneq (clang, $(CC))
+	LDFLAGS += -pthread
+endif
 
 
 all: $(TARGET)

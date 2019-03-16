@@ -5,6 +5,10 @@
 #include <unistd.h>
 #include "util/log.h"
 
+#if __APPLE__
+#include <fcntl.h>
+#endif
+
 #include "util/common.h"
 
 unsigned long

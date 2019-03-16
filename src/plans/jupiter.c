@@ -5,7 +5,7 @@
 #include "util/log.h"
 #include "networks/jupiter.h"
 
-#include "plan/jupiter.h"
+#include "plans/jupiter.h"
 
 static struct jupiter_group_t *
 _jupiter_get_group_for(struct jupiter_multigroup_t *mg,

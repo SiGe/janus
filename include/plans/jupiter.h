@@ -1,5 +1,5 @@
-#ifndef _PLAN_JUPITER_H_
-#define _PLAN_JUPITER_H_
+#ifndef _PLANS_JUPITER_H_
+#define _PLANS_JUPITER_H_
 
 #include <stdint.h>
 #include "plan.h"
