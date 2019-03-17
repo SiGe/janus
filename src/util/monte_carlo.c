@@ -69,10 +69,11 @@ rvar_type_t *monte_carlo_parallel_ordered_rvar(
     int dsize,
     int num_threads
 ) {
-  if (num_threads == 0)
+  if (num_threads == 0) {
     num_threads = get_ncores() - 1;
     if (num_threads == 0)
       num_threads = 1;
+  }
 
   threadpool thpool = thpool_init(num_threads);
 

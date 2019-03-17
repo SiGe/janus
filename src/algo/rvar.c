@@ -347,7 +347,7 @@ static struct rvar_t *_bucket_convolve(struct rvar_t const *left, struct rvar_t 
     return (struct rvar_t *)output;
 }
 
-static struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_size, uint32_t nbuckets) {
+struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_size, uint32_t nbuckets) {
     struct rvar_bucket_t *output = malloc(sizeof(struct rvar_bucket_t));
     output->buckets = malloc(sizeof(rvar_type_t) * nbuckets);
     memset(output->buckets, 0, sizeof(rvar_type_t) * nbuckets);

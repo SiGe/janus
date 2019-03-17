@@ -125,7 +125,12 @@ struct rvar_t *_jupiter_independent_apply(
 
   struct rvar_t *ret = rvar_compose_with_distributions(rvs, dists, size);
 
-  info("Prob total: %d, %f should equal almost 1.", subplan_id, prob_sum);
+  if ((1 - prob_sum) > 0.1) {
+    info("Number of concurrent failures to consider is too low --- increase the"
+        "number of concurrent failures or decrease the probability of switch"
+        "failing.");
+    panic("Prob total: %d, %f should equal almost 1. Total num scenarios: %d", subplan_id, prob_sum, size);
+  }
   return ret;
 }
 

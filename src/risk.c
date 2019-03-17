@@ -9,9 +9,9 @@
 #include "risk.h"
 
 risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rvar) {
-  //return rvar->percentile(rvar, 0.95);
-  return rvar->percentile(rvar, 0.999);
-  //return rvar->expected(rvar);
+  //return rvar->percentile(rvar, 0.10);
+  //return rvar->percentile(rvar, 0.999);
+  return rvar->expected(rvar);
 }
 
 struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *rvar, rvar_type_t bucket_size) {

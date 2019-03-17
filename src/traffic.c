@@ -373,7 +373,7 @@ uint64_t _traffic_matrix_trace_index_count(FILE *index) {
   fseek(index, 0, SEEK_SET);
   // XXX: Bad idea: if the data-structures change we cannot just "read" the files anymore
   //      Better way is to properly read and write the relevant parts by "hand."
-  fread(&size, sizeof(size), 1, index);
+  (void) fread(&size, sizeof(size), 1, index);
   return size;
 }
 
@@ -506,7 +506,7 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_load(
 void traffic_matrix_trace_print_index(struct traffic_matrix_trace_t *t) {
   for (uint64_t i = 0; i < t->num_indices; ++i) {
     struct traffic_matrix_trace_index_t *index = &t->indices[i];
-    printf("indices are: %llu  @%llu [:%llu]\n", index->size, index->time, index->seek);
+    printf("indices are: %lu  @%lu [:%lu]\n", index->size, index->time, index->seek);
   }
 }
 

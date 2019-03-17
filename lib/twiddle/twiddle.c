@@ -9,6 +9,7 @@ void _twiddle_begin(struct twiddle_t *t) {
   memset(t->p, 0, sizeof(int) * (t->MN + 2));
   memset(t->_tuple, 0, sizeof(int) * t->N);
 
+  t->x = 0; t->y = 0;
   int m  = t->M;
   int n  = t->MN; // Yes, this is correct.
   int ts = t->_tuple_size;

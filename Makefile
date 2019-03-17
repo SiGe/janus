@@ -7,9 +7,9 @@ BINARY = netre
 CC = clang
 #CC = gcc
 
-OPT = -O0 -pg -g
+#OPT = -O0 -pg -g
 #OPT = -O3 -pg -g
-#OPT = -O3
+OPT = -O3
 
 SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, $(wildcard src/*.c))
 SRC+=$(wildcard src/*/*.c)
@@ -46,7 +46,7 @@ OPT = -O0 -pg -g
 endif
 
 CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=gnu11 -fms-extensions -Wno-microsoft-anon-tag -Ilib/ -pthread
-LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=gnu11 -flto -Ilib/
+LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=gnu11 -flto -Ilib/ -pthread
 ifneq (clang, $(CC))
 	LDFLAGS += -pthread
 endif

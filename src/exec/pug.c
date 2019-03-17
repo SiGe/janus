@@ -347,12 +347,11 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
   risk_cost_t  best_plan_cost = INFINITY;
   int          best_plan_len = -1;
   double       best_pref_score = 0;
-
+  int          best_subplan = 0;
   int         *best_plan_subplans  = ret_plan;
 
   int *subplans = _plans_remaining_subplans(exec);
   int finished = 1;
-  int best_subplan = 0;
   for (uint32_t i = 1; i < pug->plans->_subplan_count; ++i) {
     if (subplans[i] != 1)
       continue;
@@ -425,6 +424,7 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     *ret_plan_len = best_plan_len;
   }
 
+  (void)(best_subplan);
   DEBUG(">>>> Choosing subplan %d with cost %lf", best_subplan, best_plan_cost);
 
   return finished;
@@ -625,9 +625,20 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
   // Create the actual steady cost values
   pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
   struct plan_iterator_t *iter = pug->planner->iter(pug->planner);
-  info("Subplan count is: %d", subplan_count);
   for (uint32_t i = 0; i < subplan_count; ++i) {
     pug->steady_cost[i] = expr->failure->apply(expr->failure, expr->network, iter, rcache, i);
+
+    /*
+    struct mop_t *mop = pug->iter->mop_for(pug->iter, i);
+    char *out = mop->explain(mop, expr->network);
+    info("%s", out);
+    free(out);
+    free(mop);
+    */
+
+    info("Expected cost before failure considerations %d: %f, after: %f", 
+        i, rcache[i]->expected(rcache[i]), 
+        pug->steady_cost[i]->expected(pug->steady_cost[i]));
   }
   iter->free(iter);
 
@@ -635,6 +646,7 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
   for (uint32_t i = 0; i < subplan_count; ++i) {
     rcache[i]->free(rcache[i]);
   }
+  free(rcache);
 
   info("Done preparing the steady_cost cache.");
 }
@@ -692,7 +704,7 @@ prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time
     }
   }
 
-
+  struct rvar_t **rcache = malloc(sizeof(struct rvar_t *) * subplan_count);
   for (uint32_t i = 0; i < subplan_count; ++i) {
     void *data = 0; int data_size = 0;
     data = array_splice(arr[i], start, end, &data_size);
@@ -700,9 +712,21 @@ prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time
 
     struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
-    pug->steady_cost[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
+    rcache[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
     rv->free(rv);
   }
+
+  /* Apply the failure model to long term plans */
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    pug->steady_cost[i] = expr->failure->apply(
+        expr->failure, expr->network,
+        pug->iter, rcache, i);
+  }
+
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    rcache[i]->free(rcache[i]);
+  }
+  free(rcache);
 }
 
 static void

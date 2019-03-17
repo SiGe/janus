@@ -305,6 +305,12 @@ risk_cost_t exec_plan_cost(
       traffic_matrix_free(tm);
     }
 
+    /*
+    char *out = mops[i]->explain(mops[i], expr->network);
+    info("%s", out);
+    free(out);
+    */
+
     info("%d(th) subplan (%d switches) cost is: %f", 
         i, mops[i]->size(mops[i]), subplan_cost);
     cost += subplan_cost;
