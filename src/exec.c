@@ -467,9 +467,9 @@ struct exec_critical_path_stats_t *exec_critical_path_analysis(
     struct jupiter_located_switch_t *sw = &expr->located_switches[i];
     paths[sw->pod].pod = sw->pod;
     paths[sw->pod].type = sw->type;
-    if (sw->type == AGG) {
+    if (sw->type == JST_AGG) {
       paths[sw->pod].sws[paths[sw->pod].num_switches++] = sw;
-    } else if (sw->type == CORE) {
+    } else if (sw->type == JST_CORE) {
       paths[num_groups - 1].sws[paths[num_groups - 1].num_switches++] = sw;
     } else {
       panic("Unsupported switch type: %d", sw->type);
@@ -504,9 +504,9 @@ void exec_critical_path_analysis_update(
       &pod_stats, &num_pods, &core_stats);
 
   for (uint32_t i = 0; i < stats->num_paths; ++i) {
-    if (stats->paths[i].type == CORE) {
+    if (stats->paths[i].type == JST_CORE) {
       stats->paths[i].cur_bandwidth = core_stats->in.max;
-    } else if (stats->paths[i].type == AGG) {
+    } else if (stats->paths[i].type == JST_AGG) {
       stats->paths[i].cur_bandwidth = pod_stats[stats->paths[i].pod].in.max;
     }
   }

@@ -37,6 +37,7 @@ struct group_iter_t {
   int  (*end)(struct group_iter_t *);
   void (*free)(struct group_iter_t *);
   int  (*to_tuple)(struct group_iter_t *, uint32_t, uint32_t *);
+  uint32_t (*from_tuple)(struct group_iter_t *, int, uint32_t *);
   int  (*num_subsets)(struct group_iter_t *);
 
   uint32_t *state;

@@ -5,6 +5,7 @@
 
 #include "util/common.h"
 #include "inih/ini.h"
+#include "failures/jupiter.h"
 #include "networks/jupiter.h"
 #include "risk.h"
 #include "util/log.h"
@@ -130,6 +131,7 @@ static struct network_t *jupiter_string_to_network(struct expr_t *expr, char con
     panic("Bad format specifier for jupiter: %s", string);
   }
 
+  expr->network_type = NET_JUPITER;
   expr->num_cores = core;
   expr->num_pods = pod;
   expr->num_tors_per_pod = tpp;
@@ -168,9 +170,9 @@ static void jupiter_add_upgrade_group(char const *string, struct jupiter_sw_up_l
   up->color = color;
 
   if (strcmp(sw_type, "core") == 0) {
-    up->type = CORE;
+    up->type = JST_CORE;
   } else if (strcmp(sw_type, "pod/agg") == 0) {
-    up->type = AGG;
+    up->type = JST_AGG;
   } else {
     panic("Bad switch type specified: %s", sw_type);
   }
@@ -221,6 +223,10 @@ static int config_handler(void *data,
     expr->risk_violation_cost = risk_violation_name_to_func(value);
   } else if (MATCH("criteria", "criteria-time")) {
     expr->criteria_time = risk_delay_name_to_func(value);
+  } else if (MATCH("failure", "concurrent-switch-failure")) {
+    expr->failure_max_concurrent = atoi(value);
+  } else if (MATCH("failure", "concurrent-switch-probability")) {
+    expr->failure_switch_probability = atof(value);
   } else if (MATCH("criteria", "criteria-length")) {
     expr->criteria_plan_length = risk_length_name_to_func(value);
   } else if (MATCH("criteria", "promised-throughput")) {
@@ -265,7 +271,7 @@ static int config_handler(void *data,
 }
 
 static void
-_build_located_switch_group(struct expr_t *expr) {
+_jupiter_build_located_switch_group(struct expr_t *expr) {
   //TODO: Assume jupiter network for now.
   int nswitches = 0;
   for (uint32_t i = 0; i < expr->upgrade_list.size; ++i) {
@@ -280,9 +286,9 @@ _build_located_switch_group(struct expr_t *expr) {
       sws[idx].color = up->color;
       sws[idx].type = up->type;
       sws[idx].pod = up->location;
-      if (up->type == CORE) {
+      if (up->type == JST_CORE) {
         sws[idx].sid = jupiter_get_core(expr->network, j);
-      } else if (up->type == AGG) {
+      } else if (up->type == JST_AGG) {
         sws[idx].sid = jupiter_get_agg(expr->network, up->location, j);
       } else {
         panic("Unsupported type for located_switch.");
@@ -370,15 +376,24 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
   return 1;
 };
 
-int _step_count(struct criteria_time_t *crit, uint32_t length) {
-  return (crit->steps >= length);
+static void _jupiter_build_failure_model(struct expr_t *expr) {
+  expr->failure = (struct failure_model_t *)
+    jupiter_failure_model_independent_create(
+      expr->failure_max_concurrent,
+      expr->failure_switch_probability);
+}
+
+static void _expr_set_default_values(struct expr_t *expr) {
+  expr->verbose = 0;
+  expr->pug_is_backtrack = 1;
+  expr->pug_backtrack_traffic_count = 10;
+  expr->failure_max_concurrent = 0;
+  expr->failure_switch_probability = 0;
 }
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {
   info("Parsing config %s", ini_file);
-  expr->verbose = 0;
-  expr->pug_is_backtrack = 1;
-  expr->pug_backtrack_traffic_count = 10;
+  _expr_set_default_values(expr);
 
   if (ini_parse(ini_file, config_handler, expr) < 0) {
     panic("Couldn't load the ini file.");
@@ -390,6 +405,9 @@ void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *con
   info("Using verbosity: %s", VERBOSITY_TEXT[expr->verbose]);
 
   expr->clone_network = expr_clone_network;
-  _build_located_switch_group(expr);
+  if (expr->network_type == NET_JUPITER) {
+    _jupiter_build_located_switch_group(expr);
+    _jupiter_build_failure_model(expr);
+  }
 }
 

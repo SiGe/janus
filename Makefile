@@ -7,9 +7,9 @@ BINARY = netre
 CC = clang
 #CC = gcc
 
-#OPT = -O0 -pg -g
+OPT = -O0 -pg -g
 #OPT = -O3 -pg -g
-OPT = -O3
+#OPT = -O3
 
 SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, $(wildcard src/*.c))
 SRC+=$(wildcard src/*/*.c)

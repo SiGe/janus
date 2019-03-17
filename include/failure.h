@@ -4,13 +4,16 @@
 struct plan_iterator_t;
 struct exec_t;
 struct rvar_t;
+struct network_t;
 
+// Should ensure that this is threadsafe
 struct failure_model_t {
   /* Apply the failure model to a subplan---
    *
    * Each failure model applies the failure in its own way */
-  struct rvar_t (*apply)(
+  struct rvar_t * (*apply)(
     struct failure_model_t *,
+    struct network_t *,
     struct plan_iterator_t *,  // Use the plan iterator to get the least
                                // dominative subplan_id
     struct rvar_t **,          // List of packet-loss variables for subplan XX
@@ -105,7 +108,7 @@ struct failure_model_independent_t {
    * We assume that switches fail independently from each other.  For concurrent
    * dependent switch failure, we need a different model of operation.
    */
-  double  switch_failure_probabilty;
+  double  switch_failure_probability;
 };
 
 #endif

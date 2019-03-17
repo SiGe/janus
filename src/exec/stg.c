@@ -92,9 +92,9 @@ _exec_stg_validate(struct exec_t *exec, struct expr_t const *expr) {
 
   for (uint32_t i = 0; i < expr->nlocated_switches; ++i) {
     struct jupiter_located_switch_t *sw = &expr->located_switches[i];
-    if (sw->type == AGG) {
+    if (sw->type == JST_AGG) {
       paths[sw->pod].sws[paths[sw->pod].num_switches++] = sw;
-    } else if (sw->type == CORE) {
+    } else if (sw->type == JST_CORE) {
       paths[num_groups - 1].sws[paths[num_groups - 1].num_switches++] = sw;
     } else {
       panic("Unsupported switch type: %d", sw->type);

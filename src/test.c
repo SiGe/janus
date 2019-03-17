@@ -3,11 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "twiddle/twiddle.h"
+
 #include "algo/array.h"
 #include "algo/group_gen.h"
 #include "algo/maxmin.h"
 #include "algo/rvar.h"
-#include "plan/jupiter.h"
+#include "failures/jupiter.h"
+#include "plans/jupiter.h"
 #include "networks/jupiter.h"
 #include "predictors/rotating_ewma.h"
 #include "util/monte_carlo.h"
@@ -534,6 +537,8 @@ void test_tri_state() {
     for (s->begin(s); !s->end(s); s->next(s)) {
       for (uint32_t k = 0; k < s->state_length; ++k) {
         s->to_tuple(s, s->state[k], tuple);
+        assert(s->state[k] == s->from_tuple(s, s->tuple_size, tuple));
+        // printf("%u, %u\n", s->state[k], s->from_tuple(s, s->tuple_size, tuple));
         //printf("[");
         for (uint32_t p = 0; p < s->tuple_size; ++p) {
           //printf("%d ", tuple[p]);
@@ -647,30 +652,30 @@ void test_rvar_bucket(void) {
 
 void test_planner(void) {
     struct jupiter_located_switch_t switches[] = {
-        {1, CORE, 3, 0},
-        {1, CORE, 3, 0},
-        {1, CORE, 3, 0},
+        {1, JST_CORE, 3, 0},
+        {1, JST_CORE, 3, 0},
+        {1, JST_CORE, 3, 0},
 
-        {1, CORE, 4, 0},
-        {1, CORE, 4, 0},
-        {1, CORE, 4, 0},
+        {1, JST_CORE, 4, 0},
+        {1, JST_CORE, 4, 0},
+        {1, JST_CORE, 4, 0},
 
-        {1, AGG, 4, 2},
-        {1, AGG, 4, 2},
-        {1, AGG, 4, 2},
+        {1, JST_AGG, 4, 2},
+        {1, JST_AGG, 4, 2},
+        {1, JST_AGG, 4, 2},
 
-        {1, AGG, 4, 1},
-        {1, AGG, 4, 1},
-        {1, AGG, 4, 1},
+        {1, JST_AGG, 4, 1},
+        {1, JST_AGG, 4, 1},
+        {1, JST_AGG, 4, 1},
 
-        {1, AGG, 1, 3},
-        {1, AGG, 1, 3},
-        {1, AGG, 1, 3},
+        {1, JST_AGG, 1, 3},
+        {1, JST_AGG, 1, 3},
+        {1, JST_AGG, 1, 3},
 
-        {1, AGG, 2, 3},
-        {1, AGG, 2, 3},
-        {1, AGG, 2, 3},
-        {1, AGG, 2, 3},
+        {1, JST_AGG, 2, 3},
+        {1, JST_AGG, 2, 3},
+        {1, JST_AGG, 2, 3},
+        {1, JST_AGG, 2, 3},
     };
 
     uint32_t freedom_degree[] = {5, 5, 5, 5};
@@ -724,6 +729,94 @@ void test_array() {
   array_free(arr_clone);
 }
 
+void test_twiddle() {
+  struct twiddle_t *t = twiddle_create(2, 5);
+  int count = 0;
+
+  for (t->begin(t); !t->end(t); t->next(t)) {
+    int *tuple = t->tuple(t);
+    count ++;
+    for (int i = 0; i < t->tuple_size(t); ++i) {
+      printf("%d, ", tuple[i]);
+    }
+    printf("\n");
+  }
+  assert(count == 15);
+}
+
+void test_independent_failure_probability() {
+  uint32_t num_pods = 8; //32
+  uint32_t num_aggs = 8;  //24
+  uint32_t num_tors = 8; //48
+  uint32_t num_cores = 8; //96
+
+  uint32_t freedom_degree[] = {8, 8};
+  uint32_t ndegree = 2;
+
+    struct jupiter_located_switch_t switches[] = {
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+        {1, JST_CORE, 1, 0},
+
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+        {1, JST_AGG, 0, 0},
+
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+        {1, JST_AGG, 0, 1},
+
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+        {1, JST_AGG, 0, 2},
+
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+        {1, JST_AGG, 0, 3},
+    };
+
+  struct jupiter_switch_plan_enumerator_t *planner =
+      jupiter_switch_plan_enumerator_create(
+              sizeof(switches)/sizeof(struct jupiter_located_switch_t), 
+              switches, freedom_degree, ndegree);
+  struct plan_iterator_t *iter = planner->iter((struct plan_t *)planner);
+  info("Num subplans: %d", iter->subplan_count(iter));
+  bw_t bw = 10;
+
+  struct network_t *net = jupiter_network_create(
+      num_cores, num_pods, num_aggs, num_tors, bw);
+
+  struct jupiter_failure_model_independent_t *jfi = 
+    jupiter_failure_model_independent_create(2, 0.01);
+
+  jfi->apply((struct failure_model_t *)jfi, net, iter, 0, 80);
+}
+
 int main(int argc, char **argv) {
   // TEST(jupiter_cluster);
   // TEST(tm_read_load);
@@ -732,9 +825,11 @@ int main(int argc, char **argv) {
   // TEST(group_state);
   // TEST(dual_state);
   // TEST(tri_state);
-  TEST(rvar_bucket);
+  // TEST(rvar_bucket);
   // TEST(planner);
   // TEST(array);
+  // TEST(twiddle);
+  TEST(independent_failure_probability);
 
   //test_tri_state();
   return 0;

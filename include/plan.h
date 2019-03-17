@@ -8,6 +8,37 @@
 struct network_t;
 typedef uint32_t mop_steps_t;
 
+
+enum BLOCK_TYPE {
+  BT_CORE, BT_POD_AGG, BT_POD_TOR
+};
+
+/* Block identifier in a mop
+ *
+ * A block is either the core switches, the aggregate switches, or the tor
+ * switches in a pod.  Frankly, it is not a good enough abstraction for more
+ * complex topology so it is only of value for Jupiter like topology.
+ *
+ * TODO: Maybe there is a better abstraction here?  Thankfully, this works for
+ * FatTree ... so it may work for others.  For example,  in case of FatTree we
+ * should break down the aggregate switches into smaller blocks.  Each
+ * aggregate should have its own block.  Similarly, each k-identical core
+ * switches should be in the same block.
+ *
+ * - Omid 3/16/2019
+ * */
+struct mop_block_id_t {
+  enum BLOCK_TYPE type;
+  int  id;
+};
+
+/* Returns the block statistics */
+struct mop_block_stats_t {
+  struct mop_block_id_t id;
+  int all_switches;
+  int down_switches;
+};
+
 /* A management operation has three functions: pre, operation, post.
  *
  * The pre function prepares the network for the management operation.  
@@ -32,6 +63,9 @@ struct mop_t {
 
   /* Explain the mop in the context of the network */
   char *      (*explain)        (struct mop_t *, struct network_t *);
+
+  /* Return the block statistics of a mop */
+  int (*block_stats) (struct mop_t *, struct network_t *, struct mop_block_stats_t **);
 };
 
 struct jupiter_switch_mop_t {
@@ -87,6 +121,10 @@ struct plan_iterator_t {
 
   /* Returns the maximum number of subplans */
   int (*subplan_count)(struct plan_iterator_t *);
+
+  /* Returns the ID of the first subplan that takes down more capacity
+   * (strictly and spatially) more than the passed block state */
+  int (*least_dominative_subplan)(struct plan_iterator_t *, struct mop_block_stats_t *blocks, int nblocks);
 };
 
 #endif // _PLAN_H_

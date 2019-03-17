@@ -7,14 +7,14 @@
 #include "traffic.h"
 
 struct jupiter_sw_up_t {
-    enum JUPITER_SWITCH_TYPE type;
-    int location; int count; int color;
+  enum JUPITER_SWITCH_TYPE type;
+  int location; int count; int color;
 };
 
 struct jupiter_sw_up_list_t {
-    struct jupiter_sw_up_t *sw_list;
-    uint32_t size;
-    uint32_t num_switches;
+  struct jupiter_sw_up_t *sw_list;
+  uint32_t size;
+  uint32_t num_switches;
 };
 
 struct expr_cache_t {
@@ -30,24 +30,28 @@ struct expr_cache_t {
 };
 
 struct expr_execution_t {
-    uint32_t *at; // Simulation points
-    uint32_t nat;
+  uint32_t *at; // Simulation points
+  uint32_t nat;
+};
+
+enum EXPR_NETWORK_TYPE {
+  NET_JUPITER = 0, // Jupiter network
 };
 
 enum EXPR_ACTION {
-    BUILD_LONGTERM, // Build the long-term cache files
-    TRAFFIC_STATS,  // Returns the traffic stats for the pods
+  BUILD_LONGTERM, // Build the long-term cache files
+  TRAFFIC_STATS,  // Returns the traffic stats for the pods
 
-    // Different simulators
-    RUN_PUG,  
-    RUN_PUG_LONG,  
-    RUN_PUG_LOOKBACK,
-    RUN_STG,
-    RUN_LTG,
-    RUN_CAP,
+  // Different simulators
+  RUN_PUG,  
+  RUN_PUG_LONG,  
+  RUN_PUG_LOOKBACK,
+  RUN_STG,
+  RUN_LTG,
+  RUN_CAP,
 
-    // Unknown ...
-    RUN_UNKNOWN,
+  // Unknown ...
+  RUN_UNKNOWN,
 };
 
 enum EXPR_VERBOSE {
@@ -62,67 +66,74 @@ struct scenario_t {
 };
 
 struct expr_t {
-    char *traffic_test;
-    char *traffic_training;
-    char *network_string;
+  char *traffic_test;
+  char *traffic_training;
+  char *network_string;
 
-    struct network_t *network;
-    trace_time_t mop_duration;
+  struct network_t *network;
+  trace_time_t mop_duration;
 
-    // Predictor stuff
-    float ewma_coeff;
-    char *predictor_string;
+  // Predictor stuff
+  float ewma_coeff;
+  char *predictor_string;
 
-    // Min throughput promised to the user
-    bw_t promised_throughput;
-    
-    //TODO: Change this from Jupiter to arbitrary topology later on ...
-    struct jupiter_sw_up_list_t upgrade_list;
-    struct jupiter_located_switch_t *located_switches;
-    int nlocated_switches;
+  // Min throughput promised to the user
+  bw_t promised_throughput;
 
-    // Runtime scenario
-    struct scenario_t scenario;
+  //TODO: Change this from Jupiter to arbitrary topology later on ...
+  struct jupiter_sw_up_list_t upgrade_list;
+  struct jupiter_located_switch_t *located_switches;
+  int nlocated_switches;
 
-    //TODO: Jupiter specific config ... should change later.
-    uint32_t num_cores;
-    uint32_t num_pods;
-    uint32_t num_tors_per_pod;
-    uint32_t num_aggs_per_pod;
+  // Runtime scenario
+  struct scenario_t scenario;
 
-    // Freedom degree for the upgrades
-    uint32_t *upgrade_freedom;
-    uint32_t upgrade_nfreedom;
+  enum EXPR_NETWORK_TYPE network_type;
 
-    // Function to clone the experiment network---used for monte-carlo
-    // simulations later on.
-    struct network_t * (*clone_network)(struct expr_t *);
+  //TODO: Jupiter specific config ... should change later.
+  uint32_t num_cores;
+  uint32_t num_pods;
+  uint32_t num_tors_per_pod;
+  uint32_t num_aggs_per_pod;
 
-    // Simulation points
-    uint32_t *at;
-    uint32_t nat;
+  // Freedom degree for the upgrades
+  uint32_t *upgrade_freedom;
+  uint32_t upgrade_nfreedom;
 
-    // Execution cache files
-    struct expr_cache_t cache;
+  // Function to clone the experiment network---used for monte-carlo
+  // simulations later on.
+  struct network_t * (*clone_network)(struct expr_t *);
 
-    // Execution intervals, etc.
-    struct expr_execution_t exec;
+  // Simulation points
+  uint32_t *at;
+  uint32_t nat;
 
-    // Experiment action
-    enum EXPR_ACTION action;
+  // Execution cache files
+  struct expr_cache_t cache;
 
-    // Planning criteria
-    struct criteria_time_t *criteria_time;
-    struct risk_cost_func_t *risk_violation_cost;
-    criteria_length_t criteria_plan_length;
+  // Execution intervals, etc.
+  struct expr_execution_t exec;
 
-    // Verbosity
-    enum EXPR_VERBOSE verbose;
-    int explain;
+  // Experiment action
+  enum EXPR_ACTION action;
 
-    // Pug related configuration
-    trace_time_t pug_backtrack_traffic_count;
-    int          pug_is_backtrack;
+  // Planning criteria
+  struct criteria_time_t *criteria_time;
+  struct risk_cost_func_t *risk_violation_cost;
+  criteria_length_t criteria_plan_length;
+
+  // Verbosity
+  enum EXPR_VERBOSE verbose;
+  int explain;
+
+  // Pug related configuration
+  trace_time_t pug_backtrack_traffic_count;
+  int          pug_is_backtrack;
+
+  // Failure configuration
+  int     failure_max_concurrent;
+  double  failure_switch_probability;
+  struct failure_model_t *failure;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const * argv);

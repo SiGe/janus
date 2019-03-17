@@ -453,3 +453,44 @@ struct rvar_t *rvar_zero(void) {
   *vals = 0;
   return rvar_sample_create_with_vals(vals, 1);
 }
+
+struct rvar_t *rvar_compose_with_distributions(
+    struct rvar_t **rvars,
+    double *dists,
+    int len) {
+  if (len == 0 || dists == 0 || rvars == 0)
+    panic("Passing nulls to rvar_compose_with_distribution");
+
+  double lowest = INFINITY; double highest = -INFINITY;
+  double bucket_size = INFINITY;
+  for (int i = 0; i < len; ++i) {
+    assert(rvars[i]->_type == BUCKETED);
+    struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvars[i];
+    lowest  = MIN(rv->low, lowest);
+    highest = MAX(rv->low + rv->nbuckets * rv->bucket_size, highest);
+    bucket_size = MIN(rv->bucket_size, bucket_size);
+  }
+
+  uint32_t nbuckets = (uint32_t)(ceil((highest - lowest)/bucket_size));
+  struct rvar_bucket_t *res = (struct rvar_bucket_t *)
+    rvar_bucket_create(lowest, bucket_size, nbuckets);
+
+  for (int i = 0; i < len; ++i) {
+    struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvars[i];
+    double dist = dists[i];
+    rvar_type_t *bucket_value = rv->buckets;
+
+    int base_offset = (int)ceil((rv->low - res->low)/res->bucket_size);
+    double cur_bucket = 0;
+    for (int j = 0; j < rv->nbuckets; ++j) {
+      rvar_type_t bucket_increment = *bucket_value * dist;
+      int offset = (int)(floor(cur_bucket / bucket_size));
+
+      res->buckets[base_offset + offset] += bucket_increment;
+      cur_bucket += rv->bucket_size;
+      bucket_value++;
+    }
+  }
+
+  return (struct rvar_t *)res;
+}

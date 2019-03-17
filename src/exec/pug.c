@@ -9,6 +9,7 @@
 #include "util/debug.h"
 #include "config.h"
 #include "dataplane.h"
+#include "failure.h"
 #include "network.h"
 #include "plan.h"
 #include "predictor.h"
@@ -610,16 +611,31 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
   if (expr->risk_violation_cost == 0)
     panic("Risk of violation cost not set.");
 
-  pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
+  struct rvar_t **rcache =  malloc(sizeof(struct rvar_t *) * subplan_count);
   info("Preparing the steady_cost cache.");
   for (uint32_t i = 0; i < subplan_count; ++i) {
     struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
     //rv->plot(rv);
-    pug->steady_cost[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
+    rcache[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
     //pug->steady_cost[i]->plot(pug->steady_cost[i]);
     rv->free(rv);
   }
+
+  // Create the actual steady cost values
+  pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
+  struct plan_iterator_t *iter = pug->planner->iter(pug->planner);
+  info("Subplan count is: %d", subplan_count);
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    pug->steady_cost[i] = expr->failure->apply(expr->failure, expr->network, iter, rcache, i);
+  }
+  iter->free(iter);
+
+  // Free the cost resources
+  for (uint32_t i = 0; i < subplan_count; ++i) {
+    rcache[i]->free(rcache[i]);
+  }
+
   info("Done preparing the steady_cost cache.");
 }
 
@@ -760,5 +776,6 @@ struct exec_t *exec_pug_create_lookback(void) {
   pug->short_term_risk = _short_term_risk_using_predictor;
   pug->prepare_steady_cost = prepare_steady_cost_dynamic;
   pug->release_steady_cost = release_steady_cost_dynamic;
+
   return exec;
 }

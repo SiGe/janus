@@ -5,6 +5,7 @@
 #include "util/log.h"
 #include "networks/jupiter.h"
 
+#include "plan.h"
 #include "plans/jupiter.h"
 
 static struct jupiter_group_t *
@@ -115,27 +116,32 @@ void jupiter_switch_plan_enumerator_free(
 
 #define JUPITER_DEFAULT_GROUP_SIZE 10
 
+static
 int _sup_subplan_count(struct plan_iterator_t *iter) {
   TO_JITER(iter);
 
   return jiter->state->num_subsets(jiter->state);
 }
 
+static
 void _sup_begin (struct plan_iterator_t *iter) {
   TO_JITER(iter);
   jiter->state->begin(jiter->state);
 }
 
+static
 int  _sup_next (struct plan_iterator_t *iter) {
   TO_JITER(iter);
   return jiter->state->next(jiter->state);
 }
 
+static
 int  _sup_end (struct plan_iterator_t *iter) {
   TO_JITER(iter);
   return jiter->state->end(jiter->state);
 }
 
+static
 void _sup_free(struct plan_iterator_t *iter) {
   TO_JITER(iter);
 
@@ -144,12 +150,14 @@ void _sup_free(struct plan_iterator_t *iter) {
   free(jiter);
 }
 
+static
 void _jupiter_mop_free(struct mop_t *mop) {
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
   free(jop->switches);
   free(jop);
 }
 
+static
 int _jupiter_mop_pre(struct mop_t *mop, struct network_t *net) {
   struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
@@ -165,48 +173,78 @@ int _jupiter_mop_pre(struct mop_t *mop, struct network_t *net) {
   return 0;
 }
 
+static
 int _jupiter_mop_size(struct mop_t *mop) {
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
   return jop->nswitches;
 }
 
-char *_jupiter_mop_explain(struct mop_t *mop, struct network_t *net) {
+static
+int
+_jupiter_block_stats(struct mop_t *mop, struct network_t *net, 
+    struct mop_block_stats_t **ret) {
   struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
 
-  size_t size = sizeof(int) * (jup->pod + 1 /* core switch group */);
-  int *sw_count = malloc(size);
-  memset(sw_count, 0, size);
-  int core_id = jup->pod; /* The last entry is the core switch count */
+  int num_blocks = (jup->pod + 1 /* core switch group */);
+  size_t size = sizeof(struct mop_block_stats_t)  * (num_blocks);
+  struct mop_block_stats_t *blocks = 
+    malloc(sizeof(struct mop_block_stats_t) * num_blocks);
+  memset(blocks, 0, size);
 
+  int core_id = jup->pod; /* The last entry is the core switch count */
   struct jupiter_located_switch_t *sw = 0;
+
+  for (int i = 0; i < jup->pod; ++i) {
+    blocks[i].id.id = i;
+    blocks[i].id.type = BT_POD_AGG;
+    blocks[i].all_switches = jup->agg;
+  }
+
+  blocks[core_id].id.id = core_id;
+  blocks[core_id].id.type = BT_CORE;
+  blocks[core_id].all_switches = jup->core;
+
   for (int i = 0; i < jop->nswitches; ++i) {
     sw = jop->switches[i];
-    if (sw->type == CORE) {
-      sw_count[core_id] += 1;
+    if (sw->type == JST_CORE) {
+      blocks[core_id].down_switches += 1;
     } else {
-      sw_count[sw->pod] += 1;
+      blocks[sw->pod].down_switches += 1;
     }
   }
 
-  size = (5 /* name */ + 5 /*: [] */ + 5 /* sw-count */) * (jup->pod + 1);
+  *ret = blocks;
+  return num_blocks;
+};
+
+static
+char *_jupiter_mop_explain(struct mop_t *mop, struct network_t *net) {
+  struct mop_block_stats_t *blocks = 0;
+  int nblocks = mop->block_stats(mop, net, &blocks);
+
+  struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
+
+  size_t size = (5 /* name */ + 5 /*: [] */ + 5 /* sw-count */) * nblocks;
   char *ret = malloc(sizeof(char) * size);
   memset(ret, 0, size);
 
+  //TODO: This should iterate over nblocks
   for (int i = 0; i < jup->pod; ++i) {
     char desc[80] = {0};
-    snprintf(desc, 80, "[P% 2d: % 3d], ", i, sw_count[i]);
+    snprintf(desc, 80, "[P% 2d: % 3d], ", i, blocks[i].down_switches);
     strcat(ret, desc);
   }
 
   char desc[80] = {0};
-  snprintf(desc, 80, "[C: % 3d]", sw_count[jup->pod]);
+  snprintf(desc, 80, "[C: % 3d]", blocks[jup->pod].down_switches);
   strcat(ret, desc);
 
-  free(sw_count);
+  free(blocks);
   return ret;
 }
 
+static
 int _jupiter_mop_post(struct mop_t *mop, struct network_t *net) {
   struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
@@ -239,10 +277,10 @@ void _sup_plan(struct plan_iterator_t *iter, int **ret, int *size) {
 
 void _info_switch(struct jupiter_located_switch_t *sw) {
   char s = 0;
-  if (sw->type == CORE) {
+  if (sw->type == JST_CORE) {
     s = 'C';
     printf("%c%d", s, sw->sid);
-  } else if (sw->type == AGG) {
+  } else if (sw->type == JST_AGG) {
     s = 'A';
     printf("%c%d [%d]", s, sw->sid, sw->pod);
   }
@@ -343,8 +381,52 @@ struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
   mop->free = _jupiter_mop_free;
   mop->size = _jupiter_mop_size;
   mop->explain = _jupiter_mop_explain;
+  mop->block_stats = _jupiter_block_stats;
 
   return (struct mop_t *)mop;
+}
+
+int _sup_lds(
+    struct plan_iterator_t *iter,
+    struct mop_block_stats_t *blocks,
+    int nblocks) {
+  TO_JITER(iter);
+
+  struct jupiter_group_t *groups = jiter->planner->multigroup.groups;
+  uint32_t *group_numbers = malloc(sizeof(int) * jiter->state->tuple_size);
+
+  for (uint32_t i = 0; i < jiter->state->tuple_size; ++i) {
+    struct jupiter_group_t *group = &groups[i];
+    double max_portion = 0;
+
+    // Find the max portion of switches that are filled up in this group
+    // TODO: This is more complicated for FatTree like topologies
+    for (uint32_t j = 0; j < group->nclasses; ++j) {
+      struct jupiter_class_t *class = &group->classes[j];
+      // Find a block that matches the class and remember the number of switches in it
+      for (int k = 0; k < nblocks; ++k) {
+        struct mop_block_stats_t *block = &blocks[k];
+        enum BLOCK_TYPE bt = block->id.type;
+        int id = block->id.id;
+        if ((bt == BT_CORE && class->type == JST_CORE) ||
+            ((bt == BT_POD_AGG && class->type == JST_AGG && id == class->pod))) {
+          double portion = ((double)block->down_switches / (double)class->nswitches);
+          max_portion = MAX(portion, max_portion);
+          break;
+        } else {
+          continue;
+        }
+      }
+    }
+    if (max_portion >= 1) {
+      // warn("Inaccurate estimation ... Jupiter's independent failure model "
+      //      "cannot find a least dominative subplan.");
+      max_portion = 1;
+    }
+    group_numbers[i] = (uint32_t)(ceil(max_portion * group->group_size));
+  }
+
+  return jiter->state->from_tuple(jiter->state, jiter->state->tuple_size, group_numbers);
 }
 
 
@@ -363,6 +445,7 @@ struct jupiter_switch_plan_enumerator_iterator_t *_sup_init(
   iter->subplan_count = _sup_subplan_count;
   iter->free  = _sup_free;
   iter->planner = planner;
+  iter->least_dominative_subplan = _sup_lds;
 
   struct jupiter_group_t *groups = planner->multigroup.groups;
   iter->state = 0;
@@ -398,6 +481,7 @@ jupiter_mop_for(struct jupiter_located_switch_t **sws, uint32_t nsws) {
   mop->free = _jupiter_mop_free;
   mop->size = _jupiter_mop_size;
   mop->explain = _jupiter_mop_explain;
+  mop->block_stats = _jupiter_block_stats;
 
   mop->ncap = nsws;
   mop->switches = malloc(sizeof(struct jupiter_located_switch_t *) * nsws);

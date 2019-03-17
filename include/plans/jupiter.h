@@ -6,7 +6,7 @@
 
 /* Jupiter network MOP planner  */
 enum JUPITER_SWITCH_TYPE {
-  CORE, AGG, TOR
+  JST_CORE, JST_AGG, JST_TOR
 };
 
 /* Properties that we care about in a jupiter topology for iterating through the plans are:

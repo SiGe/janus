@@ -25,6 +25,14 @@ int _npart_state_to_tuple(
   return *ret = val;
 }
 
+static inline
+uint32_t _npart_state_from_tuple(
+    struct group_iter_t *in,
+    int len,
+    uint32_t *ret) {
+  return *ret;
+}
+
 void _npart_begin(struct group_iter_t *s) {
   struct npart_iter_state_t *out = (struct npart_iter_state_t *)s;
   memset(out->state, 0, sizeof(uint32_t) * out->total);
@@ -155,6 +163,7 @@ struct group_iter_t *npart_create(uint32_t n) {
   out->free  = _npart_free;
   out->end   = _npart_end;
   out->to_tuple = _npart_state_to_tuple;
+  out->from_tuple = _npart_state_from_tuple;
   out->num_subsets = _npart_state_num_subsets;
 
   out->tuple_size = 1;
@@ -552,6 +561,31 @@ int _dual_npart_state_to_tuple(
   return s->tuple_size;
 }
 
+static inline
+uint32_t _dual_npart_state_from_tuple(
+    struct group_iter_t *in,
+    int len,
+    uint32_t *tuple) {
+
+  struct dual_npart_iter_state_t *s = 
+    (struct dual_npart_iter_state_t *)in;
+
+  int ts1 = s->iter1->tuple_size;
+  int ts2 = s->iter2->tuple_size;
+
+  assert(len == ts1 + ts2);
+
+  uint32_t r1 = s->iter1->from_tuple(
+      s->iter1, ts1, tuple);
+
+  uint32_t r2 = s->iter2->from_tuple(
+      s->iter2, ts2, tuple + ts1);
+
+  int ns2 = s->iter2->num_subsets(s->iter2);
+  return r1 * ns2 + r2;
+}
+
+
 static
 int _dual_npart_state_end(
     struct group_iter_t *in) {
@@ -599,6 +633,7 @@ struct group_iter_t *dual_npart_create(
   iter->next = _dual_npart_state_next;
   iter->end = _dual_npart_state_end;
   iter->to_tuple = _dual_npart_state_to_tuple;
+  iter->from_tuple = _dual_npart_state_from_tuple;
   iter->num_subsets = _dual_npart_state_num_subsets;
 
   _dual_npart_state_begin((struct group_iter_t *)iter);
