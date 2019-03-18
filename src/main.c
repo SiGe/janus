@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -6,18 +7,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "algo/maxmin.h"
+#include "algo/array.h"
 #include "config.h"
-#include "dataplane.h"
 #include "exec/longterm.h"
 #include "exec/ltg.h"
 #include "exec/pug.h"
 #include "exec/stats.h"
-#include "freelist.h"
-#include "network.h"
-#include "plan.h"
-#include "predictors/rotating_ewma.h"
-#include "risk.h"
 #include "util/common.h"
 #include "util/log.h"
 
@@ -74,6 +69,35 @@ static void logo(void) {
 	printf("%s\n\n", text);
 }
 
+void summarize_result(struct exec_output_t *out) {
+  int size = 0;
+  struct exec_result_t *res = array_splice(
+      out->result, 0, array_size(out->result)-1, &size);
+
+  risk_cost_t sum_cost = 0;
+  double sum_len  = 0;
+
+  risk_cost_t sqr_cost = 0;
+  double sqr_len = 0;
+
+  for (int i = 0; i < size;++i ){
+    risk_cost_t cost = res[i].cost;
+    int steps = res[i].num_steps;
+
+    sum_cost += cost; sqr_cost += cost * cost;
+    sum_len += steps; sqr_len += steps * steps;
+  }
+
+  double average_cost = sum_cost / size;
+  double average_len = sum_len / size;
+
+  risk_cost_t std_cost = sqrt(fabs(sqr_cost / size - average_cost * average_cost));
+  risk_cost_t std_len = sqrt(fabs(sqr_len / size - average_len * average_len));
+
+  printf("Statistics - len: %f (%f), cost: %f (%f)\n", 
+      average_len, std_len, average_cost, std_cost);
+}
+
 int main(int argc, char **argv) {
   logo();
   if (argc < 2) {
@@ -87,7 +111,13 @@ int main(int argc, char **argv) {
 
   if (!expr.explain) {
     exec->validate(exec, &expr);
-    exec->run(exec, &expr);
+    struct exec_output_t *out = exec->run(exec, &expr);
+    if (out) {
+      summarize_result(out);
+      array_free(out->result);
+      free(out);
+      out = 0;
+    }
   } else {
     exec->explain(exec);
   }

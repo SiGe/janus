@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "algo/rvar.h"
+#include "util/common.h"
 #include "util/log.h"
 #include "dataplane.h"
 
@@ -43,6 +45,17 @@ void dataplane_free_resources(struct dataplane_t *plane) {
   plane->smallest_link = 0;
   plane->num_links = 0;
   plane->num_flows = 0;
+}
+
+rvar_type_t dataplane_mlu(struct dataplane_t const *dp) {
+  rvar_type_t mlu = 0;
+
+  for (int link_id = 0; link_id < dp->num_links; ++link_id) {
+    struct link_t *link = &dp->links[link_id];
+    mlu = MAX(mlu, link->used/link->capacity);
+  }
+
+  return mlu;
 }
 
 int dataplane_count_violations(struct dataplane_t const *dp, float max_bandwidth) {

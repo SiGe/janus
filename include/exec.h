@@ -11,10 +11,21 @@
 
 struct expr_t;
 
+struct exec_result_t {
+  risk_cost_t   cost;         // Cost of the planner
+  int           num_steps;    // Number of steps
+  char         *description;  // Description of the change internal
+  trace_time_t  at;           // Time step for this result
+};
+
+struct exec_output_t {
+  struct array_t *result;     // An array_t of exec_result_t
+};
+
 struct exec_t {
-  void (*validate) (struct exec_t *, struct expr_t const *expr);
-  void (*run)      (struct exec_t *, struct expr_t *expr);
   void (*explain)  (struct exec_t *);
+  void (*validate) (struct exec_t *, struct expr_t const *expr);
+  struct exec_output_t * (*run) (struct exec_t *, struct expr_t *expr);
 
   struct traffic_matrix_trace_t *trace;
   struct traffic_matrix_trace_t *trace_training;
@@ -58,6 +69,13 @@ struct predictor_t *exec_predictor_create(struct exec_t *exec, struct expr_t con
 risk_cost_t exec_plan_cost(
     struct exec_t *exec, struct expr_t *expr, struct mop_t **mops,
     uint32_t nmops, trace_time_t start);
+
+rvar_type_t *
+exec_simulate_mlu(
+    struct exec_t *exec,
+    struct expr_t *expr,
+    struct traffic_matrix_t **tms,
+    uint32_t trace_length);
 
 rvar_type_t *
 exec_simulate_ordered(

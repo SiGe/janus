@@ -1,6 +1,7 @@
 #ifndef _TYPES_H_
 #define _TYPES_H_
 
+#include "algo/rvar.h"
 #include <stdint.h>
 
 /* Max path length for each flow */
@@ -83,5 +84,6 @@ void dataplane_free_resources(struct dataplane_t *);
 
 // Returns the number of violations of a dataplane
 int dataplane_count_violations(struct dataplane_t const *dp, float max_bandwidth);
+rvar_type_t dataplane_mlu(struct dataplane_t const *dp);
 
 #endif

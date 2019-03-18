@@ -16,7 +16,6 @@ struct switch_stats_t {
 
 struct jupiter_network_t {
   struct network_t;
-  struct clone_t;
 
   uint32_t core, agg, pod, tor;
   bw_t     link_bw;

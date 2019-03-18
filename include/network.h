@@ -39,16 +39,20 @@ struct network_t {
   struct traffic_matrix_t const *tm;
 
   void (*free) (struct network_t *);
+
+  bw_t (*pod_capacity) (struct network_t *);
+  bw_t (*core_capacity) (struct network_t *);
 };
 
+/*
 struct clone_t {
-  /* Cloning function of a simulated network */
+  // Cloning function of a simulated network
   struct simulated_network_t (*clone) (struct simulated_network_t *);
 
-  /* Save the state of the network, so we can restore it later fast (useful for MCMC). */
+  // Save the state of the network, so we can restore it later fast (useful for MCMC).
   void (*save) (struct simulated_network_t *);
 
-  /* Restore the state of the network (useful for MCMC). */
+  // Restore the state of the network (useful for MCMC).
   void (*restore) (struct simulated_network_t *);
 };
 
@@ -56,5 +60,6 @@ struct planner_t {
   struct simulated_network_t *sim_network;
   struct network_t           *phy_network;
 };
+*/
 
 #endif // _EXPERIMENT_H_

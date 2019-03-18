@@ -169,9 +169,10 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
   info("Done generating the rvars");
 }
 
-static void
+static struct exec_output_t*
 _exec_longterm_runner(struct exec_t *exec, struct expr_t *expr) {
   _build_rvar_cache_parallel(expr);
+  return 0;
 }
 
 static void

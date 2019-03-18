@@ -551,9 +551,13 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
   info("Found %d valid plans.", pug->plans->plan_count);
 }
 
-static void 
+static struct exec_output_t *
 _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
   TO_PUG(exec);
+
+  struct exec_output_t *res = malloc(sizeof(struct exec_output_t));
+  struct exec_result_t result = {0};
+  res->result = array_create(sizeof(struct exec_result_t), 10);
 
   struct plan_repo_t *plans = pug->plans;
   risk_cost_t  best_plan_cost = INFINITY;
@@ -576,9 +580,17 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
     info("[%4d] Actual cost of the best plan (%02d) is: %4.3f : %4.3f",
         at, best_plan_len, actual_cost, estimated_cost);
 
+    result.at = i;
+    result.num_steps = best_plan_len;
+    result.description = 0;
+    result.cost = actual_cost;
+
+    array_append(res->result, &result);
     pug->release_steady_cost(exec, expr, at);
   }
   free(best_plan_subplans);
+
+  return res;
 }
 
 static void

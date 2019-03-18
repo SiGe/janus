@@ -11,6 +11,18 @@
 #define TO_J(name) struct jupiter_network_t *jup = (struct jupiter_network_t *)(name)
 #define MAX_PODS 256
 
+static bw_t
+jupiter_network_core_capacity(struct network_t *net) {
+  TO_J(net);
+  return jup->agg * jup->pod * jup->core * jup->link_bw;
+}
+
+static bw_t
+jupiter_network_pod_capacity(struct network_t *net) {
+  TO_J(net);
+  return jup->agg * jup->tor * jup->link_bw;
+}
+
 inline static uint32_t _num_switches(
     uint32_t core, uint32_t pod, 
     uint32_t agg, uint32_t tor) {
@@ -183,10 +195,8 @@ jupiter_network_create(
   ret->drain_switch    = jupiter_drain_switch;;
   ret->undrain_switch  = jupiter_undrain_switch;
   ret->free            = jupiter_network_free;
-
-  ret->clone   = 0;
-  ret->save    = 0;
-  ret->restore = 0;
+  ret->core_capacity   = jupiter_network_core_capacity;
+  ret->pod_capacity    = jupiter_network_pod_capacity;
 
   /* Initialize the data-structures */
   for (switch_id_t i = 0; i < _num_switches_jupiter(ret); ++i) {

@@ -1,9 +1,11 @@
 #include <math.h>
 
+#include "algo/array.h"
 #include "config.h"
 #include "network.h"
 #include "util/log.h"
 
+#include "exec.h"
 #include "exec/ltg.h"
 
 #define TO_LTG(e) struct exec_ltg_t *ltg = (struct exec_ltg_t *)(e);
@@ -93,13 +95,27 @@ static risk_cost_t _exec_ltg_best_plan_at(
   return cost;
 }
 
-static void 
+static struct exec_output_t *
 _exec_ltg_runner(struct exec_t *exec, struct expr_t *expr) {
+  struct exec_output_t *res = malloc(sizeof(struct exec_output_t));
+  struct exec_result_t result = {0};
+  res->result = array_create(sizeof(struct exec_result_t), 10);
+
   for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
     risk_cost_t actual_cost = _exec_ltg_best_plan_at(exec, expr, at);
-    info("[%4d] Actual cost of the best plan (%02d) is: %4.3f : %4.3f", at, expr->criteria_time->steps, actual_cost, actual_cost);
+    info("[%4d] Actual cost of the best plan (%02d) is: %4.3f : %4.3f",
+        at, expr->criteria_time->steps, actual_cost, actual_cost);
+
+    result.cost = actual_cost;
+    result.description = 0;
+    result.num_steps = expr->criteria_time->steps;
+    result.at = i;
+
+    array_append(res->result, &result);
   }
+
+  return res;
 }
 
 static void

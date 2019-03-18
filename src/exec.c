@@ -157,6 +157,31 @@ static rvar_type_t _sim_network_for_trace_parallel(void *data) {
   return percentage;
 }
 
+
+static rvar_type_t _sim_network_for_mlu(void *data) {
+  struct _rvar_cache_builder_parallel* builder = (struct _rvar_cache_builder_parallel*)data;
+  struct traffic_matrix_t *tm = 0;
+
+  // Get the next traffic matrix
+  tm = builder->tms[builder->index];
+
+  rvar_type_t mlu = 0;
+  {
+    // Simulate the network
+    struct _network_dp_t *np = freelist_get(builder->network_freelist);
+    np->net->set_traffic(np->net, tm);
+    np->net->get_dataplane(np->net, &np->dp);
+
+    maxmin(&np->dp);
+
+    mlu = dataplane_mlu(&np->dp);
+    freelist_return(builder->network_freelist, np);
+  }
+
+  // Count the violations
+  return mlu;
+}
+
 static void
 _exec_net_dp_create(
     struct exec_t *exec,
@@ -229,7 +254,7 @@ exec_simulate_ordered(
     data[j].expr = expr;
   }
 
-  rvar_type_t *vals= monte_carlo_parallel_ordered_rvar(
+  rvar_type_t *vals = monte_carlo_parallel_ordered_rvar(
       _sim_network_for_trace_parallel, 
       data, trace_length,
       sizeof(struct _rvar_cache_builder_parallel), 0);
@@ -237,6 +262,58 @@ exec_simulate_ordered(
   for (uint32_t j = 0; j < nthreads; ++j) {
     mop->post(mop, networks[j]->net);
   }
+
+  // Free the dataplane resources used during simulation
+  for (uint32_t i = 0; i < nthreads; ++i) {
+    dataplane_free_resources(&networks[i]->dp);
+  }
+
+  free(networks);
+  return vals;
+}
+
+rvar_type_t *
+exec_simulate_mlu(
+    struct exec_t *exec,
+    struct expr_t *expr,
+    struct traffic_matrix_t **tms,
+    uint32_t trace_length) {
+  pthread_mutex_t mut;
+  if (pthread_mutex_init(&mut, 0) != 0)
+    panic("Couldn't initiate the mutex.");
+
+  if (!exec->net_dp)
+    _exec_net_dp_create(exec, expr);
+
+  uint32_t nthreads = freelist_size(exec->net_dp);
+  struct freelist_repo_t *repo = exec->net_dp;
+  struct _network_dp_t **networks = malloc(sizeof(struct _network_dp_t *) * nthreads);
+
+  /* Build a list of available networks */
+  for (uint32_t i = 0; i < nthreads; ++i) { 
+    networks[i] = freelist_get(repo);
+  }
+
+  for (uint32_t i = 0; i < nthreads; ++i) { 
+    freelist_return(repo, networks[i]);
+  }
+
+  /* Fill out the data structure for parallel execution */
+  struct _rvar_cache_builder_parallel *data = 
+    malloc(sizeof(struct _rvar_cache_builder_parallel) * trace_length);
+
+  for (uint32_t j = 0; j < trace_length; ++j ){
+    data[j].lock = &mut;
+    data[j].tms = tms;
+    data[j].index = j;
+    data[j].network_freelist = repo;
+    data[j].expr = expr;
+  }
+
+  rvar_type_t *vals = monte_carlo_parallel_ordered_rvar(
+      _sim_network_for_mlu, 
+      data, trace_length,
+      sizeof(struct _rvar_cache_builder_parallel), 0);
 
   // Free the dataplane resources used during simulation
   for (uint32_t i = 0; i < nthreads; ++i) {
