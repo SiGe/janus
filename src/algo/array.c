@@ -2,8 +2,12 @@
 #include <string.h>
 
 #include "util/log.h"
-
 #include "algo/array.h"
+
+#define ARRAY_MAGIC 0xdeadbeef
+
+extern int array_size(struct array_t const*);
+extern int array_capacity(struct array_t const*);
 
 struct array_t *array_create(int data_size, int capacity) {
   if (data_size <= 0 || capacity <= 0) {
@@ -41,24 +45,24 @@ void array_free(struct array_t *arr) {
   free(arr);
 }
 
-char *array_serialize(struct array_t *arr, size_t *out_size) {
+char *array_serialize(struct array_t const *arr, size_t *out_size) {
   size_t data_size = (arr->count * arr->data_size);
-  size_t size = data_size + sizeof(struct array_t);
+  size_t arr_size = sizeof(struct array_t);
+  size_t size = data_size + arr_size;
+
   char *output = malloc(size);
 
-  void *data = arr->data;
+  memcpy(output, arr, arr_size);
+  memcpy(output + arr_size, arr->data, data_size);
 
   // Save array magic in place of data
-  arr->data = (void *)ARRAY_MAGIC;
-  memcpy(output, arr, sizeof(struct array_t));
-  memcpy(((char *)output) + sizeof(struct array_t), data, data_size);
-  arr->data = data;
+  ((struct array_t *)output)->data = (void *)ARRAY_MAGIC;
   *out_size = size;
 
   return output;
 }
 
-struct array_t *array_deserialize(char *bytes, size_t size) {
+struct array_t *array_deserialize(char const *bytes, size_t size) {
   if (size < sizeof(struct array_t)) {
     panic("Wrong array size: %d < %d (min array size)", size, sizeof(struct array_t));
     return 0;
@@ -89,7 +93,7 @@ inline void array_set(struct array_t *arr, void *val, int index) {
   memcpy(data, val, arr->data_size);
 }
 
-inline void* array_get(struct array_t *arr, int index) {
+inline void* array_get(struct array_t const *arr, int index) {
   if (arr->count <= index)
     return 0;
 
@@ -111,14 +115,6 @@ inline void array_append(struct array_t *arr, void *data) {
   array_set(arr, data, arr->count - 1);
 }
 
-inline int array_size(struct array_t *arr) {
-  return arr->count;
-}
-
-inline int array_capacity(struct array_t *arr) {
-  return arr->capacity;
-}
-
 int array_transfer_ownership(struct array_t *arr, void **data) {
   *data = arr->data;
   int ret = arr->count;
@@ -130,14 +126,12 @@ int array_transfer_ownership(struct array_t *arr, void **data) {
   return ret;
 }
 
-void *array_splice(struct array_t *arr, int start, int end, int *size) {
+void *array_splice(struct array_t const *arr, int start, int end, int *size) {
+  // Sanitize input
   if (!arr)
     return 0;
-
-  // Sanitization of input
   if (start < 0)
     start = 0;
-
   if (end >= array_size(arr))
     end = array_size(arr) - 1;
 

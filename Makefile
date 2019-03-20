@@ -15,10 +15,6 @@ SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, $(wildcard src
 SRC+=$(wildcard src/*/*.c)
 SRC+=$(wildcard lib/*/*.c)
 
-#SRC+=$(wildcard src/algo/*.c)
-#SRC+=$(wildcard src/networks/*.c)
-#SRC+=$(wildcard src/util/*.c)
-
 MAIN_SRC:=$(SRC)
 MAIN_SRC+=src/main.c
 MAIN_OBJ=$(MAIN_SRC:%.c=$(BUILD_DIR)/%.o)
@@ -32,21 +28,23 @@ TEST_SRC+=src/test.c
 TEST_OBJ=$(TEST_SRC:%.c=$(BUILD_DIR)/%.o)
 
 # Handle benchmark executions
-BENCH_SRC:=$(SRC)
-ifeq (bench, $(firstword $(MAKECMDGOALS)))
-BENCH_TARGET=$(wordlist 2, 2, $(MAKECMDGOALS))
-BENCH_SRC+=$(wildcard $(BENCH_DIR)/src/*.c)
-BENCH_SRC+=$(BENCH_DIR)/$(BENCH_TARGET).c
-BENCH_OBJ=$(BENCH_SRC:%.c=$(BUILD_DIR)/%.o)
-CFLAGS+=-I$(BENCH_DIR)/include
-endif
+# BENCH_SRC:=$(SRC)
+# ifeq (bench, $(firstword $(MAKECMDGOALS)))
+# BENCH_TARGET=$(wordlist 2, 2, $(MAKECMDGOALS))
+# BENCH_SRC+=$(wildcard $(BENCH_DIR)/src/*.c)
+# BENCH_SRC+=$(BENCH_DIR)/$(BENCH_TARGET).c
+# BENCH_OBJ=$(BENCH_SRC:%.c=$(BUILD_DIR)/%.o)
+# CFLAGS+=-I$(BENCH_DIR)/include
+# endif
 
 ifeq (test, $(firstword $(MAKECMDGOALS)))
 OPT = -O0 -pg -g
 endif
 
-CFLAGS=$(OPT)  -Wall -Werror -Iinclude/ -std=gnu11 -fms-extensions -Wno-microsoft-anon-tag -Ilib/ -pthread
-LDFLAGS=-lm $(OPT) -Wall -Werror -Iinclude/ -std=gnu11 -flto -Ilib/ -pthread
+STD=gnu11
+
+CFLAGS=$(OPT) $(DEFINE) -Wall -Werror -Iinclude/ -std=$(STD) -fms-extensions -Wno-microsoft-anon-tag -Ilib/ -pthread
+LDFLAGS=-lm $(OPT) $(DEFINE) -Wall -Werror -Iinclude/ -std=$(STD) -flto -Ilib/ -pthread
 ifneq (clang, $(CC))
 	LDFLAGS += -pthread
 endif

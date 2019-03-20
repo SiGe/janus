@@ -8,9 +8,44 @@
 
 #define max(a, b) ((a) > (b)) ? (a) : (b)
 
+/* A000041 */
+struct npart_iter_state_t {
+  struct group_iter_t;
+
+  uint32_t state_min_allowed;
+  uint32_t last_allowed;
+  uint32_t finished;
+};
+
+/* TODO: XX */
+struct dual_npart_iter_state_t {
+  struct group_iter_t;
+
+  struct group_iter_t *iter1, *iter2;
+
+  // State for first iterator
+  uint32_t *comp_pointers;
+  uint32_t comp_total;
+
+  uint32_t *comp1;
+  uint32_t comp1_len;
+
+  uint32_t last_class, last_index;
+  uint32_t *min_class_index;
+
+  // State for second iterator
+  uint32_t *avail;
+  uint32_t avail_len;
+
+  // Indices for mapping the first iterator to the second
+  uint32_t *comp_index;
+
+  uint32_t finished;
+};
+
 static inline
 int _npart_state_num_subsets(
-    struct group_iter_t *in) {
+    struct group_iter_t const *in) {
   struct npart_iter_state_t *s = 
     (struct npart_iter_state_t *)in;
 
@@ -19,7 +54,7 @@ int _npart_state_num_subsets(
 
 static inline
 int _npart_state_to_tuple(
-    struct group_iter_t *in,
+    struct group_iter_t const *in,
     uint32_t val,
     uint32_t *ret) {
   return *ret = val;
@@ -51,7 +86,7 @@ void _npart_free(struct group_iter_t *in) {
   free(s);
 }
 
-int _npart_end(struct group_iter_t *in) {
+int _npart_end(struct group_iter_t const *in) {
   struct npart_iter_state_t *s = (struct npart_iter_state_t *)in;
   return s->finished;
 }
@@ -205,7 +240,6 @@ void _find_next_comb_for_class(
   // Find the next available index for our class that is greater than
   // min_class_index; 
   uint32_t ma = s->min_class_index[class];
-  //info("REading from %d", class+1);
   uint32_t len = (s->comp_pointers[class+1] - s->comp_pointers[class]);
 
   // If no element here ... move on
@@ -351,10 +385,8 @@ void _setup_for_next_iter(struct dual_npart_iter_state_t *s) {
       index++;
     }
   }
-  //info("WRITING TO: s->comp_pointers: %d, %d", s->comp1_len, s->iter1->state_length);
   s->comp_pointers[s->comp1_len] = index;
   s->comp_total = index;
-  //_dual_npart_state_build(s);
 }
 
 static inline
@@ -403,14 +435,12 @@ void _prepare_comps(struct dual_npart_iter_state_t *s) {
   size_t size2 = (s->iter2->total+2) * sizeof(uint32_t);
 
   memset(s->comp1, 0, size1);
-  memset(s->comp2, 0, size2);
   memset(s->avail, 0, size2);
   memset(s->min_class_index, 0, size1);
   memset(s->comp_index, 0, sizeof(uint32_t) * (s1l+2));
   memset(s->comp_pointers, 0, sizeof(uint32_t) * (s1l+2));
 
   s->comp1_len = 0;
-  s->comp2_len = 0;
   s->last_index = 0;
   s->last_class = 0;
 
@@ -420,17 +450,13 @@ void _prepare_comps(struct dual_npart_iter_state_t *s) {
   }
 
   for (uint32_t i = 0; i < s2l; ++i) {
-    s->comp2[s2[i]] += 1;
-    s->comp2_len = max(s->comp2_len, s2[i]);
-
+    s->avail_len = max(s->avail_len, s2[i]);
     s->avail[s2[i]] += 1;
   }
 
   s->comp1_len += 1;
-  s->comp2_len += 1;
-  s->avail_len = s->comp2_len;
+  s->avail_len += 1;
 
-  //info("Preparing iterators: %d, %d", s->iter1->state_length, s->iter2->state_length);
   _setup_for_next_iter(s);
 }
 
@@ -442,36 +468,11 @@ void _dual_npart_free(struct group_iter_t *in) {
   free(iter->comp_index);
   free(iter->comp_pointers);
   free(iter->comp1);
-  free(iter->comp2);
   free(iter->min_class_index);
   free(iter->avail);
   free(iter->state);
 
   free(iter);
-}
-
-void dual_npart_state_current(struct dual_npart_iter_state_t *s) {
-    // Try to extract the state.
-    // PRINT the state of the network
-    uint32_t count = 0;
-    for (uint32_t i = 1; i < s->comp1_len; ++i) {
-      for (uint32_t j = s->comp_pointers[i]; j < s->comp_pointers[i+1]; ++j) {
-        uint32_t index = s->comp_index[j];
-        count ++;
-        if (index == 0) {
-          printf("[%d,  ], ", i);
-        } else {
-          printf("[%d, %d], ", i, s->comp_index[j]);
-        }
-      }
-    }
-
-    for (uint32_t i = 1; i < s->avail_len; ++i) {
-      for( uint32_t j = 0; j < s->avail[i]; ++j) {
-        printf("[ , %d], ", i);
-      }
-    }
-    printf("\n");
 }
 
 static
@@ -530,7 +531,7 @@ void _dual_npart_state_begin(
 
 static inline
 int _dual_npart_state_num_subsets(
-    struct group_iter_t *in) {
+    struct group_iter_t const *in) {
   struct dual_npart_iter_state_t *s = 
     (struct dual_npart_iter_state_t *)in;
 
@@ -540,7 +541,7 @@ int _dual_npart_state_num_subsets(
 
 static inline
 int _dual_npart_state_to_tuple(
-    struct group_iter_t *in,
+    struct group_iter_t const *in,
     uint32_t val,
     uint32_t *ret) {
 
@@ -588,7 +589,7 @@ uint32_t _dual_npart_state_from_tuple(
 
 static
 int _dual_npart_state_end(
-    struct group_iter_t *in) {
+    struct group_iter_t const *in) {
   struct dual_npart_iter_state_t *iter =
     (struct dual_npart_iter_state_t *)in;
   return (iter->finished);
@@ -617,7 +618,6 @@ struct group_iter_t *dual_npart_create(
   iter->comp_pointers= malloc(size1);
 
   iter->comp1 = malloc(size1);
-  iter->comp2 = malloc(size2);
   iter->min_class_index = malloc(size1);
   iter->avail = malloc(size2);
 
