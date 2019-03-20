@@ -38,7 +38,7 @@ struct jupiter_multigroup_t {
   uint32_t ngroups;
 };
 
-KHASH_MAP_INIT_INT(jupiter_groups, struct jupiter_group_t*);
+KHASH_MAP_INIT_INT(jupiter_groups, struct jupiter_group_t*)
 
 /* Jupiter upgrade planner groups the switches into "granularity" groups. */
 struct jupiter_switch_plan_enumerator_t {

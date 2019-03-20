@@ -43,8 +43,18 @@ endif
 
 STD=gnu11
 
-CFLAGS=$(OPT) $(DEFINE) -Wall -Werror -Iinclude/ -std=$(STD) -fms-extensions -Wno-microsoft-anon-tag -Ilib/ -pthread
-LDFLAGS=-lm $(OPT) $(DEFINE) -Wall -Werror -Iinclude/ -std=$(STD) -flto -Ilib/ -pthread
+CFLAGS=$(OPT) $(DEFINE) -Wall -Werror \
+			-pedantic -Wsign-conversion -Wold-style-cast\
+			-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro\
+			-Iinclude/ -std=$(STD) -Ilib/ \
+			-fms-extensions  -Wno-microsoft-anon-tag \
+			 -pthread -mtune=native
+
+LDFLAGS=-lm $(OPT) $(DEFINE) -Wall -Werror\
+				-pedantic -Wsign-conversion -Wold-style-cast\
+				-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro\
+			 	-Iinclude/ -Ilib/ -std=$(STD) -flto \
+				-pthread -mtune=native
 ifneq (clang, $(CC))
 	LDFLAGS += -pthread
 endif

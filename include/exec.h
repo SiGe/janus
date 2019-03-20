@@ -40,7 +40,7 @@ struct stats_t {
 struct traffic_stats_t {
   struct stats_t in;
   struct stats_t out;
-  int    pod_id;
+  unsigned pod_id;
 };
 
 #define EXEC_VALIDATE_PTR_SET(e, p)    { if (e->p == 0) {panic("Need to set "#p);} }
@@ -48,8 +48,8 @@ struct traffic_stats_t {
 
 #define EXEC_EWMA_PREFIX "traffic"
 
-struct rvar_t **exec_rvar_cache_load(struct expr_t const *expr, int *size);
-struct array_t **exec_rvar_cache_load_into_array(struct expr_t const *expr, int *count);
+struct rvar_t **exec_rvar_cache_load(struct expr_t const *expr, unsigned *size);
+struct array_t **exec_rvar_cache_load_into_array(struct expr_t const *expr, unsigned *count);
 
 /* Returns or builds the EWMA cache for the expr_t. */
 struct predictor_t *exec_ewma_cache_build_or_load(struct exec_t *, struct expr_t const *expr);
@@ -108,14 +108,14 @@ void exec_traffic_stats(
 // Critical path analysis structure
 struct exec_critical_path_t {
   struct jupiter_located_switch_t **sws;
-  int    pod;
+  unsigned pod;
   enum   JUPITER_SWITCH_TYPE type;
 
   // Num switches in this critical path
-  int    num_switches;
+  unsigned num_switches;
 
   // Num switches left in the critical path
-  int    num_switches_left;
+  unsigned num_switches_left;
 
   // Steady state bandwidth
   bw_t   bandwidth;
@@ -126,7 +126,7 @@ struct exec_critical_path_t {
 
 struct exec_critical_path_stats_t {
   struct exec_critical_path_t *paths;
-  int num_paths;
+  unsigned num_paths;
 };
 
 /* Perform critical path analysis on the remaining set of switches to upgrade:

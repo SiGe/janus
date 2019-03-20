@@ -33,7 +33,7 @@ inline int array_capacity(struct array_t const *arr) {
 }
 
 // Transfers the ownership of data held by the array
-int      array_transfer_ownership(struct array_t *, void **data);
+unsigned array_transfer_ownership(struct array_t *, void **data);
 
 // Returns a copy of the data from [start, end] (inclusive range)
 void*    array_splice(struct array_t const *, int start, int end, int *size);

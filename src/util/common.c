@@ -51,7 +51,7 @@ int dir_mk(char const *dname) {
   return 1;
 }
 
-int dir_num_files(char const *dname) {
+uint32_t dir_num_files(char const *dname) {
   int file_count = 0;
   DIR * dirp;
   struct dirent * entry;

@@ -49,7 +49,7 @@ static __attribute__((unused)) void dataplane_smallest(struct dataplane_t *datap
   printf("smallest link chain: \n");
   struct link_t *link = dataplane->smallest_link;
   while (link) {
-    printf("(%d: %.2f) ~> \n", link->id, per_flow_capacity(link));
+    printf("(%d: "BWF") ~> \n", link->id, per_flow_capacity(link));
     if (link->next)
       if (link->next->prev != link) {
         assert(link->next->prev == link);
@@ -232,14 +232,12 @@ static int fix_link(struct dataplane_t *dataplane, struct link_t *link) {
       if ((l->used - l->capacity) > EPS) {
         // we can honestly set the l used to be equal to l capacity ...
         l->used = l->capacity;
-        /*
-        dataplane_smallest(dataplane);
-        panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
-            (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
-              flows left) %d, (Remaining demand on flow) %.2f",
-            l->id, flow->id, l->used, l->capacity, l->nflows, l->nactive_flows,
-            remaining_demand(flow));
-        */
+        // dataplane_smallest(dataplane);
+        // panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
+        //     (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
+        //       flows left) %d, (Remaining demand on flow) %.2f",
+        //     l->id, flow->id, l->used, l->capacity, l->nflows, l->nactive_flows,
+        //     remaining_demand(flow));
       }
 
       recycle_link_if_fixed(dataplane, l);

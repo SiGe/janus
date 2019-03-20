@@ -78,7 +78,7 @@ struct traffic_matrix_trace_iter_t {
 
     void (*begin)(struct traffic_matrix_trace_iter_t *);
     void (*go_to)(struct traffic_matrix_trace_iter_t *, trace_time_t);
-    int  (*length)(struct traffic_matrix_trace_iter_t *);
+    unsigned (*length)(struct traffic_matrix_trace_iter_t *);
     int  (*next)(struct traffic_matrix_trace_iter_t *);
     int  (*end)(struct traffic_matrix_trace_iter_t *);
     void (*get)(struct traffic_matrix_trace_iter_t *, struct traffic_matrix_t **);

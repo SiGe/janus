@@ -44,13 +44,13 @@ struct predictor_t *exec_ewma_cache_build_or_load(
 
   /* Else create the EWMA predictor */
   if (!dir_exists(expr->cache.ewma_directory)) {
-    info("Creating EWMA cache directory.");
+    info("Creating EWMA cache directory: %s", expr->cache.ewma_directory);
     dir_mk(expr->cache.ewma_directory);
   }
 
-  info("Building the EWMA cache files.");
   char path[PATH_MAX] = {0};
   snprintf(path, PATH_MAX - 1, "%s"PATH_SEPARATOR"%s", expr->cache.ewma_directory, EXEC_EWMA_PREFIX);
+  info("Building the EWMA cache files: %s", path);
   ewma = predictor_rotating_ewma_create(expr->ewma_coeff, expr->mop_duration + 1, path);
   ewma->build((struct predictor_t *)ewma, exec->trace_training);
   predictor_rotating_ewma_save((struct predictor_t *)ewma);
@@ -59,12 +59,12 @@ struct predictor_t *exec_ewma_cache_build_or_load(
 }
 
 struct array_t **
-exec_rvar_cache_load_into_array(struct expr_t const *expr, int *count) {
+exec_rvar_cache_load_into_array(struct expr_t const *expr, unsigned *count) {
   char const *cache_dir = expr->cache.rvar_directory;
 
   DIR *dir = 0;
   struct dirent *ent = 0;
-  int nfiles = dir_num_files(cache_dir);
+  unsigned nfiles = dir_num_files(cache_dir);
   if (nfiles == 0)
     return 0;
 
@@ -105,19 +105,19 @@ exec_rvar_cache_load_into_array(struct expr_t const *expr, int *count) {
 }
 
 struct rvar_t **
-exec_rvar_cache_load(struct expr_t const *expr, int *count) {
+exec_rvar_cache_load(struct expr_t const *expr, unsigned *count) {
   struct array_t **arr = exec_rvar_cache_load_into_array(expr, count);
   if (!arr) {
-    panic("Could not load the rvar cache files.");
+    panic("Could not load the rvar cache files: %s", expr->cache.rvar_directory);
     return 0;
   }
 
-  int ncount = *count;
+  unsigned ncount = *count;
   struct rvar_t **ret = malloc(sizeof(struct rvar_t *) * ncount);
 
-  for (int i = 0; i < ncount; ++i) {
+  for (unsigned i = 0; i < ncount; ++i) {
     rvar_type_t *vals = 0;
-    int nvals = array_transfer_ownership(arr[i], (void**)&vals);
+    unsigned nvals = array_transfer_ownership(arr[i], (void**)&vals);
     free(arr[i]);
     ret[i] = rvar_sample_create_with_vals(vals, nvals);
   }
@@ -187,7 +187,7 @@ _exec_net_dp_create(
     struct exec_t *exec,
     struct expr_t *expr) {
 
-  int nthreads = get_ncores() - 1;
+  unsigned nthreads = get_ncores() - 1;
   exec->net_dp = freelist_create(nthreads);
   struct _network_dp_t *networks = malloc(sizeof(struct _network_dp_t) * nthreads);
 
@@ -218,7 +218,7 @@ exec_simulate_ordered(
     uint32_t trace_length) {
   pthread_mutex_t mut;
   if (pthread_mutex_init(&mut, 0) != 0)
-    panic("Couldn't initiate the mutex.");
+    panic("Couldn't initiate the mutex: %p", &mut);
 
   if (!exec->net_dp)
     _exec_net_dp_create(exec, expr);
@@ -280,7 +280,7 @@ exec_simulate_mlu(
     uint32_t trace_length) {
   pthread_mutex_t mut;
   if (pthread_mutex_init(&mut, 0) != 0)
-    panic("Couldn't initiate the mutex.");
+    panic("Couldn't initiate the mutex: %p", &mut);
 
   if (!exec->net_dp)
     _exec_net_dp_create(exec, expr);
@@ -366,7 +366,7 @@ risk_cost_t exec_plan_cost(
       iter->get(iter, &tm);
 
       if (!tm)
-        panic("Traffic matrix is nil.  Possibly reached the end of the trace?");
+        panic("Traffic matrix is nil.  Possibly reached the end of the trace: %d", step);
 
       /* Network traffic */
       net->set_traffic(net, tm);
@@ -597,10 +597,10 @@ void exec_critical_path_analysis_update(
 
 struct predictor_t *exec_predictor_create(struct exec_t *exec, struct expr_t const *expr, char const *value) {
   if        (strcmp(value, "ewma") == 0) {
-    info("Loading EWMA predictor.");
+    info("Loading %s predictor.", value);
     return exec_ewma_cache_build_or_load(exec, expr);
   } else if (strcmp(value, "perfect") == 0) {
-    info("Loading PERFECT predictor.");
+    info("Loading %s predictor.", value);
     return exec_perfect_cache_build_or_load(exec, expr);
   }
   return 0;

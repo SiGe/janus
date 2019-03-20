@@ -26,7 +26,7 @@ void *freelist_get(struct freelist_repo_t *ntr) {
 void freelist_return(struct freelist_repo_t *ntr, void *net) {
   pthread_mutex_lock(&ntr->lock);
   if (!ntr->busy)
-    panic("Not enough space left in the return chain.");
+    panic_txt("Not enough space left in the return chain.");
 
   struct freelist_t *rep = ntr->busy;
 
@@ -41,7 +41,7 @@ void freelist_return(struct freelist_repo_t *ntr, void *net) {
   pthread_mutex_unlock(&ntr->lock);
 }
 
-struct freelist_repo_t *freelist_create(int num) {
+struct freelist_repo_t *freelist_create(unsigned num) {
   struct freelist_repo_t *repo = malloc(sizeof(struct freelist_repo_t));
   size_t size = sizeof(struct freelist_t) * num;
   repo->busy = malloc(size);
@@ -59,18 +59,17 @@ struct freelist_repo_t *freelist_create(int num) {
   repo->free = 0;
 
   if (pthread_mutex_init(&repo->lock, 0) != 0) {
-    panic("Couldn't create the pthread mutex.");
+    panic("Couldn't create the pthread mutex: %p", &repo->lock);
   }
 
   return repo;
 }
-
 
 void freelist_free(struct freelist_repo_t *repo){
   free(repo->_data);
   free(repo);
 }
 
-int freelist_size(struct freelist_repo_t *ntr) {
+unsigned freelist_size(struct freelist_repo_t *ntr) {
   return ntr->size;
 }

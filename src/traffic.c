@@ -21,12 +21,12 @@ int _tmti_next(struct traffic_matrix_trace_iter_t *iter) {
     return 1;
 }
 
-int _tmti_length(struct traffic_matrix_trace_iter_t *iter) {
+unsigned _tmti_length(struct traffic_matrix_trace_iter_t *iter) {
   return (iter->_end - iter->_begin) + 1;
 }
 
 struct traffic_matrix_t *_tmti_get_nocopy(struct traffic_matrix_trace_iter_t *iter) {
-  panic("TMTI doesn't support copy semantics. Use get.");
+  panic_txt("TMTI doesn't support copy semantics. Use get.");
   return 0;
 }
 
@@ -93,7 +93,7 @@ void trace_iterator_set_range(struct traffic_matrix_trace_iter_t *iter,
 void traffic_matrix_save(struct traffic_matrix_t *tm, FILE * f) {
   assert(tm->num_pairs != 0);
   if (f == 0)
-    panic("File pointer is null.");
+    panic_txt("File pointer is null.");
 
   size_t size = sizeof(struct traffic_matrix_t) + 
     tm->num_pairs * sizeof(struct pair_bw_t);
@@ -103,7 +103,7 @@ void traffic_matrix_save(struct traffic_matrix_t *tm, FILE * f) {
   int written = fwrite((void*)tm, size, 1, f);
   if (written != size) {
     if (ferror(f)) {
-      panic("Couldn't dump the traffic matrix!");
+      panic_txt("Couldn't dump the traffic matrix!");
     }
   }
 
@@ -112,7 +112,7 @@ void traffic_matrix_save(struct traffic_matrix_t *tm, FILE * f) {
 
 struct traffic_matrix_t *traffic_matrix_load(FILE *f) {
   if (f == 0)
-    panic("File pointer is null.");
+    panic_txt("File pointer is null.");
 
   struct traffic_matrix_t tm = {0};
   size_t size = sizeof(struct traffic_matrix_t);
@@ -123,8 +123,8 @@ struct traffic_matrix_t *traffic_matrix_load(FILE *f) {
     if (feof(f)) 
       panic("Reached the end of file! Tried to read %d got %d", size, read);
     if (ferror(f))
-      panic("Error reading from file.");
-    panic("Error reading the file ...");
+      panic_txt("Error reading from file.");
+    panic_txt("Error reading the file ...");
   }
 
   fseek(f, -size, SEEK_CUR);
@@ -142,7 +142,7 @@ struct traffic_matrix_t *traffic_matrix_load(FILE *f) {
           "Tried to read %d got %d (num_pairs = %d)", 
           size, read, tm.num_pairs);
     if (ferror(f))
-      panic("Error reading from file.");
+      panic_txt("Error reading from file.");
     panic("Error reading the file : %d != %d", read, size);
   }
 
@@ -241,7 +241,7 @@ void traffic_matrix_trace_add(
 
   trace->_optimized = 0; // Not optimized anymore (index is not sorted).
   trace->num_indices++;
-};
+}
 
 static
 int _compare_indices(void const* v1, void const *v2) {
@@ -416,7 +416,7 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_create(
     FILE *data = fopen(fdata, "wb+");
 
     if (!index || !data) {
-      panic("Couldn't create the associated index or data file.");
+      panic_txt("Couldn't create the associated index or data file.");
     }
 
     trace->fdata = data;
@@ -436,7 +436,7 @@ void _traffic_matrix_trace_load_indices(struct traffic_matrix_trace_t *trace) {
   //      Better way is to properly read and write the relevant parts by "hand."
   size_t nread = fread(trace->indices, 1, size, trace->findex); 
   if (nread != size) {
-    panic("Couldn't load the indices.");
+    panic_txt("Couldn't load the indices.");
   }
 
   uint64_t num_indices = trace->num_indices;
@@ -489,7 +489,7 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_load(
   info("Trace: %.40s and %.40s files.", fdata, fname);
 
   if (!index || !data) {
-    panic("Couldn't find the associated index or data file.");
+    panic_txt("Couldn't find the associated index or data file.");
   }
 
   uint64_t indices = _traffic_matrix_trace_index_count(index);
@@ -595,7 +595,7 @@ void _ttit_get(struct traffic_matrix_trace_iter_t *iter,
 
   if (*tm == 0) {
     assert(0);
-    panic("Requesting a TM that we do not own anymore.");
+    panic_txt("Requesting a TM that we do not own anymore.");
   }
 }
 
@@ -608,7 +608,7 @@ void _ttit_free(struct traffic_matrix_trace_iter_t *iter) {
   free(iter);
 }
 
-int _ttit_length(struct traffic_matrix_trace_iter_t *iter) {
+unsigned _ttit_length(struct traffic_matrix_trace_iter_t *iter) {
   TO_TTIT(iter);
   return ttit->tms_length;
 }

@@ -49,7 +49,7 @@ struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *
     if (low == high)
       high = low + 1;
 
-    int nbuckets = ceil((high - low) / bucket_size);
+    unsigned nbuckets = ceil((high - low) / bucket_size);
     ret = rvar_bucket_create(low, bucket_size, nbuckets);
     bucket = rs->low;
     for (uint32_t i = 0; i < rs->nbuckets; ++i) {
@@ -72,7 +72,7 @@ step_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   risk_cost_t prev_value = r->pairs[r->nsteps-1].cost;
 
   // Sample string: 0/50-99.5/30-99.9/10-100/0
-  for (int i = r->nsteps - 1; i >= 0; --i){
+  for (unsigned i = r->nsteps - 1; i >= 0; --i){
     if (r->pairs[i].step + EPS < val ) {
       return prev_value;
     }
@@ -106,7 +106,7 @@ risk_cost_linear_from_string(char const *string) {
   ret->rvar_to_cost = _default_rvar_to_cost;
 
   ret->slope = atof(string);
-  info("Creating a linear function for the risk.");
+  info_txt("Creating a linear function for the risk.");
   return (struct risk_cost_func_t *)ret;
 }
 
@@ -118,7 +118,7 @@ risk_cost_stepped_from_string(char const *string) {
 
   char *dup = strdup(string);
   char *ptr = dup;
-  int nsteps = 1;
+  unsigned nsteps = 1;
   while (*ptr != 0) {
     if (*ptr == '-')
       nsteps++;
@@ -145,7 +145,7 @@ risk_cost_stepped_from_string(char const *string) {
   ret->rvar_to_cost = _default_rvar_to_cost;
   ret->cost = step_func_cost;
 
-  info("Creating a step function for the risk.");
+  info_txt("Creating a step function for the risk.");
   free(dup);
   return (struct risk_cost_func_t *)ret;
 }

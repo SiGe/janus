@@ -16,29 +16,37 @@ void _panic(char const *fmt, ...);
 void _network_print_flows(struct dataplane_t *);
 void _text_block(char const *fmt, ...);
 
-#define panic(fmt, args...) { \
-  _panic(fmt, __FILE__, __LINE__, ##args); \
+#define panic(fmt, ...) { \
+  _panic(fmt, __FILE__, __LINE__, __VA_ARGS__); \
+}
+
+#define panic_txt(fmt) { \
+  _panic(fmt, __FILE__, __LINE__); \
 }
 
 
-#define warn(fmt, args...) { \
-  _warn(fmt, __FILE__, __LINE__, ##args); \
+#define warn(fmt, ...) { \
+  _warn(fmt, __FILE__, __LINE__, __VA_ARGS__); \
 }
 
-#define info(fmt, args...) { \
-  _info(fmt, __FILE__, __LINE__, ##args); \
+#define info(fmt, ...) { \
+  _info(fmt, __FILE__, __LINE__, __VA_ARGS__); \
 }
 
-#define warning(fmt, args...) { \
-  _warning(fmt, __FILE__, __LINE__, ##args); \
+#define info_txt(fmt) { \
+  _info(fmt, __FILE__, __LINE__); \
 }
 
-#define error(fmt, args...) { \
-  _error(fmt, __FILE__, __LINE__, ##args); \
+#define warning(fmt, ...) { \
+  _warning(fmt, __FILE__, __LINE__, __VA_ARGS__); \
 }
 
-#define text_block(fmt, args...) { \
-  _text_block(fmt, ##args, __FILE__, __LINE__); \
+#define error(fmt, ...) { \
+  _error(fmt, __FILE__, __LINE__, __VA_ARGS__); \
+}
+
+#define text_block(fmt, ...) { \
+  _text_block(fmt, __VA_ARGS__, __FILE__, __LINE__); \
 }
 
 #endif

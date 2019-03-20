@@ -8,7 +8,7 @@
 
 struct jupiter_sw_up_t {
   enum JUPITER_SWITCH_TYPE type;
-  int location; int count; int color;
+  unsigned location; unsigned count; unsigned color;
 };
 
 struct jupiter_sw_up_list_t {
@@ -83,7 +83,7 @@ struct expr_t {
   //TODO: Change this from Jupiter to arbitrary topology later on ...
   struct jupiter_sw_up_list_t upgrade_list;
   struct jupiter_located_switch_t *located_switches;
-  int nlocated_switches;
+  unsigned nlocated_switches;
 
   // Runtime scenario
   struct scenario_t scenario;
@@ -131,9 +131,9 @@ struct expr_t {
   int          pug_is_backtrack;
 
   // Failure configuration
-  int     failure_max_concurrent;
-  double  failure_switch_probability;
-  struct failure_model_t *failure;
+  unsigned failure_max_concurrent;
+  double   failure_switch_probability;
+  struct   failure_model_t *failure;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const * argv);

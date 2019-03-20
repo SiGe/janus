@@ -29,11 +29,11 @@ static int _cutoff_at(struct criteria_time_t *ct, uint32_t length) {
   return ct->steps >= length;
 }
 
-static risk_cost_t _cutoff_zero_cost(struct criteria_time_t *ct, int step) {
+static risk_cost_t _cutoff_zero_cost(struct criteria_time_t *ct, unsigned step) {
   return 0;
 }
 
-static risk_cost_t _cutoff_cost(struct criteria_time_t *ct, int step) {
+static risk_cost_t _cutoff_cost(struct criteria_time_t *ct, unsigned step) {
   if (step < 1)
     panic("Asking for the cost of a plan before it has started: %d", step);
 
@@ -62,15 +62,15 @@ static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
   }
 
   if (*cur == 0) {
-    info("No time cost provided assuming zero cost for time.");
-    ret->steps = atoi(tmp);
+    info("No time cost provided assuming zero cost for time: %s", name);
+    ret->steps = strtoul(tmp, 0, 0);
     ret->cost = _cutoff_zero_cost;
     free(tmp);
     return ret;
   }
 
   *cur = 0;
-  ret->steps = atoi(tmp);
+  ret->steps = strtoul(tmp, 0, 0);
   ret->steps_cost = malloc(sizeof(risk_cost_t) * ret->steps);
 
   // Read the rest of the 
@@ -85,10 +85,10 @@ static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
   }
 
   if (idx != ret->steps)
-    panic("Not enough numbers passed to cutoff time criteria cost function.  Format is: cutoff-at-[NSTEPS]/STEP1_COST,STEP2_COST,...STEPN_COST");
+    panic("Not enough numbers passed to cutoff time criteria cost function.  Format is: cutoff-at-[NSTEPS]/STEP1_COST,STEP2_COST,...STEPN_COST: %s", name);
 
   if (pch != 0)
-    panic("Too many numbers passed to cutoff time criteria cost function.  Format is: cutoff-at-[NSTEPS]/STEP1_COST,STEP2_COST,...STEPN_COST");
+    panic("Too many numbers passed to cutoff time criteria cost function.  Format is: cutoff-at-[NSTEPS]/STEP1_COST,STEP2_COST,...STEPN_COST: %s", name);
 
   ret->cost = _cutoff_cost;
 
@@ -123,7 +123,7 @@ static struct network_t *jupiter_string_to_network(struct expr_t *expr, char con
   uint32_t core, pod, app, tpp; bw_t bw;
   int tot_read;
 
-  if (sscanf(string, "jupiter-%d-%d-%d-%d-%f%n", &core, &pod, &app, &tpp, &bw, &tot_read) <= 0) {
+  if (sscanf(string, "jupiter-%d-%d-%d-%d-"BWF"%n", &core, &pod, &app, &tpp, &bw, &tot_read) <= 0) {
     panic("Bad format specifier for jupiter: %s", string);
   }
 
@@ -150,7 +150,7 @@ static struct network_t *expr_clone_network(struct expr_t *expr) {
 static void jupiter_add_upgrade_group(char const *string, struct jupiter_sw_up_list_t *list) {
   int tot_read;
   char sw_type[256] = {0};
-  int location, count, color;
+  unsigned location, count, color;
 
   if (sscanf(string, "%[^-]-%d-%d-%d%n", sw_type, &location, &count, &color, &tot_read) <= 0) {
     panic("Bad format specifier for jupiter: %s", string);
@@ -181,7 +181,7 @@ static void jupiter_add_upgrade_group(char const *string, struct jupiter_sw_up_l
 static uint32_t
 jupiter_add_freedom_degree(char const *string,
     uint32_t **freedom) {
-  int ndegree = 1;
+  unsigned ndegree = 1;
   for (uint32_t i = 0; i < strlen(string); ++i) {
     ndegree += (string[i] == '-');
   }
@@ -224,7 +224,7 @@ static int config_handler(void *data,
   } else if (MATCH("criteria", "criteria-time")) {
     expr->criteria_time = risk_delay_name_to_func(value);
   } else if (MATCH("failure", "concurrent-switch-failure")) {
-    expr->failure_max_concurrent = atoi(value);
+    expr->failure_max_concurrent = strtoul(value, 0, 0);
   } else if (MATCH("failure", "concurrent-switch-probability")) {
     expr->failure_switch_probability = atof(value);
   } else if (MATCH("criteria", "criteria-length")) {
@@ -239,7 +239,7 @@ static int config_handler(void *data,
     } else if (strcmp(value, "backward") == 0){
       expr->pug_is_backtrack = 1;
     } else {
-      panic("Invalid [pug]->backtrack_direction.");
+      panic("Invalid [pug]->backtrack_direction: %s", value);
     }
   } else if (MATCH("general", "network")) {
     info("Parsing jupiter config: %s", value);
@@ -254,11 +254,11 @@ static int config_handler(void *data,
       panic("Upgrading %s not supported.", name);
     }
   } else if (MATCH("scenario", "time-begin")) {
-    expr->scenario.time_begin = atoi(value);
+    expr->scenario.time_begin = strtoul(value, 0, 0);
   } else if (MATCH("scenario", "time-end")) {
-    expr->scenario.time_end = atoi(value);
+    expr->scenario.time_end = strtoul(value, 0, 0);
   } else if (MATCH("scenario", "time-step")) {
-    expr->scenario.time_step = atoi(value);
+    expr->scenario.time_step = strtoul(value, 0, 0);
   } else if (MATCH("cache", "rv-cache-dir")) {
     expr->cache.rvar_directory = strdup(value);
   } else if (MATCH("cache", "ewma-cache-dir")) {
@@ -273,7 +273,7 @@ static int config_handler(void *data,
 static void
 _jupiter_build_located_switch_group(struct expr_t *expr) {
   //TODO: Assume jupiter network for now.
-  int nswitches = 0;
+  unsigned nswitches = 0;
   for (uint32_t i = 0; i < expr->upgrade_list.size; ++i) {
     nswitches += expr->upgrade_list.sw_list[i].count;
   }
@@ -291,7 +291,7 @@ _jupiter_build_located_switch_group(struct expr_t *expr) {
       } else if (up->type == JST_AGG) {
         sws[idx].sid = jupiter_get_agg(expr->network, up->location, j);
       } else {
-        panic("Unsupported type for located_switch.");
+        panic("Unsupported type for located_switch: %d", up->type);
       }
       idx++;
     }
@@ -303,28 +303,28 @@ _jupiter_build_located_switch_group(struct expr_t *expr) {
 static enum EXPR_ACTION
 parse_action(char const *arg) {
   if      (strcmp(arg, "long-term") == 0) {
-    info("Building long-term cache files.");
+    info_txt("Building long-term cache files.");
     return BUILD_LONGTERM;
   } else if (strcmp(arg, "pug") == 0) {
-    info("Choosing PUG.");
+    info_txt("Running PUG.");
     return RUN_PUG;
   } else if (strcmp(arg, "pug-long") == 0) {
-    info("Choosing PUG LONG.");
+    info_txt("Running PUG LONG.");
     return RUN_PUG_LONG;
   } else if (strcmp(arg, "pug-lookback") == 0) {
-    info("Choosing PUG LOOKBACK.");
+    info_txt("Running PUG LOOKBACK.");
     return RUN_PUG_LOOKBACK;
   } else if (strcmp(arg, "stg") == 0) {
-    info("Choosing STG.");
+    info_txt("Running STG.");
     return RUN_STG;
   } else if (strcmp(arg, "ltg") == 0) {
-    info("Choosing LTG.");
+    info_txt("Running LTG.");
     return RUN_LTG;
   } else if (strcmp(arg, "cap") == 0) {
-    info("Choosing CAP.");
+    info_txt("Running CAP.");
     return RUN_CAP;
   } else if (strcmp(arg, "stats") == 0) {
-    info("Choosing STATS.");
+    info_txt("Running STATS.");
     return TRAFFIC_STATS;
   }
 
@@ -345,8 +345,8 @@ parse_duration(char const *arg, uint32_t *start, uint32_t *end) {
   *ptr = 0;
   char *send = ptr + 1;
 
-  *start = atoi(sbegin);
-  *end = atoi(send);
+  *start = strtoul(sbegin, 0, 0);
+  *end = strtoul(send, 0, 0);
   free(sbegin);
 
   info("Parsing duration: %d to %d", *start, *end);
@@ -374,7 +374,7 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
     };
   }
   return 1;
-};
+}
 
 static void _jupiter_build_failure_model(struct expr_t *expr) {
   expr->failure = (struct failure_model_t *)
@@ -396,10 +396,10 @@ void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *con
   _expr_set_default_values(expr);
 
   if (ini_parse(ini_file, config_handler, expr) < 0) {
-    panic("Couldn't load the ini file.");
+    panic_txt("Couldn't load the ini file.");
   }
   if (cmd_parse(argc, argv, expr) < 0) {
-    panic("Couldn't parse the command line options.");
+    panic_txt("Couldn't parse the command line options.");
   }
 
   info("Using verbosity: %s", VERBOSITY_TEXT[expr->verbose]);

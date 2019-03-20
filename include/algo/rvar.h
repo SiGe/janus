@@ -45,7 +45,7 @@ struct rvar_t {
 struct rvar_t *rvar_bucket_create(rvar_type_t, rvar_type_t, uint32_t);
 
 // Create a sampled RVar value
-struct rvar_t *rvar_sample_create(int);
+struct rvar_t *rvar_sample_create(unsigned);
 
 // Rvar sampled type
 struct rvar_sample_t {
@@ -80,7 +80,7 @@ struct rvar_t *rvar_zero(void);
 struct rvar_t *rvar_compose_with_distributions(
     struct rvar_t **rvars,
     double *dists,
-    int len);
+    unsigned len);
 
 //rvar_bucket_t *rvar_to_bucket(struct
 

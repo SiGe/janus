@@ -35,9 +35,9 @@ struct criteria_time_t {
   int         (*acceptable) (struct criteria_time_t *, uint32_t length);
 
   // Cost of finishing the step in step steps
-  risk_cost_t (*cost)       (struct criteria_time_t *, int step);
+  risk_cost_t (*cost)       (struct criteria_time_t *, unsigned step);
 
-  int          steps;
+  unsigned steps;
   risk_cost_t *steps_cost;
 };
 
@@ -55,7 +55,7 @@ struct _rcf_pair_t {
 struct risk_cost_func_step_t {
   struct risk_cost_func_t;
   struct _rcf_pair_t *pairs;
-  int nsteps;
+  unsigned nsteps;
 };
 
 struct risk_cost_func_linear_t {

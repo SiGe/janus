@@ -15,15 +15,15 @@ struct freelist_repo_t {
   struct freelist_t *busy; // This is the list of items that are "free"
   pthread_mutex_t lock;
   struct freelist_t *_data;
-  int size;
+  unsigned size;
 };
 
 /* Could deadlock if there aren't enough networks available. */
 void *freelist_get(struct freelist_repo_t *ntr);
 void freelist_return(struct freelist_repo_t *ntr, void *net);
-int freelist_size(struct freelist_repo_t *ntr);
+unsigned freelist_size(struct freelist_repo_t *ntr);
 
-struct freelist_repo_t *freelist_create(int size);
+struct freelist_repo_t *freelist_create(unsigned size);
 void freelist_free(struct freelist_repo_t *ntr);
 
 #endif // _FREELIST_H_

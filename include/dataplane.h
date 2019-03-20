@@ -13,6 +13,7 @@ typedef uint32_t pair_id_t;
 
 /* bandwidth type variable */
 typedef float bw_t;
+#define BWF "%f"
 
 struct link_t {
   link_id_t id;

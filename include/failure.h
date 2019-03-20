@@ -17,7 +17,7 @@ struct failure_model_t {
     struct plan_iterator_t *,  // Use the plan iterator to get the least
                                // dominative subplan_id
     struct rvar_t **,          // List of packet-loss variables for subplan XX
-    int    subplan_id
+    int subplan_id
   );
 };
 
@@ -101,7 +101,7 @@ struct failure_model_independent_t {
    * In general, we shouldn't need to supply this and the program should be able
    * to identify the optimal maximum number of concurrent switches.
    * */
-  int     max_concurrent_switch_failure;
+  unsigned max_concurrent_switch_failure;
 
   /* The probability of a single switch failure.
    *

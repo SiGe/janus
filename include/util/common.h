@@ -2,6 +2,7 @@
 #define _UTIL_COMMON_H_
 
 #include <stdio.h>
+#include <stdint.h>
 
 #ifdef linux
 #include <linux/limits.h>
@@ -47,7 +48,7 @@ long get_ncores(void);
 /* Directory functions */
 int dir_exists(char const *dname);
 int dir_mk(char const *dname);
-int dir_num_files(char const *dname);
+uint32_t dir_num_files(char const *dname);
 
 int fd_path(int, char **);
 size_t file_read(FILE *, char **);

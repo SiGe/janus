@@ -8,10 +8,10 @@
 
 struct rvar_sample_t *monte_carlo_rvar(
         rvar_type_t (*single_run)(void *data),
-        int nsteps, void *data) {
+        unsigned nsteps, void *data) {
     struct rvar_sample_t *ret = (struct rvar_sample_t *)rvar_sample_create(nsteps);
 
-    for (int i = 0; i < nsteps; ++i) {
+    for (unsigned i = 0; i < nsteps; ++i) {
         ret->vals[i] = single_run(data);
     }
 
@@ -23,25 +23,25 @@ struct rvar_sample_t *monte_carlo_rvar(
 
 struct rvar_sample_t **monte_carlo_multi_rvar(
         monte_carlo_run_multi_t run,
-        int nsteps, int nvars, void *data) {
+        unsigned nsteps, unsigned nvars, void *data) {
     struct rvar_sample_t **vars = malloc(sizeof(struct rvar_sample_t*) * nvars);
     rvar_type_t **ptrs = malloc(sizeof(rvar_type_t *) * nvars);
 
-    for (int i = 0; i < nvars; ++i) {
+    for (unsigned i = 0; i < nvars; ++i) {
       vars[i] = (struct rvar_sample_t *)rvar_sample_create(nsteps);
       ptrs[i] = vars[i]->vals;
     }
 
 
-    for (int i = 0; i < nsteps; ++i) {
+    for (unsigned i = 0; i < nsteps; ++i) {
         run(data, ptrs, nvars);
 
-        for (int j = 0; j < nvars; ++j)
+        for (unsigned j = 0; j < nvars; ++j)
             ptrs[j]++;
     }
 
     /* TODO: This is so stupid, we shouldn't need to do this */
-    for (int i = 0; i < nvars; ++i) {
+    for (unsigned i = 0; i < nvars; ++i) {
       rvar_sample_finalize(vars[i], nsteps);
     }
 
@@ -63,11 +63,8 @@ static void _mcpd_rvar_runner(void *data) {
 }
 
 rvar_type_t *monte_carlo_parallel_ordered_rvar(
-    monte_carlo_run_t run,
-    void *data,
-    int nsteps,
-    int dsize,
-    int num_threads
+    monte_carlo_run_t run, void *data,
+    unsigned nsteps, unsigned dsize, unsigned num_threads
 ) {
   if (num_threads == 0) {
     num_threads = get_ncores() - 1;
@@ -100,11 +97,8 @@ rvar_type_t *monte_carlo_parallel_ordered_rvar(
 
 
 struct rvar_sample_t *monte_carlo_parallel_rvar(
-    monte_carlo_run_t run,
-    void *data,
-    int nsteps,
-    int dsize,
-    int num_threads) {
+    monte_carlo_run_t run, void *data,
+    unsigned nsteps, unsigned dsize, unsigned num_threads) {
   rvar_type_t *vals = monte_carlo_parallel_ordered_rvar(run, data, nsteps, dsize, num_threads);
   struct rvar_sample_t *rv = (struct rvar_sample_t *)rvar_sample_create_with_vals(vals, nsteps);
   rvar_sample_finalize(rv, nsteps);

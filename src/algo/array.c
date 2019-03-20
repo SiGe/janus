@@ -11,7 +11,7 @@ extern int array_capacity(struct array_t const*);
 
 struct array_t *array_create(int data_size, int capacity) {
   if (data_size <= 0 || capacity <= 0) {
-    panic("Array data size or capacity are <= 0.");
+    panic("Array data size %d or capacity %d are <= 0.", data_size, capacity);
     return 0;
   }
 
@@ -115,7 +115,7 @@ inline void array_append(struct array_t *arr, void *data) {
   array_set(arr, data, arr->count - 1);
 }
 
-int array_transfer_ownership(struct array_t *arr, void **data) {
+unsigned array_transfer_ownership(struct array_t *arr, void **data) {
   *data = arr->data;
   int ret = arr->count;
 

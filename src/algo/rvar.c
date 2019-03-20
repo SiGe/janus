@@ -240,7 +240,7 @@ void rvar_sample_init(struct rvar_sample_t *ret) {
     ret->_type = SAMPLED;
 }
 
-struct rvar_t *rvar_sample_create(int nsamples) {
+struct rvar_t *rvar_sample_create(unsigned nsamples) {
     struct rvar_sample_t *ret = malloc(sizeof(struct rvar_sample_t));
     memset(ret, 0, sizeof(struct rvar_sample_t));
     ret->vals = malloc(sizeof(rvar_type_t) * nsamples);

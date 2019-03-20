@@ -10,7 +10,7 @@ struct jupiter_failure_model_independent_t {
 };
 
 struct jupiter_failure_model_independent_t *
-  jupiter_failure_model_independent_create(uint32_t max_conc_failure, double prob);
+  jupiter_failure_model_independent_create(unsigned max_conc_failure, double prob);
 
 #endif
 

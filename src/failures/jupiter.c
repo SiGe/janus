@@ -130,7 +130,7 @@ struct rvar_t *_jupiter_independent_apply(
   free(rvs);
 
   if ((1 - prob_sum) > 0.1) {
-    info("Number of concurrent failures to consider is too low --- increase the"
+    info_txt("Number of concurrent failures to consider is too low --- increase the"
         "number of concurrent failures or decrease the probability of switch"
         "failing.");
     panic("Prob total: %d, %f should equal almost 1. Total num scenarios: %d", subplan_id, prob_sum, size);
