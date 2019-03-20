@@ -253,7 +253,10 @@ _short_term_risk_using_predictor(struct exec_t *exec, struct expr_t *expr,
     }
   }
 
-  struct rvar_t *ret = rvar_sample_create_with_vals(costs, num_samples);
+  struct rvar_t *cost_rv = rvar_sample_create_with_vals(costs, num_samples);
+  struct rvar_t *ret = (struct rvar_t *)cost_rv->to_bucket(cost_rv, BUCKET_SIZE);
+  //info("Prob failure for %d before: %f", subplan, cost_rv->expected(cost_rv));
+  cost_rv->free(cost_rv);
   mop->free(mop);
   return ret;
 }
@@ -352,6 +355,12 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
 
   int *subplans = _plans_remaining_subplans(exec);
   int finished = 1;
+
+  struct rvar_t **rcache = malloc(sizeof(struct rvar_t *) * pug->plans->_subplan_count);
+  for (uint32_t i = 0; i < pug->plans->_subplan_count; ++i) {
+    rcache[i] = pug->short_term_risk(exec, expr, i, at);
+  }
+
   for (uint32_t i = 1; i < pug->plans->_subplan_count; ++i) {
     if (subplans[i] != 1)
       continue;
@@ -388,8 +397,11 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     free(ret);
 #endif
 
-    // Assess the short term risk for subplans[i]
-    struct rvar_t *st_risk = pug->short_term_risk(exec, expr, i, at);
+    // Use the failure model to assess the short-term risk for subplan[i]
+    struct rvar_t *st_risk = expr->failure->apply(
+        expr->failure, expr->network, pug->iter, rcache, i);
+    //info("%d, after: %f", i, st_risk->expected(st_risk));
+
     risk_cost_t cost = _term_best_plan_to_finish(exec, expr, 
         st_risk, plans->_cur_index + 1, &plan_idx, &plan_length, cur_step);
 
@@ -418,6 +430,11 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     // info("Expected risk of running subplan %d is %f", i, st_risk->expected(st_risk));
     // Get the best long-term plan to finish subplans[i]
   }
+
+  for (uint32_t i = 0; i < pug->plans->_subplan_count; ++i) {
+    rcache[i]->free(rcache[i]);
+  }
+  free(rcache);
 
   if (!finished) {
     *ret_cost = best_plan_cost;

@@ -10,7 +10,7 @@ config() {
   cutoff=$2
   scale=$3
 
-  set_kv ${file} risk-violation "${LINEAR_COST}"
+  set_kv ${file} risk-violation "${AZURE_COST}"
   set_kv ${file} criteria-time "cutoff-at-${cutoff}"
   set_bw ${file} $(mult_int $(get_bw $file) $scale)
 
@@ -29,4 +29,4 @@ parallel\
   config planners\
   ::: 4 8\
   ::: 0.9 1 1.1 1.2 1.3 |\
-  column -t | sort -nk2,2 -k1,1 -nk3,3 | tee data/01-static-experiment.log
+  column -t | sort -k1,1 -k2,2 -nk3,3 | tee data/01-static-experiment.log

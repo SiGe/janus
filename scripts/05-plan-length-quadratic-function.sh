@@ -12,7 +12,7 @@ config() {
   scale=$3
 
   set_kv ${file} risk-violation "${AZURE_COST}"
-  set_kv ${file} criteria-time "cutoff-at-${cutoff}"
+  set_kv ${file} criteria-time "cutoff-at-${cutoff}/0,0,2,2,4,4,9,9"
   set_bw ${file} $(mult_int $(get_bw $file) $scale)
 
   echo ${cutoff}
@@ -28,6 +28,6 @@ export -f config
 parallel\
   executor experiments/02-paper-dynamic-traffic.ini\
   config planners\
-  ::: 4 8\
+  ::: 8\
   ::: 0.7 0.8 0.9 1 1.1 1.2 1.3 |\
-  column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/02-dynamic-experiment.log
+  column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/05-plan-length-quadratic-function.log

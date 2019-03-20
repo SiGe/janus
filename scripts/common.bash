@@ -5,6 +5,19 @@ function_exists() {
   return $?
 }
 
+repeat_and_join() {
+  REP=$1
+  TIMES=$2
+  SEP=$3
+
+  res=""
+  for i in `seq 2 ${TIMES}`; do
+    res="${res}${REP}${SEP}"
+  done
+
+  echo "${res}${REP}"
+}
+
 tmp_file() {
   FILE=$1
   TEMP=$(mktemp)
@@ -88,12 +101,12 @@ cost_std() {
 }
 
 output_row() {
-  file=$1
-  planner=$2
-  cutoff=$3
-  mlu=$4
+  file="$1"
+  planner="$2"
+  extra="$3"
+  mlu="$4"
 
-  echo -e "${names[${planner}]}-${cutoff}-steps\t${cutoff}\t${mlu}\t$(run_sim ${file} ${planner})"
+  echo -e "${names[${planner}]}-${extra}-steps\t${extra}\t${mlu}\t$(run_sim ${file} ${planner})"
 }
 
 run_sim() {
@@ -135,7 +148,7 @@ executor() {
 
 export -f executor
 
-LINEAR_COST="linear-10000"
+LINEAR_COST="linear-200"
 AZURE_COST='stepped-0\/100-95\/25-99\/10-99.95\/0-100\/0'
 AMAZON_COST='stepped-0\/30-99\/10-99.99\/0-100\/0'
 GOOGLE_COST='stepped-0\/50-95\/25-99.0\/10-99.99\/0-100\/0'

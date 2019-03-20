@@ -10,12 +10,15 @@ config() {
   file=$1
   cutoff=$2
   scale=$3
+  cost=$4
 
-  set_kv ${file} risk-violation "${AZURE_COST}"
+  set_kv ${file} risk-violation "${!cost}"
   set_kv ${file} criteria-time "cutoff-at-${cutoff}"
+  set_kv ${file} concurrent-switch-failure 0
+  set_kv ${file} concurrent-switch-probability 0.001
   set_bw ${file} $(mult_int $(get_bw $file) $scale)
 
-  echo ${cutoff}
+  echo -e "${cutoff}\t${cost}"
 }
 
 planners() {
@@ -25,9 +28,10 @@ planners() {
 export -f planners
 export -f config
 
-parallel\
+parallel --eta --progress \
   executor experiments/02-paper-dynamic-traffic.ini\
   config planners\
-  ::: 4 8\
-  ::: 0.7 0.8 0.9 1 1.1 1.2 1.3 |\
-  column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/02-dynamic-experiment.log
+  ::: 8\
+  ::: 0.8 0.9 1 1.1 1.2 1.3\
+  ::: AZURE_COST AMAZON_COST GOOGLE_COST LINEAR_COST  |\
+  column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/07-cost-cloud.log

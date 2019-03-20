@@ -423,10 +423,13 @@ int _sup_lds(
       //      "cannot find a least dominative subplan.");
       max_portion = 1;
     }
-    group_numbers[i] = (uint32_t)(ceil(max_portion * group->group_size));
+    group_numbers[i] = (uint32_t)(floor(max_portion * group->group_size));
   }
 
-  return jiter->state->from_tuple(jiter->state, jiter->state->tuple_size, group_numbers);
+  int subplan_id = jiter->state->from_tuple(jiter->state, jiter->state->tuple_size, group_numbers);
+  free(group_numbers);
+
+  return subplan_id;
 }
 
 

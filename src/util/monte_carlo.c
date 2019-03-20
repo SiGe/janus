@@ -93,6 +93,7 @@ rvar_type_t *monte_carlo_parallel_ordered_rvar(
 
   thpool_wait(thpool);
   thpool_destroy(thpool);
+  free(mcpd);
 
   return vals;
 }

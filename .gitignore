@@ -1,11 +1,17 @@
 # MAC
 .DS_Store
 
-# Traffic files
+# Traffic files and logs
 *.tsv
 *.pdf
 *.log
 trace/p*
+trace/data/*
+scripts/data/*
+scripts/*plt
+scripts/paper-plots/*
+scripts/paper-plots-backup/*
+logs/
 
 # Python files
 *.pyc

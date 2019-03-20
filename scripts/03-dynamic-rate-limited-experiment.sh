@@ -26,8 +26,8 @@ export -f planners
 export -f config
 
 parallel\
-  executor experiments/02-paper-dynamic-traffic.ini\
+  executor experiments/03-paper-dynamic-traffic-rate-limited.ini\
   config planners\
   ::: 4 8\
   ::: 0.7 0.8 0.9 1 1.1 1.2 1.3 |\
-  column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/02-dynamic-experiment.log
+  column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/03-dynamic-rate-limited-experiment.log

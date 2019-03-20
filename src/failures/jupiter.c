@@ -68,10 +68,12 @@ struct rvar_t *_jupiter_independent_apply(
   double sfp = jfi->switch_failure_probability;
 
   //struct rvar_t *base = rcache[subplan_id];
-  struct mop_t *mop = pi->mop_for(pi, subplan_id);
 
   struct mop_block_stats_t *blocks = 0;
+
+  struct mop_t *mop = pi->mop_for(pi, subplan_id);
   int nblocks = mop->block_stats(mop, net, &blocks);
+  mop->free(mop);
 
   // Count the number of switches that can fail "concurrently"
   int nfreesw = 0;
@@ -124,6 +126,8 @@ struct rvar_t *_jupiter_independent_apply(
   free(blocks);
 
   struct rvar_t *ret = rvar_compose_with_distributions(rvs, dists, size);
+  free(dists);
+  free(rvs);
 
   if ((1 - prob_sum) > 0.1) {
     info("Number of concurrent failures to consider is too low --- increase the"
