@@ -13,7 +13,7 @@ struct expr_t;
 
 struct exec_result_t {
   risk_cost_t   cost;         // Cost of the planner
-  int           num_steps;    // Number of steps
+  unsigned      num_steps;    // Number of steps
   char         *description;  // Description of the change internal
   trace_time_t  at;           // Time step for this result
 };
@@ -43,8 +43,8 @@ struct traffic_stats_t {
   unsigned pod_id;
 };
 
-#define EXEC_VALIDATE_PTR_SET(e, p)    { if (e->p == 0) {panic("Need to set "#p);} }
-#define EXEC_VALIDATE_STRING_SET(e, p) { if (e->p == 0 || strlen(e->p) == 0) {panic("Need to set string value "#p);} }
+#define EXEC_VALIDATE_PTR_SET(e, p)    { if (e->p == 0) {panic_txt("Need to set "#p);} }
+#define EXEC_VALIDATE_STRING_SET(e, p) { if (e->p == 0 || strlen(e->p) == 0) {panic_txt("Need to set string value "#p);} }
 
 #define EXEC_EWMA_PREFIX "traffic"
 

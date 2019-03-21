@@ -22,9 +22,9 @@
 #define RUN_COUNT 10
 #define abs(p) ((p) < 0 ? -(p) : (p))
 #define TEST(p) {\
-  printf("\t > \e[1;33mTESTING\033[0m %s: ", #p);\
+  printf("\t > \x1B[1;33mTESTING\033[0m %s: ", #p);\
   test_##p();\
-  printf("\e[1;33mPASSED\033[0m.\n");\
+  printf("\x1B[1;33mPASSED\033[0m.\n");\
 }
 
 void traffic_matrix_random(
@@ -620,7 +620,7 @@ void test_rvar_bucket(void) {
   int index = 0;
   struct rvar_t *r = (struct rvar_t*)monte_carlo_rvar(_mc_run, 2, &index);
 
-  info("Convolve RR");
+  info_txt("Convolve RR");
   struct rvar_t *rr = r->convolve(r, r, 1);
 
   #define EPS 1e-3
@@ -633,13 +633,13 @@ void test_rvar_bucket(void) {
   assert(AEQ(rr->percentile(rr, 0.75), 2));
   assert(AEQ(rr->percentile(rr, 1   ), 3));
 
-  info("Convolve RRR");
+  info_txt("Convolve RRR");
   struct rvar_t *rrr = rr->convolve(rr, r, 1);
   assert(AEQ(rrr->expected  (rrr)      , 1.5));
   assert(AEQ(rrr->percentile(rrr, 0)   , 0));
   assert(AEQ(rrr->percentile(rrr, 0.99), 3.92));
 
-  info("Convolve RRRR");
+  info_txt("Convolve RRRR");
   struct rvar_t *rrrr = rr->convolve(rr, rr, 1);
   assert(AEQ(rrrr->expected  (rrrr)   , 2));
   assert(AEQ(rrrr->percentile(rrrr, 0), 0));
@@ -734,9 +734,9 @@ void test_twiddle() {
   int count = 0;
 
   for (t->begin(t); !t->end(t); t->next(t)) {
-    int *tuple = t->tuple(t);
+    unsigned *tuple = t->tuple(t);
     count ++;
-    for (int i = 0; i < t->tuple_size(t); ++i) {
+    for (unsigned i = 0; i < t->tuple_size(t); ++i) {
       printf("%d, ", tuple[i]);
     }
     printf("\n");
@@ -813,8 +813,12 @@ void test_independent_failure_probability() {
 
   struct jupiter_failure_model_independent_t *jfi = 
     jupiter_failure_model_independent_create(2, 0.01);
+  struct traffic_matrix_t *tm = 0;
+  traffic_matrix_random(&tm, num_tors * num_pods, bw, 0.3);
+  net->set_traffic(net, tm);
 
   jfi->apply((struct failure_model_t *)jfi, net, iter, 0, 80);
+  traffic_matrix_free(tm);
 }
 
 int main(int argc, char **argv) {
@@ -822,14 +826,14 @@ int main(int argc, char **argv) {
   // TEST(tm_read_load);
   // TEST(tm_trace);
   // TEST(ewma);
-  // TEST(group_state);
-  // TEST(dual_state);
-  // TEST(tri_state);
+  TEST(group_state);
+  TEST(dual_state);
+  TEST(tri_state);
   // TEST(rvar_bucket);
   // TEST(planner);
   // TEST(array);
-  // TEST(twiddle);
-  TEST(independent_failure_probability);
+  TEST(twiddle);
+  //TEST(independent_failure_probability);
 
   //test_tri_state();
   return 0;

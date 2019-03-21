@@ -51,7 +51,7 @@ static void _pe_free(
   free(iter);
 }
 
-static int _pe_length(struct predictor_iterator_t *pre) {
+static unsigned _pe_length(struct predictor_iterator_t *pre) {
   return 1;
 }
 
@@ -88,8 +88,8 @@ void predictor_perfect_build_panic(
     struct predictor_t *p, 
     struct traffic_matrix_trace_t *trace) {
   (void)p; (void)trace;
-  panic("No need to build the perfect predictor.  Just pass the real trace"
-        "during _load'ing the predictor.");
+  panic_txt("No need to build the perfect predictor.  Just pass the real trace"
+      "during _load'ing the predictor.");
 }
 
 struct predictor_perfect_t *predictor_perfect_load(struct traffic_matrix_trace_t *real) {
@@ -103,7 +103,8 @@ struct predictor_perfect_t *predictor_perfect_load(struct traffic_matrix_trace_t
 }
 
 struct predictor_perfect_t *predictor_perfect_create(char const *name) {
-  panic("There is no need to create a perfect predictor.  Just use the _load functions.");
+  panic_txt("There is no need to create a perfect predictor. "
+            "Just use the _load functions.");
   return 0;
 }
 

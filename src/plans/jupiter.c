@@ -56,8 +56,8 @@ _jupiter_build_groups(struct jupiter_switch_plan_enumerator_t *planner) {
 }
 
 static
-int _max_class_size(struct jupiter_group_t *group) {
-  int ret = 0;
+unsigned _max_class_size(struct jupiter_group_t *group) {
+  unsigned ret = 0;
   for (uint32_t i = 0; i < group->nclasses; ++i) {
     ret = MAX(ret, group->classes[i].nswitches);
   }
@@ -69,7 +69,7 @@ struct jupiter_switch_plan_enumerator_t *jupiter_switch_plan_enumerator_create(
     uint32_t num_switches, struct jupiter_located_switch_t const *switches,
     uint32_t *freedom_degree, uint32_t ndegree) {
   if (num_switches == 0)
-    panic("Creating a planner with no switches ...");
+    panic_txt("Creating a planner with no switches ...");
 
   size_t size = sizeof(struct jupiter_switch_plan_enumerator_t);
   struct jupiter_switch_plan_enumerator_t *planner = malloc(size);
@@ -117,7 +117,7 @@ void jupiter_switch_plan_enumerator_free(
 #define JUPITER_DEFAULT_GROUP_SIZE 10
 
 static
-int _sup_subplan_count(struct plan_iterator_t *iter) {
+unsigned _sup_subplan_count(struct plan_iterator_t *iter) {
   TO_JITER(iter);
 
   return jiter->state->num_subsets(jiter->state);
@@ -168,31 +168,29 @@ int _jupiter_mop_pre(struct mop_t *mop, struct network_t *net) {
     jup->drain_switch((struct network_t *)jup, sw->sid);
   }
 
-  //info("Draining %d switches.", jop->nswitches);
-
   return 0;
 }
 
 static
-int _jupiter_mop_size(struct mop_t *mop) {
+unsigned _jupiter_mop_size(struct mop_t *mop) {
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
   return jop->nswitches;
 }
 
 static
-int
+unsigned
 _jupiter_block_stats(struct mop_t *mop, struct network_t *net, 
     struct mop_block_stats_t **ret) {
   struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
   struct jupiter_switch_mop_t *jop = (struct jupiter_switch_mop_t *)mop;
 
-  int num_blocks = (jup->pod + 1 /* core switch group */);
+  unsigned num_blocks = (jup->pod + 1 /* core switch group */);
   size_t size = sizeof(struct mop_block_stats_t)  * (num_blocks);
   struct mop_block_stats_t *blocks = 
     malloc(sizeof(struct mop_block_stats_t) * num_blocks);
   memset(blocks, 0, size);
 
-  int core_id = jup->pod; /* The last entry is the core switch count */
+  unsigned core_id = jup->pod; /* The last entry is the core switch count */
   struct jupiter_located_switch_t *sw = 0;
 
   for (int i = 0; i < jup->pod; ++i) {
@@ -201,7 +199,7 @@ _jupiter_block_stats(struct mop_t *mop, struct network_t *net,
     blocks[i].all_switches = jup->agg;
   }
 
-  blocks[core_id].id.id = core_id;
+  blocks[core_id].id.id = (int)core_id;
   blocks[core_id].id.type = BT_CORE;
   blocks[core_id].all_switches = jup->core;
 
@@ -216,12 +214,12 @@ _jupiter_block_stats(struct mop_t *mop, struct network_t *net,
 
   *ret = blocks;
   return num_blocks;
-};
+}
 
 static
 char *_jupiter_mop_explain(struct mop_t *mop, struct network_t *net) {
   struct mop_block_stats_t *blocks = 0;
-  int nblocks = mop->block_stats(mop, net, &blocks);
+  unsigned nblocks = mop->block_stats(mop, net, &blocks);
 
   struct jupiter_network_t *jup = (struct jupiter_network_t *)net;
 
@@ -259,10 +257,10 @@ int _jupiter_mop_post(struct mop_t *mop, struct network_t *net) {
   return 0;
 }
 
-void _sup_plan(struct plan_iterator_t *iter, int **ret, int *size) {
+void _sup_plan(struct plan_iterator_t *iter, unsigned **ret, unsigned *size) {
   TO_JITER(iter);
   struct group_iter_t *state = jiter->state;
-  int *arr = malloc(sizeof(int) * state->state_length);
+  unsigned *arr = malloc(sizeof(int) * state->state_length);
   *ret = arr;
 
   for (uint32_t i = 0; i < state->state_length; ++i) {
@@ -287,7 +285,7 @@ void _info_switch(struct jupiter_located_switch_t *sw) {
 
 }
 
-double _sup_pref_score(struct plan_iterator_t *iter, int id) {
+double _sup_pref_score(struct plan_iterator_t *iter, unsigned id) {
   TO_JITER(iter);
   jiter->state->to_tuple(jiter->state, id, jiter->_tuple_tmp);
   double pref_score = 0; //jiter->state->num_subsets(jiter->state);
@@ -304,7 +302,7 @@ double _sup_pref_score(struct plan_iterator_t *iter, int id) {
   return pref_score;
 }
 
-char *_sup_explain(struct plan_iterator_t *iter, int id) {
+char *_sup_explain(struct plan_iterator_t *iter, unsigned id) {
   TO_JITER(iter);
   jiter->state->to_tuple(jiter->state, id, jiter->_tuple_tmp);
   size_t size = sizeof(char) * (10 * jiter->state->tuple_size + 5);
@@ -336,7 +334,7 @@ char *_sup_explain(struct plan_iterator_t *iter, int id) {
   return ret;
 }
 
-struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
+struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, unsigned id) {
   TO_JITER(iter);
   struct jupiter_switch_mop_t  *mop = malloc(sizeof(struct jupiter_switch_mop_t));
   mop->ncap = DEFAULT_CAP_SIZE;
@@ -362,7 +360,7 @@ struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
      * */
     for (uint32_t j = 0; j < group->nclasses; ++j) {
       struct jupiter_class_t *class = &group->classes[j];
-      int sw_to_up = (int)(ceil(class->nswitches * portion));
+      unsigned sw_to_up = (unsigned)(ceil(class->nswitches * portion));
       if (sw_to_up >= class->nswitches)
         sw_to_up = class->nswitches;
 
@@ -386,10 +384,10 @@ struct mop_t *_sup_mop_for(struct plan_iterator_t *iter, int id) {
   return (struct mop_t *)mop;
 }
 
-int _sup_lds(
+unsigned _sup_lds(
     struct plan_iterator_t *iter,
     struct mop_block_stats_t *blocks,
-    int nblocks) {
+    unsigned nblocks) {
   TO_JITER(iter);
 
   struct jupiter_group_t *groups = jiter->planner->multigroup.groups;
@@ -404,7 +402,7 @@ int _sup_lds(
     for (uint32_t j = 0; j < group->nclasses; ++j) {
       struct jupiter_class_t *class = &group->classes[j];
       // Find a block that matches the class and remember the number of switches in it
-      for (int k = 0; k < nblocks; ++k) {
+      for (unsigned k = 0; k < nblocks; ++k) {
         struct mop_block_stats_t *block = &blocks[k];
         enum BLOCK_TYPE bt = block->id.type;
         int id = block->id.id;
@@ -426,7 +424,7 @@ int _sup_lds(
     group_numbers[i] = (uint32_t)(floor(max_portion * group->group_size));
   }
 
-  int subplan_id = jiter->state->from_tuple(jiter->state, jiter->state->tuple_size, group_numbers);
+  unsigned subplan_id = jiter->state->from_tuple(jiter->state, jiter->state->tuple_size, group_numbers);
   free(group_numbers);
 
   return subplan_id;

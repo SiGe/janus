@@ -1,3 +1,29 @@
+OSCFLAGS=
+OSLDFLAGS=
+
+ifeq ($(OS),Windows_NT)
+		exit -1
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+				OSCFLAGS+=-pthread
+				OSLDFLAGS+=-pthread
+    endif
+    ifeq ($(UNAME_S),Darwin)
+				OSCFLAGS+=-pthread
+    endif
+    UNAME_P := $(shell uname -p)
+    ifeq ($(UNAME_P),x86_64)
+        CCFLAGS += -D AMD64
+    endif
+    ifneq ($(filter %86,$(UNAME_P)),)
+        CCFLAGS += -D IA32
+    endif
+    ifneq ($(filter arm%,$(UNAME_P)),)
+        CCFLAGS += -D ARM
+    endif
+endif
+
 BUILD_DIR = build
 BIN_DIR = bin
 BENCH_DIR = tests/benchmarks
@@ -5,7 +31,7 @@ TARGET = main
 BINARY = netre
 
 CC = clang
-#CC = gcc
+STD=gnu11
 
 #OPT = -O0 -pg -g
 #OPT = -O3 -pg -g
@@ -27,34 +53,22 @@ TEST_SRC:=$(SRC)
 TEST_SRC+=src/test.c
 TEST_OBJ=$(TEST_SRC:%.c=$(BUILD_DIR)/%.o)
 
-# Handle benchmark executions
-# BENCH_SRC:=$(SRC)
-# ifeq (bench, $(firstword $(MAKECMDGOALS)))
-# BENCH_TARGET=$(wordlist 2, 2, $(MAKECMDGOALS))
-# BENCH_SRC+=$(wildcard $(BENCH_DIR)/src/*.c)
-# BENCH_SRC+=$(BENCH_DIR)/$(BENCH_TARGET).c
-# BENCH_OBJ=$(BENCH_SRC:%.c=$(BUILD_DIR)/%.o)
-# CFLAGS+=-I$(BENCH_DIR)/include
-# endif
-
 ifeq (test, $(firstword $(MAKECMDGOALS)))
 OPT = -O0 -pg -g
 endif
-
-STD=gnu11
 
 CFLAGS=$(OPT) $(DEFINE) -Wall -Werror \
 			-pedantic -Wsign-conversion -Wold-style-cast\
 			-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro\
 			-Iinclude/ -std=$(STD) -Ilib/ \
 			-fms-extensions  -Wno-microsoft-anon-tag \
-			 -pthread -mtune=native
+			-mtune=native $(OSCFLAGS)
 
 LDFLAGS=-lm $(OPT) $(DEFINE) -Wall -Werror\
 				-pedantic -Wsign-conversion -Wold-style-cast\
 				-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro\
 			 	-Iinclude/ -Ilib/ -std=$(STD) -flto \
-				-pthread -mtune=native
+				-mtune=native $(OSLDFLAGS)
 ifneq (clang, $(CC))
 	LDFLAGS += -pthread
 endif

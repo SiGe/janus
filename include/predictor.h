@@ -37,7 +37,7 @@ struct predictor_iterator_t {
   int (*end)(
       struct predictor_iterator_t *);
 
-  int (*length)(
+  unsigned (*length)(
       struct predictor_iterator_t *);
 
   void (*free)(

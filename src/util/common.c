@@ -17,7 +17,7 @@ djb2_hash(unsigned char const *str) {
   int c;
 
   while ((c = *str++) != 0)
-    hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+    hash = ((hash << 5) + hash) + (unsigned)c; /* hash * 33 + c */
 
   return hash;
 }
@@ -52,7 +52,7 @@ int dir_mk(char const *dname) {
 }
 
 uint32_t dir_num_files(char const *dname) {
-  int file_count = 0;
+  uint32_t file_count = 0;
   DIR * dirp;
   struct dirent * entry;
 
@@ -77,7 +77,7 @@ size_t file_read(FILE *f, char **out) {
   size_t nread = 0;
   
   if (!f)
-    panic("Empty pointer passed as the file.");
+    panic_txt("Empty pointer passed as the file.");
 
   char *ret = malloc(cap);
   fseek(f, 0, SEEK_SET);
@@ -89,7 +89,7 @@ size_t file_read(FILE *f, char **out) {
       if (feof(f))
         break;
       perror("Error: ");
-      panic("Couldn't read the file.");
+      panic_txt("Couldn't read the file.");
     }
 
     if (index + nbytes  >= cap) {

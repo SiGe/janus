@@ -43,9 +43,9 @@ struct group_iter_t {
   int  (*end)(struct group_iter_t const *);
   void (*free)(struct group_iter_t *);
 
-  int  (*to_tuple)(struct group_iter_t const *, uint32_t, uint32_t *);
-  uint32_t (*from_tuple)(struct group_iter_t *, int, uint32_t *);
-  int  (*num_subsets)(struct group_iter_t const *);
+  unsigned (*to_tuple)(struct group_iter_t const *, uint32_t, uint32_t *);
+  uint32_t (*from_tuple)(struct group_iter_t *, unsigned, uint32_t *);
+  unsigned (*num_subsets)(struct group_iter_t const *);
 
   uint32_t *state;
   uint32_t state_length;

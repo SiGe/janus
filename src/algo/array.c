@@ -6,11 +6,11 @@
 
 #define ARRAY_MAGIC 0xdeadbeef
 
-extern int array_size(struct array_t const*);
-extern int array_capacity(struct array_t const*);
+extern size_t array_size(struct array_t const*);
+extern unsigned array_capacity(struct array_t const*);
 
-struct array_t *array_create(int data_size, int capacity) {
-  if (data_size <= 0 || capacity <= 0) {
+struct array_t *array_create(size_t data_size, unsigned capacity) {
+  if (data_size == 0 || capacity <= 0) {
     panic("Array data size %d or capacity %d are <= 0.", data_size, capacity);
     return 0;
   }
@@ -24,9 +24,9 @@ struct array_t *array_create(int data_size, int capacity) {
   return ret;
 }
 
-struct array_t *array_from_vals(void *data, int data_size, int size) {
+struct array_t *array_from_vals(void *data, size_t data_size, unsigned size) {
   if (data_size <= 0 || size <= 0) {
-    panic("Array data size or capacity are <= 0.");
+    panic_txt("Array data size or capacity are <= 0.");
     return 0;
   }
 
@@ -71,7 +71,7 @@ struct array_t *array_deserialize(char const *bytes, size_t size) {
   struct array_t *output = malloc(sizeof(struct array_t));
   memcpy(output, bytes, sizeof(struct array_t));
   if (output->data != (void*)ARRAY_MAGIC) {
-    panic("Wrong array magic.  Maybe you are loading the wrong thing?");
+    panic_txt("Wrong array magic.  Maybe you are loading the wrong thing?");
     return 0;
   }
 
@@ -82,7 +82,7 @@ struct array_t *array_deserialize(char const *bytes, size_t size) {
   return output;
 }
 
-inline void array_set(struct array_t *arr, void *val, int index) {
+inline void array_set(struct array_t *arr, void *val, unsigned index) {
   void *data = array_get(arr, index);
   if (data == 0) {
     panic("Couldn't locate the location of "
@@ -93,7 +93,7 @@ inline void array_set(struct array_t *arr, void *val, int index) {
   memcpy(data, val, arr->data_size);
 }
 
-inline void* array_get(struct array_t const *arr, int index) {
+inline void* array_get(struct array_t const *arr, unsigned index) {
   if (arr->count <= index)
     return 0;
 
@@ -117,7 +117,7 @@ inline void array_append(struct array_t *arr, void *data) {
 
 unsigned array_transfer_ownership(struct array_t *arr, void **data) {
   *data = arr->data;
-  int ret = arr->count;
+  unsigned ret = arr->count;
 
   arr->count = 0;
   arr->capacity = 0;
@@ -126,12 +126,10 @@ unsigned array_transfer_ownership(struct array_t *arr, void **data) {
   return ret;
 }
 
-void *array_splice(struct array_t const *arr, int start, int end, int *size) {
+void *array_splice(struct array_t const *arr, unsigned start, unsigned end, unsigned *size) {
   // Sanitize input
   if (!arr)
     return 0;
-  if (start < 0)
-    start = 0;
   if (end >= array_size(arr))
     end = array_size(arr) - 1;
 

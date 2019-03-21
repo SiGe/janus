@@ -40,17 +40,17 @@ static void
 _exec_stg_validate(struct exec_t *exec, struct expr_t const *expr) {
   TO_STG(exec);
 
-  int subplan_count = 0;
+  unsigned subplan_count = 0;
   stg->trace = traffic_matrix_trace_load(400, expr->traffic_test);
   if (stg->trace == 0)
     panic("Couldn't load the traffic matrix file: %s", expr->traffic_test);
 
   stg->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
   if (stg->steady_packet_loss == 0)
-    panic("Couldn't load the long-term RVAR cache.");
+    panic_txt("Couldn't load the long-term RVAR cache.");
 
   if (expr->criteria_time == 0)
-    panic("Time criteria not set.");
+    panic_txt("Time criteria not set.");
 
   struct traffic_matrix_trace_iter_t *iter = stg->trace->iter(stg->trace);
 
@@ -124,13 +124,13 @@ static risk_cost_t _exec_stg_best_subplan_at(
       sizeof(struct jupiter_located_switch_t *) * expr->nlocated_switches);
 
 
-  int nsteps = expr->criteria_time->steps;
+  unsigned nsteps = expr->criteria_time->steps;
   struct mop_t **mops = malloc(
       sizeof(struct mop_t *) * nsteps);
 
   // TODO: This should somehow use expr->criteria_time->acceptable
   for (uint32_t i = 0; i < nsteps; ++i) {
-    int idx = 0;
+    unsigned idx = 0;
     for (uint32_t j = 0; j < plan->num_paths; ++j) {
       int nsws = ceil(((double)plan->paths[j].num_switches)/(double)nsteps);
       for (uint32_t k = 0; k < nsws; ++k) {

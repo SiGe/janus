@@ -35,18 +35,17 @@
 static inline int
 _best_plan_criteria(
     struct expr_t *expr,
-    risk_cost_t p1_cost, int p1_length, double p1_perf,
-    risk_cost_t p2_cost, int p2_length, double p2_perf) {
+    risk_cost_t p1_cost, unsigned p1_length, double p1_perf,
+    risk_cost_t p2_cost, unsigned p2_length, double p2_perf) {
 
   return ( (p1_cost  < p2_cost) ||  // If cost was lower
 
           ((p1_cost == p2_cost) &&  // Or the length criteria was trumping
            (expr->criteria_plan_length(p1_length, p2_length) >  1)) ||
 
-          ((p1_cost == p2_cost) &&  // Or the length criteria was trumping
+          ((p1_cost == p2_cost) &&  // Or the pref score criteria was trumping
            (expr->criteria_plan_length(p1_length, p2_length) == 0) &&
            (p1_perf > p2_perf)));
-           //(p1_delta < p2_delta)));
 }
 
 
@@ -63,13 +62,16 @@ _tm_sum(struct traffic_matrix_t *tm) {
 /* Invalidates/removes plans that don't have "subplan" in "step"'s subplan (or after)
  * This prunes the subplan search space to subplans */
 static void __attribute__((unused))
-_plan_invalidate_not_equal(struct plan_repo_t *repo, int subplan, int step) {
+_plan_invalidate_not_equal(struct plan_repo_t *repo, unsigned subplan, unsigned step) {
   uint32_t index = 0;
+  if (repo->plan_count == 0)
+    return;
+
   uint32_t last_index = repo->plan_count - 1;
 
-  int *ptr = repo->plans;
-  int *last_ptr = repo->plans + repo->max_plan_size * last_index;
-  int *tmp = malloc(sizeof(uint32_t) * repo->max_plan_size);
+  unsigned *ptr = repo->plans;
+  unsigned *last_ptr = repo->plans + repo->max_plan_size * last_index;
+  unsigned *tmp = malloc(sizeof(uint32_t) * repo->max_plan_size);
 
   int removed = 0;
   for (uint32_t i = 0; i < repo->plan_count; ++i ){
@@ -112,17 +114,17 @@ _plan_invalidate_not_equal(struct plan_repo_t *repo, int subplan, int step) {
 /* Returns the list of remaining subplans at step pug->plans->_cur_index. This
  * assumes that we have "fixed" the first pug->plans->_cur_index subplans,
  * i.e., we have taken those subplans */
-static int *
+static unsigned *
 _plans_remaining_subplans(struct exec_t *exec) {
   TO_PUG(exec);
-  int idx = pug->plans->_cur_index;
+  unsigned idx = pug->plans->_cur_index;
   size_t size = sizeof(int) * pug->plans->_subplan_count;
-  int *ret = malloc(size);
+  unsigned *ret = malloc(size);
   memset(ret, 0, size);
 
-  int *ptr = pug->plans->plans;
-  int plan_size = pug->plans->max_plan_size;
-  int plan_count = pug->plans->plan_count;
+  unsigned *ptr = pug->plans->plans;
+  unsigned plan_size = pug->plans->max_plan_size;
+  unsigned plan_count = pug->plans->plan_count;
 
   for (uint32_t i = 0; i < plan_count; ++i) {
     for (uint32_t j = idx; j < plan_size; ++j) {
@@ -150,17 +152,17 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
   struct plan_iterator_t *iter = pug->iter;
 
   // Number of plans collected so far.
-  int plan_count = 0;
+  unsigned plan_count = 0;
   // Maximum length of a plan.
-  int max_plan_size = 0;
+  unsigned max_plan_size = 0;
   for (uint32_t i = 0; i < en->multigroup.ngroups; ++i) {
     max_plan_size += en->multigroup.groups[i].group_size;
   }
 
-  int plan_size_in_bytes = sizeof(int) * max_plan_size;
-  int *plans = malloc(cap * plan_size_in_bytes);
-  int *subplans = 0; int subplan_count;
-  int *plan_ptr = plans;
+  size_t plan_size_in_bytes = sizeof(int) * max_plan_size;
+  unsigned *plans = malloc(cap * plan_size_in_bytes);
+  unsigned *subplans = 0; unsigned subplan_count;
+  unsigned *plan_ptr = plans;
 
   for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
     iter->plan(iter, &subplans, &subplan_count);
@@ -199,7 +201,8 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
 }
 
 static struct rvar_t *
-_short_term_risk_using_long_term_cache(struct exec_t *exec, struct expr_t *expr, int subplan, trace_time_t now) {
+_short_term_risk_using_long_term_cache(struct exec_t *exec, 
+    struct expr_t *expr, unsigned subplan, trace_time_t now) {
   TO_PUG(exec);
   struct rvar_t *rv = pug->steady_cost[subplan];
   struct rvar_t *ret = rv->copy(rv);
@@ -208,18 +211,18 @@ _short_term_risk_using_long_term_cache(struct exec_t *exec, struct expr_t *expr,
 
 static struct rvar_t *
 _short_term_risk_using_predictor(struct exec_t *exec, struct expr_t *expr,
-    int subplan, trace_time_t now) {
+    unsigned subplan, trace_time_t now) {
   TO_PUG(exec);
   struct mop_t *mop = pug->iter->mop_for(pug->iter, subplan);
 
   struct predictor_t *pred = pug->pred;
   struct predictor_iterator_t *iter = pred->predict(pred, now, now + expr->mop_duration);
 
-  int num_samples = iter->length(iter);
-  int tm_count = num_samples * expr->mop_duration;
+  unsigned num_samples = iter->length(iter);
+  unsigned tm_count = num_samples * expr->mop_duration;
   struct traffic_matrix_t **tms = malloc(
       sizeof(struct traffic_matrix_t *) * tm_count);
-  int index = 0;
+  unsigned index = 0;
 
   for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
     struct traffic_matrix_trace_iter_t *titer = iter->cur(iter);
@@ -264,15 +267,15 @@ _short_term_risk_using_predictor(struct exec_t *exec, struct expr_t *expr,
 
 static risk_cost_t
 _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr, 
-    struct rvar_t *rvar, int idx, int *ret_plan_idx, int *ret_plan_length,
-    int cur_step) {
+    struct rvar_t *rvar, unsigned idx, unsigned *ret_plan_idx, unsigned *ret_plan_length,
+    unsigned cur_step) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
-  int *ptr = plans->plans;
+  unsigned *ptr = plans->plans;
 
   risk_cost_t best_cost = INFINITY;
-  int best_plan_idx = - 1;
-  int best_plan_len = -1;
+  unsigned best_plan_idx = 0;
+  unsigned best_plan_len = UINT_MAX;
   struct risk_cost_func_t *viol_cost = expr->risk_violation_cost;
   struct rvar_t *best_risk = 0;
 
@@ -282,7 +285,7 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
   struct rvar_t *zero_rvar = rvar_zero();
 
   for (uint32_t i = 0; i < plans->plan_count; ++i) {
-    int plan_len = 0;
+    unsigned plan_len = 0;
     cost_rvar = (struct rvar_t *)zero_rvar->to_bucket(zero_rvar, BUCKET_SIZE);
 
     // Build the cost of the remainder of the plan, aka, long-term
@@ -344,16 +347,16 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
 static int
 _exec_pug_find_best_next_subplan(struct exec_t *exec,
     struct expr_t *expr, trace_time_t at, risk_cost_t *ret_cost,
-    int *ret_plan_len, int *ret_plan, int cur_step) {
+    unsigned *ret_plan_len, unsigned *ret_plan, unsigned cur_step) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
   risk_cost_t  best_plan_cost = INFINITY;
-  int          best_plan_len = -1;
+  unsigned     best_plan_len = UINT_MAX;
   double       best_pref_score = 0;
-  int          best_subplan = 0;
-  int         *best_plan_subplans  = ret_plan;
+  unsigned     best_subplan = 0;
+  unsigned *best_plan_subplans  = ret_plan;
 
-  int *subplans = _plans_remaining_subplans(exec);
+  unsigned *subplans = _plans_remaining_subplans(exec);
   int finished = 1;
 
   struct rvar_t **rcache = malloc(sizeof(struct rvar_t *) * pug->plans->_subplan_count);
@@ -382,9 +385,9 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
      * */
 
     /* Fix the plans */
-    int plan_count = plans->plan_count;
-    int plan_idx = 0;
-    int plan_length = 0;
+    unsigned plan_count = plans->plan_count;
+    unsigned plan_idx = 0;
+    unsigned plan_length = 0;
     double pref_score = pug->iter->pref_score(pug->iter, i);
     _plan_invalidate_not_equal(plans, i, plans->_cur_index);
 
@@ -449,7 +452,7 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
 
 static void __attribute__((unused))
 _print_freedom_plan(struct exec_t *exec, struct expr_t *expr, 
-    int best_subplan_len, int *best_plan_subplans) {
+    unsigned best_subplan_len, unsigned *best_plan_subplans) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
 
@@ -469,7 +472,7 @@ _print_freedom_plan(struct exec_t *exec, struct expr_t *expr,
 
 static risk_cost_t
 _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at,
-    risk_cost_t *best_plan_cost, int *best_plan_len, int *best_plan_subplans) {
+    risk_cost_t *best_plan_cost, unsigned *best_plan_len, unsigned *best_plan_subplans) {
   TO_PUG(exec);
 
   int finished = 0;
@@ -505,7 +508,7 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at
 
 static struct mop_t **
 _exec_mops_for_create(struct exec_t *exec, struct expr_t *expr,
-    int *subplans, int nsubplan) {
+    unsigned *subplans, unsigned nsubplan) {
   TO_PUG(exec);
   struct mop_t **mops = malloc(sizeof(struct mop_t *) * nsubplan);
   for (uint32_t i = 0; i < nsubplan; ++i) {
@@ -525,7 +528,7 @@ _exec_mops_for_create(struct exec_t *exec, struct expr_t *expr,
 
 static void
 _exec_mops_for_free(struct exec_t *exec, struct expr_t *expr,
-    struct mop_t **mops, int nsubplan) {
+    struct mop_t **mops, unsigned nsubplan) {
   for (uint32_t i = 0; i < nsubplan; ++i) {
     mops[i]->free(mops[i]);
   }
@@ -547,7 +550,7 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
   pug->pred = exec_predictor_create(exec, expr, expr->predictor_string);
 
   if (expr->criteria_time == 0)
-    panic("Time criteria not set.");
+    panic_txt("Time criteria not set.");
 
   /* TODO: This shouldn't be jupiter specific 
    *
@@ -563,7 +566,7 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
 
   pug->plans = _plans_get(exec, expr);
   if (pug->plans == 0)
-    panic("Couldn't build the plan repository.");
+    panic_txt("Couldn't build the plan repository.");
 
   info("Found %d valid plans.", pug->plans->plan_count);
 }
@@ -578,8 +581,8 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
 
   struct plan_repo_t *plans = pug->plans;
   risk_cost_t  best_plan_cost = INFINITY;
-  int          best_plan_len = -1;
-  int         *best_plan_subplans  = malloc(sizeof(int) * plans->max_plan_size);
+  unsigned     best_plan_len = UINT_MAX;
+  unsigned     *best_plan_subplans  = malloc(sizeof(int) * plans->max_plan_size);
 
   for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
@@ -612,13 +615,13 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
 
 static void
 _exec_pug_long_explain(struct exec_t *exec) {
-  text_block(
+  text_block_txt(
 			 "Pug long uses long-term traffic estimates to find plans.");
 }
 
 static void
 _exec_pug_short_and_long_explain(struct exec_t *exec) {
-  text_block(
+  text_block_txt(
       "Pug uses short-term + long-term traffic estimates to find plans.\n"
       "You can set the predictor that pug uses through the .ini file.");
 }
@@ -631,17 +634,17 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
     return;
 
   // Load the steady_packet_loss data
-  int subplan_count = 0;
+  unsigned subplan_count = 0;
   pug->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
   if (pug->steady_packet_loss == 0)
-    panic("Couldn't load the long-term RVAR cache.");
+    panic_txt("Couldn't load the long-term RVAR cache.");
 
   /* Create the cost variables */
   if (expr->risk_violation_cost == 0)
-    panic("Risk of violation cost not set.");
+    panic_txt("Risk of violation cost not set.");
 
   struct rvar_t **rcache =  malloc(sizeof(struct rvar_t *) * subplan_count);
-  info("Preparing the steady_cost cache.");
+  info_txt("Preparing the steady_cost cache.");
   for (uint32_t i = 0; i < subplan_count; ++i) {
     struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
@@ -677,7 +680,7 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
   }
   free(rcache);
 
-  info("Done preparing the steady_cost cache.");
+  info_txt("Done preparing the steady_cost cache.");
 }
 
 static void
@@ -690,16 +693,16 @@ static void
 prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
   TO_PUG(exec);
 
-  int subplan_count = 0;
+  unsigned subplan_count = 0;
   struct array_t **arr = exec_rvar_cache_load_into_array(expr, &subplan_count);
   if (arr == 0) {
-    panic("Couldn't load the RVAR array.");
+    panic_txt("Couldn't load the RVAR array.");
     return;
   }
 
   /* Create the cost variables */
   if (expr->risk_violation_cost == 0)
-    panic("Risk of violation cost not set.");
+    panic_txt("Risk of violation cost not set.");
 
   assert(pug->steady_packet_loss == 0);
   assert(pug->steady_cost == 0);
@@ -726,7 +729,7 @@ prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time
     start = time;
     end = start + backtrack_time;
     if (end >= exec->trace->num_indices) {
-      end = exec->trace->num_indices - 1;
+      end = (trace_time_t)exec->trace->num_indices - 1;
     }
     if (start >= end) {
       start = end - 1;
@@ -735,7 +738,7 @@ prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time
 
   struct rvar_t **rcache = malloc(sizeof(struct rvar_t *) * subplan_count);
   for (uint32_t i = 0; i < subplan_count; ++i) {
-    void *data = 0; int data_size = 0;
+    void *data = 0; unsigned data_size = 0;
     data = array_splice(arr[i], start, end, &data_size);
     pug->steady_packet_loss[i] = rvar_sample_create_with_vals(data, data_size);
 

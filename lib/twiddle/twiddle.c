@@ -5,19 +5,17 @@
 #include "twiddle.h"
 
 void _twiddle_begin(struct twiddle_t *t) {
-  memset(t->b, 0, sizeof(int) * t->MN);
-  memset(t->p, 0, sizeof(int) * (t->MN + 2));
-  memset(t->_tuple, 0, sizeof(int) * t->N);
+  memset(t->b, 0, sizeof(int) * (unsigned)t->MN);
+  memset(t->p, 0, sizeof(int) * (unsigned)(t->MN + 2));
+  memset(t->_tuple, 0, sizeof(int) * (unsigned)t->N);
 
   t->x = 0; t->y = 0;
   int m  = t->M;
   int n  = t->MN; // Yes, this is correct.
-  int ts = t->_tuple_size;
   int *p = t->p;
   int *b = t->b;
 
   t->finished = 0;
-  t->_tuple_size = ts;
 
   for (int i = n - m; i != n; ++i) {
     b[i] = 1;
@@ -108,13 +106,13 @@ void _twiddle_free(struct twiddle_t *t) {
   free(t);
 }
 
-int *_twiddle_tuple(struct twiddle_t *t) {
+unsigned *_twiddle_tuple(struct twiddle_t *t) {
   int *b = t->b;
-  int n = t->MN; int *tuple = t->_tuple;
-  int ts = t->_tuple_size;
+  int n = t->MN; unsigned *tuple = t->_tuple;
+  unsigned ts = t->_tuple_size;
 
   int idx = 0;
-  int count = 0;
+  unsigned count = 0;
 
   for (int i = 0; i < n; ++i) {
     if (b[i] == 1) {
@@ -129,7 +127,7 @@ int *_twiddle_tuple(struct twiddle_t *t) {
   return tuple;
 }
 
-int _twiddle_tuple_size(struct twiddle_t *t) {
+unsigned _twiddle_tuple_size(struct twiddle_t *t) {
   return t->_tuple_size;
 }
 
@@ -141,10 +139,10 @@ struct twiddle_t *twiddle_create(int M, int N) {
   // Number of bins
   ret->MN = N + M - 1;
 
-  ret->p     = malloc(sizeof(int) * (ret->MN + 2));
-  ret->b     = malloc(sizeof(int) * (ret->MN));
-  ret->_tuple = malloc(sizeof(int) * (ret->N));
-  ret->_tuple_size = ret->N;
+  ret->p      = malloc(sizeof(int) * (unsigned)(ret->MN + 2));
+  ret->b      = malloc(sizeof(int) * (unsigned)(ret->MN));
+  ret->_tuple = malloc(sizeof(unsigned) * (unsigned)(ret->N));
+  ret->_tuple_size = (unsigned)ret->N;
 
   // Function pointers
   ret->tuple = _twiddle_tuple;
@@ -155,4 +153,4 @@ struct twiddle_t *twiddle_create(int M, int N) {
   ret->end = _twiddle_end;
 
   return ret;
-};
+}

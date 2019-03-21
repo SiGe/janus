@@ -19,12 +19,12 @@ static void _exec_stats_validator(struct exec_t *exec, struct expr_t const *expr
 
 static void _calc_mlu(struct exec_t *exec, struct expr_t *expr) {
   struct traffic_matrix_trace_iter_t *iter = exec->trace->iter(exec->trace);
-  int tm_count = iter->length(iter);
+  unsigned tm_count = iter->length(iter);
 
   struct traffic_matrix_t **tms = malloc(
       sizeof(struct traffic_matrix_t *) * tm_count);
 
-  int index = 0;
+  unsigned index = 0;
   for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
     struct traffic_matrix_t *tm = 0;
     iter->get(iter, &tm);
@@ -69,7 +69,7 @@ _exec_stats_runner(struct exec_t *exec, struct expr_t *expr) {
   bw_t pod_cap = expr->network->pod_capacity(expr->network);
 
   qsort(pods, npods, sizeof(struct traffic_stats_t), _pod_sort);
-  info("IN -----");
+  info_txt("IN -----");
   for (uint32_t i = 0; i < npods; ++i) {
     info("Pod  [%2d] stats: (%14.2f, %14.2f, %14.2f) (%.2f, %.2f, %.2f)", 
         pods[i].pod_id, pods[i].in.min, pods[i].in.mean, pods[i].in.max, 
@@ -79,7 +79,7 @@ _exec_stats_runner(struct exec_t *exec, struct expr_t *expr) {
       core->in.min, core->in.mean, core->in.max,
       core->in.min/core_cap, core->in.mean/core_cap, core->in.max/core_cap);
 
-  info("OUT -----");
+  info_txt("OUT -----");
   for (uint32_t i = 0; i < npods; ++i) {
     info("Pod  [%2d] stats: (%14.2f, %14.2f, %14.2f) (%.2f, %.2f, %.2f)", 
         pods[i].pod_id, pods[i].out.min, pods[i].out.mean, pods[i].out.max, 
@@ -97,7 +97,7 @@ _exec_stats_runner(struct exec_t *exec, struct expr_t *expr) {
 
 static void
 _exec_stats_explain(struct exec_t *exec) {
-  text_block("Stats prints traffic statistics for the pods and core groups.");
+  text_block_txt("Stats prints traffic statistics for the pods and core groups.");
 }
 
 struct exec_t *exec_traffic_stats_create(void) {

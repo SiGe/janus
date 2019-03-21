@@ -676,7 +676,7 @@ char const * gnuplot_tmpfile(gnuplot_ctrl * handle)
         return NULL;
     }
 
-    tmp_filename = (char*) malloc(tmp_filelen+1);
+    tmp_filename = (char*) malloc((unsigned)tmp_filelen+1);
     if (tmp_filename == NULL)
     {
         return NULL;

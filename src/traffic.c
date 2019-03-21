@@ -127,7 +127,8 @@ struct traffic_matrix_t *traffic_matrix_load(FILE *f) {
     panic_txt("Error reading the file ...");
   }
 
-  fseek(f, -size, SEEK_CUR);
+  long seek = -((long)size);
+  fseek(f, seek, SEEK_CUR);
   size = sizeof(struct traffic_matrix_t) + tm.num_pairs * sizeof(struct pair_bw_t);
 
   /* Read the file */
@@ -228,7 +229,7 @@ void traffic_matrix_trace_add(
   idx->size = TM_SIZE(tm);
   idx->time = key;
 
-  fseek(trace->fdata, trace->largest_seek, SEEK_SET);
+  fseek(trace->fdata, (long)trace->largest_seek, SEEK_SET);
   traffic_matrix_save(tm, trace->fdata);
 
   if (trace->num_indices == 0) {
@@ -358,7 +359,7 @@ void traffic_matrix_trace_get(
   }
 
   // Move to that location in the file
-  fseek(trace->fdata, index->seek, SEEK_SET);
+  fseek(trace->fdata, (long)index->seek, SEEK_SET);
   struct traffic_matrix_t *cache_obj = traffic_matrix_load(trace->fdata);
   _traffic_matrix_trace_set_key_in_cache(trace, key, cache_obj);
 
@@ -505,8 +506,8 @@ struct traffic_matrix_trace_t *traffic_matrix_trace_load(
 
 void traffic_matrix_trace_print_index(struct traffic_matrix_trace_t *t) {
   for (uint64_t i = 0; i < t->num_indices; ++i) {
-    struct traffic_matrix_trace_index_t *index = &t->indices[i];
-    printf("indices are: %lu  @%lu [:%lu]\n", index->size, index->time, index->seek);
+    //struct traffic_matrix_trace_index_t *index = &t->indices[i];
+    //printf("indices are: %lu  @%lu [:%lu]\n", index->size, index->time, index->seek);
   }
 }
 

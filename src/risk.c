@@ -72,11 +72,11 @@ step_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   risk_cost_t prev_value = r->pairs[r->nsteps-1].cost;
 
   // Sample string: 0/50-99.5/30-99.9/10-100/0
-  for (unsigned i = r->nsteps - 1; i >= 0; --i){
-    if (r->pairs[i].step + EPS < val ) {
+  for (unsigned i = r->nsteps; i != 0; --i){
+    if (r->pairs[i-1].step + EPS < val ) {
       return prev_value;
     }
-    prev_value = r->pairs[i].cost;
+    prev_value = r->pairs[i-1].cost;
   }
 
   return r->pairs[0].cost;

@@ -78,11 +78,11 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
 
   struct traffic_matrix_trace_t *trace = traffic_matrix_trace_load(400, expr->traffic_test);
   struct plan_iterator_t *iter = en->iter((struct plan_t *)en);
-  int subplan_count = iter->subplan_count(iter);
+  unsigned subplan_count = (unsigned)iter->subplan_count(iter);
   pthread_mutex_t mut;
 
   if (pthread_mutex_init(&mut, 0) != 0)
-    panic("Couldn't initiate the mutex.");
+    panic_txt("Couldn't initiate the mutex.");
 
   uint32_t trace_length = trace->num_indices;
   uint32_t nthreads = get_ncores() - 1;
@@ -97,13 +97,13 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
   }
 
   /* Get the range of subplans we are going through */
-  int subplan_start = MIN(subplan_count-1, expr->cache.subplan_start);
-  int subplan_end = MIN(subplan_count-1, expr->cache.subplan_end);
+  unsigned subplan_start = MIN(subplan_count-1, expr->cache.subplan_start);
+  unsigned subplan_end = MIN(subplan_count-1, expr->cache.subplan_end);
   if (subplan_start == subplan_end && subplan_end == 0) {
     subplan_end = subplan_count - 1;
   }
 
-  for (int i = subplan_start; i <= subplan_end; ++i) {
+  for (unsigned i = subplan_start; i <= subplan_end; ++i) {
     // Apply the mop on the network
     struct mop_t *mop = iter->mop_for(iter, i);
     struct _rvar_cache_builder_parallel *data = 
@@ -166,7 +166,7 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
   freelist_free(repo);
 
   traffic_matrix_trace_free(trace);
-  info("Done generating the rvars");
+  info_txt("Done generating the rvars");
 }
 
 static struct exec_output_t*
@@ -179,7 +179,7 @@ static void
 _exec_longterm_validate(struct exec_t *exec, struct expr_t const *expr) {
   EXEC_VALIDATE_STRING_SET(expr, cache.rvar_directory);
   if (expr->cache.subplan_start == expr->cache.subplan_end && expr->cache.subplan_end != 0) {
-    panic("Start and end duration are equal.");
+    panic_txt("Start and end duration are equal.");
   }
 
   // Create the directory if it doesn't exist
@@ -192,7 +192,7 @@ _exec_longterm_validate(struct exec_t *exec, struct expr_t const *expr) {
 
 static void
 _exec_longterm_explain(struct exec_t *exec) {
-  text_block("Longterm generates cache files for pug and lpug planners.\n");
+  text_block_txt("Longterm generates cache files for pug and lpug planners.\n");
 }
 
 struct exec_t *exec_longterm_create(void) {

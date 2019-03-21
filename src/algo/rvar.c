@@ -25,7 +25,7 @@ static char *_rvar_header(enum RVAR_TYPE type, char *buffer) {
   return (buffer + HEADER_SIZE);
 }
 
-static char *_sample_serialize(struct rvar_t *rvar, int *size) {
+static char *_sample_serialize(struct rvar_t *rvar, size_t *size) {
   struct rvar_sample_t *rv = (struct rvar_sample_t*)rvar;
   *size = HEADER_SIZE + sizeof(rv->num_samples) + rv->num_samples * sizeof(rvar_type_t);
   char *buffer = malloc(*size);
@@ -62,7 +62,7 @@ static struct rvar_t *_bucket_copy(struct rvar_t const *rvar) {
   return (struct rvar_t *)ret;
 }
 
-static char *_bucket_serialize(struct rvar_t *rvar, int *size) {
+static char *_bucket_serialize(struct rvar_t *rvar, size_t *size) {
   struct rvar_bucket_t *rv = (struct rvar_bucket_t*)rvar;
   *size = HEADER_SIZE + sizeof(rvar_type_t) /* bucket_size */
     + sizeof(uint32_t) /* nbuckets */
@@ -106,7 +106,7 @@ _sample_plot(struct rvar_t const *rs) {
   char buffer[] = RVAR_PLOT_PATH;
   int fd = mkstemp(buffer);
   if (fd == -1)
-    panic("Couldn't create the file for plotting :(");
+    panic_txt("Couldn't create the file for plotting :(");
 
   char line[1024] = {0};
   rvar_type_t index = 0;
@@ -175,7 +175,7 @@ _sample_to_bucket(struct rvar_t const *rs, rvar_type_t bucket_size) {
     struct rvar_sample_t *r = (struct rvar_sample_t *)rs;
 
     int num_buckets = (int)(ceil((r->high - r->low)/bucket_size)) + 1;
-    struct rvar_t *ret = rvar_bucket_create(r->low, bucket_size, num_buckets);
+    struct rvar_t *ret = rvar_bucket_create(r->low, bucket_size, (unsigned)num_buckets);
     struct rvar_bucket_t *rb = (struct rvar_bucket_t *)ret;
 
     rvar_type_t *val = r->vals;
@@ -298,7 +298,7 @@ static void _bucket_plot(struct rvar_t const *rs) {
   char buffer[] = RVAR_PLOT_PATH;
   int fd = mkstemp(buffer);
   if (fd == -1)
-    panic("Couldn't create the file for plotting :(");
+    panic_txt("Couldn't create the file for plotting :(");
 
   char line[1024] = {0};
   rvar_type_t x = buck->low;
@@ -457,9 +457,9 @@ struct rvar_t *rvar_zero(void) {
 struct rvar_t *rvar_compose_with_distributions(
     struct rvar_t **rvars,
     double *dists,
-    int len) {
+    unsigned len) {
   if (len == 0 || dists == 0 || rvars == 0)
-    panic("Passing nulls to rvar_compose_with_distribution");
+    panic_txt("Passing nulls to rvar_compose_with_distribution");
 
   double lowest = INFINITY; double highest = -INFINITY;
   double bucket_size = INFINITY;

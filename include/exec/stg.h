@@ -14,7 +14,7 @@ struct stg_critical_path_t {
 
 struct stg_upgrade_plan_t {
   struct stg_critical_path_t *paths;
-  int num_paths;
+  unsigned num_paths;
 };
 
 
@@ -27,7 +27,7 @@ struct exec_stg_t {
 
   struct stg_upgrade_plan_t *plan;
 
-  int *pods;
+  unsigned *pods;
 };
 
 struct exec_t *exec_stg_create(void);

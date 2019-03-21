@@ -3,15 +3,15 @@
 #include "exec.h"
 
 struct plan_repo_t {
-  int *plans;
-  int plan_count;
-  int initial_plan_count;
-  int max_plan_size;
-  int plan_size_in_bytes;
-  int cap;
+  unsigned *plans;
+  unsigned plan_count;
+  unsigned initial_plan_count;
+  unsigned max_plan_size;
+  unsigned plan_size_in_bytes;
+  unsigned cap;
 
-  int _cur_index;
-  int _subplan_count;
+  unsigned _cur_index;
+  unsigned _subplan_count;
 };
 
 struct exec_pug_t {
@@ -33,7 +33,7 @@ struct exec_pug_t {
   struct rvar_t      **steady_packet_loss;
   struct rvar_t      **steady_cost;
 
-  struct rvar_t * (*short_term_risk) (struct exec_t *exec, struct expr_t *expr, int subplan, trace_time_t);
+  struct rvar_t * (*short_term_risk) (struct exec_t *exec, struct expr_t *expr, unsigned subplan, trace_time_t);
 
   void (*prepare_steady_cost) (struct exec_t *exec, struct expr_t *expr, trace_time_t);
   void (*release_steady_cost) (struct exec_t *exec, struct expr_t *expr, trace_time_t);

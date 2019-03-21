@@ -2,6 +2,7 @@
 #define _ALGO_RANDVAR_H_         
 
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef double rvar_type_t;
 
@@ -34,7 +35,7 @@ struct rvar_t {
   struct rvar_bucket_t * (*to_bucket) (struct rvar_t const*, rvar_type_t);
 
   void (*free)(struct rvar_t *);
-  char * (*serialize)(struct rvar_t *, int *size);
+  char * (*serialize)(struct rvar_t *, size_t *size);
   void (*plot)(struct rvar_t const *);
   struct rvar_t * (*copy)(struct rvar_t const *);
 

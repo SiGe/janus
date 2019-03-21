@@ -43,7 +43,7 @@ inline static uint32_t _num_active_cores_jupiter(
     }
   }
   return active_cores;
-};
+}
 
 inline static __attribute__((unused))
 uint32_t _tor_to_pod(struct jupiter_network_t *jup, uint32_t tor) {
@@ -66,7 +66,7 @@ inline static uint32_t _num_active_aggs_jupiter(
     }
   }
   return active_aggs;
-};
+}
 
 inline static void _setup_routing_for_pair(
     struct jupiter_network_t *jup,
@@ -220,17 +220,17 @@ int jupiter_step(struct network_t *net) {
   (void)(jup);
 
   return 0;
-};
+}
 
 void jupiter_drain_switch(struct network_t *net, switch_id_t id) {
   TO_J(net);
   jup->switches[id].stat = DOWN;
-};
+}
 
 void jupiter_undrain_switch(struct network_t *net, switch_id_t id) {
   TO_J(net);
   jup->switches[id].stat = UP;
-};
+}
 
 int jupiter_get_dataplane(struct network_t *net, struct dataplane_t *dp) {
   /* A logical network for a jupiter network is very simple: a single core
@@ -303,7 +303,7 @@ int jupiter_get_dataplane(struct network_t *net, struct dataplane_t *dp) {
   (dp)->routing = routing;
 
   return 0;
-};
+}
 
 int jupiter_set_traffic (struct network_t *net, struct traffic_matrix_t const *tm) {
   TO_J(net);

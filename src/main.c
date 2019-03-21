@@ -43,7 +43,7 @@ struct exec_t *executor(struct expr_t *expr) {
     return exec_ltg_create();
   }
 
-  panic("Executor not implemented.");
+  panic_txt("Executor not implemented.");
   return 0;
 }
 
@@ -70,7 +70,7 @@ static void logo(void) {
 }
 
 void summarize_result(struct exec_output_t *out) {
-  int size = 0;
+  unsigned size = 0;
   struct exec_result_t *res = array_splice(
       out->result, 0, array_size(out->result)-1, &size);
 
@@ -82,7 +82,7 @@ void summarize_result(struct exec_output_t *out) {
 
   for (int i = 0; i < size;++i ){
     risk_cost_t cost = res[i].cost;
-    int steps = res[i].num_steps;
+    unsigned steps = res[i].num_steps;
 
     sum_cost += cost; sqr_cost += cost * cost;
     sum_len += steps; sqr_len += steps * steps;

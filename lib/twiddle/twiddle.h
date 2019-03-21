@@ -51,20 +51,19 @@ struct twiddle_t {
   int finished;
 
   // Tuple representation of the assignment.
-  int *_tuple;
-  int _tuple_size;
+  unsigned *_tuple;
+  unsigned _tuple_size;
 
   void (*next)  (struct twiddle_t *);
   void (*begin) (struct twiddle_t *);
   int  (*end)   (struct twiddle_t *);
   void (*free)  (struct twiddle_t *);
 
-  int  *(*tuple) (struct twiddle_t *);
-  int   (*tuple_size) (struct twiddle_t *);
+  unsigned *(*tuple) (struct twiddle_t *);
+  unsigned (*tuple_size) (struct twiddle_t *);
 };
 
 // Creates a twiddler trying to fit M balls into N bins
 struct twiddle_t *twiddle_create(int M, int N);
-
 
 #endif

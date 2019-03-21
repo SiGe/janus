@@ -11,7 +11,7 @@ struct predictor_rotating_ewma_iterator_t {
   struct traffic_matrix_t *tm_now;
   struct traffic_matrix_trace_iter_t *iter;
 
-  int num_samples;
+  unsigned num_samples;
 };
 
 struct predictor_rotating_ewma_t {
@@ -60,6 +60,8 @@ void predictor_rotating_ewma_free(struct predictor_t *);
  * And the real traffic matrix trace
  */
 struct predictor_rotating_ewma_t *
-  predictor_rotating_ewma_load(char const *, char const *, int, int, struct traffic_matrix_trace_t *);
+  predictor_rotating_ewma_load(
+      char const *, char const *, unsigned, 
+      unsigned, struct traffic_matrix_trace_t *);
 
 #endif // _PREDICTORS_EWMA_H_

@@ -2,11 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "util/common.h"
 #include "util/log.h"
 
 #include "algo/group_gen.h"
-
-#define max(a, b) ((a) > (b)) ? (a) : (b)
 
 /* A000041 */
 struct npart_iter_state_t {
@@ -14,7 +13,7 @@ struct npart_iter_state_t {
 
   uint32_t state_min_allowed;
   uint32_t last_allowed;
-  uint32_t finished;
+  int finished;
 };
 
 /* TODO: XX */
@@ -40,11 +39,11 @@ struct dual_npart_iter_state_t {
   // Indices for mapping the first iterator to the second
   uint32_t *comp_index;
 
-  uint32_t finished;
+  int finished;
 };
 
 static inline
-int _npart_state_num_subsets(
+unsigned _npart_state_num_subsets(
     struct group_iter_t const *in) {
   struct npart_iter_state_t *s = 
     (struct npart_iter_state_t *)in;
@@ -53,17 +52,18 @@ int _npart_state_num_subsets(
 }
 
 static inline
-int _npart_state_to_tuple(
+unsigned _npart_state_to_tuple(
     struct group_iter_t const *in,
     uint32_t val,
     uint32_t *ret) {
-  return *ret = val;
+  *ret = val;
+  return 1;
 }
 
 static inline
 uint32_t _npart_state_from_tuple(
     struct group_iter_t *in,
-    int len,
+    unsigned len,
     uint32_t *ret) {
   return *ret;
 }
@@ -213,7 +213,8 @@ int _find_alloc_index(
     struct dual_npart_iter_state_t *s,
     uint32_t min_index) {
   int32_t avail_index = -1;
-  for (int32_t i = max(min_index, 1); i < s->avail_len; ++i) {
+  int32_t avail_len = (int32_t) s->avail_len;
+  for (int32_t i = MAX((int32_t)min_index, 1); i < avail_len; ++i) {
     if (s->avail[i] > 0) {
       s->avail[i] -= 1;
       avail_index = i;
@@ -258,12 +259,12 @@ void _find_next_comb_for_class(
     // its current index
     int32_t avail_index = _find_alloc_index(s, *last + 1);
     _release_index(s, *last);
-    *last = avail_index;
 
-    s->min_class_index[class] = avail_index;
+    *last = (uint32_t)avail_index;
+    s->min_class_index[class] = *last;
     if (avail_index == -1) {
-      s->min_class_index[class] = s->avail_len;
       *last = s->avail_len;
+      s->min_class_index[class] = s->avail_len;
     }
     return;
   }
@@ -298,7 +299,7 @@ void _find_next_comb_for_class(
       // if we found an available index, just set it and try to set
       // the next index value
       _release_index(s, *idx);
-      *idx = avail_index;
+      *idx = (unsigned)avail_index;
     }
 
     if (failed == 0) {
@@ -326,7 +327,7 @@ void _find_next_comb_for_class(
       // released everything a few lines up here (unless *prev + 1 is greater
       // than s->avail_len).
       if (avail_index != -1)
-        _release_index(s, avail_index);
+        _release_index(s, (unsigned)avail_index);
     }
 
 
@@ -339,7 +340,7 @@ void _find_next_comb_for_class(
 
     // And also update the min_class_index ...
     if (prev == begin) {
-      s->min_class_index[class] = avail_index;
+      s->min_class_index[class] = (unsigned)avail_index;
     }
   }
 }
@@ -390,7 +391,7 @@ void _setup_for_next_iter(struct dual_npart_iter_state_t *s) {
 }
 
 static inline
-int _dual_npart_next_in_class(struct dual_npart_iter_state_t *s) {
+unsigned _dual_npart_next_in_class(struct dual_npart_iter_state_t *s) {
   while (1) {
     // Find next available position 
     _find_next_comb_for_class(s, s->last_class, 0);
@@ -441,16 +442,17 @@ void _prepare_comps(struct dual_npart_iter_state_t *s) {
   memset(s->comp_pointers, 0, sizeof(uint32_t) * (s1l+2));
 
   s->comp1_len = 0;
+  s->avail_len = 0;
   s->last_index = 0;
   s->last_class = 0;
 
   for (uint32_t i = 0; i < s1l; ++i) {
     s->comp1[s1[i]] += 1;
-    s->comp1_len = max(s->comp1_len, s1[i]);
+    s->comp1_len = MAX(s->comp1_len, s1[i]);
   }
 
   for (uint32_t i = 0; i < s2l; ++i) {
-    s->avail_len = max(s->avail_len, s2[i]);
+    s->avail_len = MAX(s->avail_len, s2[i]);
     s->avail[s2[i]] += 1;
   }
 
@@ -530,7 +532,7 @@ void _dual_npart_state_begin(
 }
 
 static inline
-int _dual_npart_state_num_subsets(
+unsigned _dual_npart_state_num_subsets(
     struct group_iter_t const *in) {
   struct dual_npart_iter_state_t *s = 
     (struct dual_npart_iter_state_t *)in;
@@ -540,7 +542,7 @@ int _dual_npart_state_num_subsets(
 }
 
 static inline
-int _dual_npart_state_to_tuple(
+unsigned _dual_npart_state_to_tuple(
     struct group_iter_t const *in,
     uint32_t val,
     uint32_t *ret) {
@@ -548,7 +550,7 @@ int _dual_npart_state_to_tuple(
   struct dual_npart_iter_state_t *s = 
     (struct dual_npart_iter_state_t *)in;
 
-  int ns2 = s->iter2->num_subsets(s->iter2);
+  unsigned ns2 = s->iter2->num_subsets(s->iter2);
 
   uint32_t val1 = val / ns2;
   uint32_t val2 = val - val1 * ns2;
@@ -565,14 +567,14 @@ int _dual_npart_state_to_tuple(
 static inline
 uint32_t _dual_npart_state_from_tuple(
     struct group_iter_t *in,
-    int len,
+    unsigned len,
     uint32_t *tuple) {
 
   struct dual_npart_iter_state_t *s = 
     (struct dual_npart_iter_state_t *)in;
 
-  int ts1 = s->iter1->tuple_size;
-  int ts2 = s->iter2->tuple_size;
+  uint32_t ts1 = s->iter1->tuple_size;
+  uint32_t ts2 = s->iter2->tuple_size;
 
   assert(len == ts1 + ts2);
 
@@ -582,7 +584,7 @@ uint32_t _dual_npart_state_from_tuple(
   uint32_t r2 = s->iter2->from_tuple(
       s->iter2, ts2, tuple + ts1);
 
-  int ns2 = s->iter2->num_subsets(s->iter2);
+  unsigned ns2 = s->iter2->num_subsets(s->iter2);
   return r1 * ns2 + r2;
 }
 

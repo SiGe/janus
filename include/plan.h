@@ -35,8 +35,8 @@ struct mop_block_id_t {
 /* Returns the block statistics */
 struct mop_block_stats_t {
   struct mop_block_id_t id;
-  int all_switches;
-  int down_switches;
+  unsigned all_switches;
+  unsigned down_switches;
 };
 
 /* A management operation has three functions: pre, operation, post.
@@ -47,25 +47,25 @@ struct mop_block_stats_t {
  */
 struct mop_t {
   /* Apply a pre mop on the network */
-  int             (*pre)        (struct mop_t *, struct network_t*);
+  int (*pre)        (struct mop_t *, struct network_t*);
 
   /* Apply a post mop on the network */
-  int             (*post)       (struct mop_t *, struct network_t*);
+  int (*post)       (struct mop_t *, struct network_t*);
 
   /* Number of steps that we should run this operation */
   mop_steps_t (*operation)      (struct mop_t *, struct network_t*);
 
   /* Free the mop */
-  void        (*free)           (struct mop_t *);
+  void (*free)           (struct mop_t *);
 
   /* Size of the mop */
-  int         (*size)           (struct mop_t *);
+  unsigned (*size)           (struct mop_t *);
 
   /* Explain the mop in the context of the network */
-  char *      (*explain)        (struct mop_t *, struct network_t *);
+  char * (*explain)        (struct mop_t *, struct network_t *);
 
   /* Return the block statistics of a mop */
-  int (*block_stats) (struct mop_t *, struct network_t *, struct mop_block_stats_t **);
+  unsigned (*block_stats) (struct mop_t *, struct network_t *, struct mop_block_stats_t **);
 };
 
 struct jupiter_switch_mop_t {
@@ -108,23 +108,24 @@ struct plan_iterator_t {
   int  (*end)   (struct plan_iterator_t *);
 
   /* Return the mop for a subplan with specific id */
-  struct mop_t * (*mop_for)(struct plan_iterator_t *, int id);
+  struct mop_t * (*mop_for)(struct plan_iterator_t *, unsigned id);
 
   /* Explain a specific mop in text format */
-  char * (*explain)(struct plan_iterator_t *, int id);
+  char * (*explain)(struct plan_iterator_t *, unsigned id);
 
   /* This returns a preference score for a subplan */
-  double (*pref_score)(struct plan_iterator_t *, int id);
+  double (*pref_score)(struct plan_iterator_t *, unsigned id);
 
   /* Return a list of subplans for the current id */
-  void (*plan)(struct plan_iterator_t *, int **ret, int *size);
+  void (*plan)(struct plan_iterator_t *, unsigned **ret, unsigned *size);
 
   /* Returns the maximum number of subplans */
-  int (*subplan_count)(struct plan_iterator_t *);
+  unsigned (*subplan_count)(struct plan_iterator_t *);
 
   /* Returns the ID of the first subplan that takes down more capacity
    * (strictly and spatially) more than the passed block state */
-  int (*least_dominative_subplan)(struct plan_iterator_t *, struct mop_block_stats_t *blocks, int nblocks);
+  unsigned (*least_dominative_subplan)(struct plan_iterator_t *, struct
+      mop_block_stats_t *blocks, unsigned nblocks);
 };
 
 #endif // _PLAN_H_

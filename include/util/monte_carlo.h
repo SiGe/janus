@@ -4,7 +4,7 @@
 #include "algo/rvar.h"
 
 typedef rvar_type_t (*monte_carlo_run_t)(void *);
-typedef void (*monte_carlo_run_multi_t)(void *, rvar_type_t **, int);
+typedef void (*monte_carlo_run_multi_t)(void *, rvar_type_t **, unsigned);
 
 // Monte carlo methods for keeping single or multiple RVs
 struct rvar_sample_t *monte_carlo_rvar(

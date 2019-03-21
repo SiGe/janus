@@ -49,4 +49,8 @@ void _text_block(char const *fmt, ...);
   _text_block(fmt, __VA_ARGS__, __FILE__, __LINE__); \
 }
 
+#define text_block_txt(fmt) { \
+  _text_block(fmt, __FILE__, __LINE__); \
+}
+
 #endif

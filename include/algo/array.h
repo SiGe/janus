@@ -7,28 +7,28 @@
 // An ordered contiguous chunk of elements that does automatic resizing when
 // there is no space left.  Uses exponential growth for O(1) insertion.
 struct array_t {
-  int  data_size;
-  int  count;
-  int  capacity;
+  size_t data_size;
+  unsigned count;
+  unsigned capacity;
   void *data;
 };
 
 // Create an array with a specific capacity or from a set of values
-struct array_t* array_create(int data_size, int capacity);
-struct array_t* array_from_vals(void *data, int data_size, int size);
+struct array_t* array_create(size_t data_size, unsigned capacity);
+struct array_t* array_from_vals(void *data, size_t data_size, unsigned size);
 void            array_free(struct array_t *);
 
 // Get/Set/Append functions for array
-void     array_set(struct array_t *, void *data, int index);
-void*    array_get(struct array_t const*, int index);
+void     array_set(struct array_t *, void *data, unsigned index);
+void*    array_get(struct array_t const*, unsigned index);
 void     array_append(struct array_t *, void *data);
 
 // Capacity and size functions
-inline int array_size(struct array_t const *arr) {
+inline size_t array_size(struct array_t const *arr) {
   return arr->count;
 }
 
-inline int array_capacity(struct array_t const *arr) {
+inline unsigned array_capacity(struct array_t const *arr) {
   return arr->capacity;
 }
 
@@ -36,7 +36,7 @@ inline int array_capacity(struct array_t const *arr) {
 unsigned array_transfer_ownership(struct array_t *, void **data);
 
 // Returns a copy of the data from [start, end] (inclusive range)
-void*    array_splice(struct array_t const *, int start, int end, int *size);
+void*    array_splice(struct array_t const *, unsigned start, unsigned end, unsigned *size);
 
 // Serialize and deserialize functions
 char*           array_serialize(struct array_t const*, size_t *size);

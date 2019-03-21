@@ -17,7 +17,7 @@ struct failure_model_t {
     struct plan_iterator_t *,  // Use the plan iterator to get the least
                                // dominative subplan_id
     struct rvar_t **,          // List of packet-loss variables for subplan XX
-    int subplan_id
+    unsigned subplan_id
   );
 };
 

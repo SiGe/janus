@@ -74,6 +74,6 @@ struct risk_cost_func_convex_t {
 struct risk_cost_func_t *
 risk_cost_string_to_func(char const *func);
 
-typedef int (*criteria_length_t)(int, int);
+typedef int (*criteria_length_t)(unsigned, unsigned);
 
 #endif // _RISK_H_

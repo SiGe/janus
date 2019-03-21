@@ -51,7 +51,7 @@ struct rvar_sample_t **monte_carlo_multi_rvar(
 
 struct _monte_carlo_parallel_t {
   void *data;
-  int  index;
+  unsigned index;
   rvar_type_t *vals;
   monte_carlo_run_t runner;
 };
@@ -72,7 +72,7 @@ rvar_type_t *monte_carlo_parallel_ordered_rvar(
       num_threads = 1;
   }
 
-  threadpool thpool = thpool_init(num_threads);
+  threadpool thpool = thpool_init((int)num_threads);
 
   struct _monte_carlo_parallel_t *mcpd = malloc(sizeof(struct _monte_carlo_parallel_t) * nsteps);
   rvar_type_t *vals = malloc(sizeof(rvar_type_t) * nsteps);

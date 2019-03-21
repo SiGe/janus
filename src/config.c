@@ -95,14 +95,14 @@ static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
   return ret;
 }
 
-static int _cl_maximize(int a1, int a2) {
+static int _cl_maximize(unsigned a1, unsigned a2) {
   if (a1 > a2) { return 1; }
   else if (a1 == a2) { return 0; }
   else if (a1 < a2) { return -1; }
   return -1;
 }
 
-static int _cl_minimize (int a1, int a2) {
+static int _cl_minimize (unsigned a1, unsigned a2) {
   if (a1 > a2) { return -1; }
   else if (a1 == a2) { return 0; }
   else if (a1 < a2) { return 1; }

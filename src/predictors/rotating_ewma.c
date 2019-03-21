@@ -79,7 +79,7 @@ static void _pe_free(
   free(iter);
 }
 
-static int _pe_length(struct predictor_iterator_t *pre) {
+static unsigned _pe_length(struct predictor_iterator_t *pre) {
   TO_PI(pre);
   return iter->num_samples;
 }
@@ -90,8 +90,9 @@ static struct predictor_iterator_t *predictor_rotating_ewma_predict(
 
   TO_E(pre);
   if (end - now >= pe->steps || end - now < 0) {
-    panic("Cannot predict that far into the future. Asking for range [%d, %d] (num steps: %d)", 
-        now, end, pe->steps);
+    panic("Cannot predict that far into the future. "
+          "Asking for range [%d, %d] (num steps: %d)", 
+          now, end, pe->steps);
     return 0;
   }
 
@@ -218,14 +219,14 @@ void predictor_rotating_ewma_build(
   TO_E(p);
   pe->real_trace = trace;
   if (trace->num_indices == 0)
-    panic("Cannot build an EWMA model with no entry in the trace");
+    panic_txt("Cannot build an EWMA model with no entry in the trace");
 
   // TODO: we need to get the num pairs---there should be a better way of doing this.
   //  Omid - 12/26/2018
   struct traffic_matrix_t *tm = 0;
   trace_time_t time = 0;
   if (traffic_matrix_trace_get_nth_key(trace, 0, &time) != SUCCESS)
-    panic("Trace is empty.");
+    panic_txt("Trace is empty.");
   traffic_matrix_trace_get(trace, time, &tm);
   uint32_t num_pairs = tm->num_pairs;
 
@@ -242,7 +243,7 @@ void predictor_rotating_ewma_build(
 
   for (uint32_t i = 0; i < rpt.size; ++i) {
     if (traffic_matrix_trace_get_nth_key(trace, i, &rpt.keys[i]) != SUCCESS)
-      panic("Couldn't find enough data in the trace.");
+      panic_txt("Couldn't find enough data in the trace.");
   }
 
   /* Prepare the rotating predictor */
@@ -306,7 +307,7 @@ void predictor_rotating_ewma_build(
 
   for (uint64_t i = start, j = 0; i < trace->num_indices; ++i, ++j) {
     if (!_rotating_ewma_predictor_rotating_func(
-          traffic_matrix_zero(num_pairs), last + j + 1, &rpt))
+          traffic_matrix_zero(num_pairs), last + (trace_time_t)j + 1, &rpt))
       break;
   }
 
@@ -357,11 +358,11 @@ static void predictor_rotating_ewma_build_panic(
     struct traffic_matrix_trace_t *trace) {
   (void)p;
   (void)trace;
-  panic("Cannot build an rotating_ewma predictor that is loaded from file.");
+  panic_txt("Cannot build an rotating_ewma predictor that is loaded from file.");
 }
 
 struct predictor_rotating_ewma_t *predictor_rotating_ewma_load(
-    char const *dir, char const *fname, int steps, int cache_size,
+    char const *dir, char const *fname, unsigned steps, unsigned cache_size,
     struct traffic_matrix_trace_t *trace) {
   if (!dir_exists(dir))
     return 0;
@@ -394,7 +395,7 @@ struct predictor_rotating_ewma_t *predictor_rotating_ewma_load(
 struct predictor_rotating_ewma_t *predictor_rotating_ewma_create(
     bw_t exp_coeff, uint16_t steps, char const *name) {
   if (steps > EWMA_MAX_TM_STRIDE)
-    panic("Too many steps for prediction using this EWMA" 
+    panic_txt("Too many steps for prediction using this EWMA" 
         "predictor.  Update EWMA_MAX_TM_STRIDE in config.h");
 
   struct predictor_rotating_ewma_t *rotating_ewma = malloc(sizeof(struct predictor_rotating_ewma_t));

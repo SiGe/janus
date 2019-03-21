@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "dataplane.h"
-#include "parse.h"
 #include "util/error.h"
 #include "util/log.h"
 
@@ -69,7 +68,7 @@ static __attribute__((unused)) void dataplane_consistent(struct dataplane_t *dat
       }
     link = link->next;
   }
-  info("dataplane-consistent.");
+  info_txt("dataplane-consistent.");
 }
 
 static __attribute__((unused)) int is_28_there(struct dataplane_t *dataplane) {
@@ -318,7 +317,7 @@ static void populate_and_sort_links(struct dataplane_t *dataplane) {
   {
     struct flow_t *flow = dataplane->flows;
     struct flow_t *prev = 0;
-    for (int i = 0; i < dataplane->num_flows; ++i, ++flow) {
+    for (unsigned i = 0; i < dataplane->num_flows; ++i, ++flow) {
       if (flow->demand < EPS) {
         continue;
       }
