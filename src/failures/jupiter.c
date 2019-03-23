@@ -61,7 +61,7 @@ uint32_t _lds_for_failure(unsigned *tuple, struct mop_block_stats_t *blocks,
 }
 
 struct rvar_t *_jupiter_independent_apply(
-    struct failure_model_t *fm,
+    struct failure_model_t const *fm,
     struct network_t *net,
     struct plan_iterator_t *pi,
     struct rvar_t **rcache,

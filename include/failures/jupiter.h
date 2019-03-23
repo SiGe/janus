@@ -5,6 +5,7 @@
 
 #include "failure.h"
 
+/* Independent failure model for jupiter */
 struct jupiter_failure_model_independent_t {
   struct failure_model_independent_t;
 };

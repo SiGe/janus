@@ -1,18 +1,30 @@
 #ifndef _FAILURE_H_
 #define _FAILURE_H_
 
+#include "algo/rvar.h"
+
 struct plan_iterator_t;
 struct exec_t;
-struct rvar_t;
 struct network_t;
 
-// Should ensure that this is threadsafe
+
+/* TODO: Should guarantee that failure_model_t can be used concurrently from
+ * multiple threads.  In reality, this should not be a problem since most
+ * likely, the failure model is just a simple function that computes the
+ * failure under some scenario.  However, we may want to ensure it, somehow.
+ *
+ * For now, the failure model itself is passed as a const to ensure that it is
+ * not modified by the apply function.
+ *
+ * The rest of the items that are passed are created independently per thread,
+ * so it should be fine.
+ */
 struct failure_model_t {
   /* Apply the failure model to a subplan---
    *
    * Each failure model applies the failure in its own way */
   struct rvar_t * (*apply)(
-    struct failure_model_t *,
+    struct failure_model_t const *,
     struct network_t *,
     struct plan_iterator_t *,  // Use the plan iterator to get the least
                                // dominative subplan_id
