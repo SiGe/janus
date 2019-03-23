@@ -226,6 +226,31 @@ struct rvar_t *_sample_convolve(struct rvar_t const *left, struct rvar_t const *
     return (struct rvar_t *)output;
 }
 
+static int
+_float_comp(const void *v1, const void *v2) {
+    rvar_type_t f1 = *(rvar_type_t*)(v1);
+    rvar_type_t f2 = *(rvar_type_t*)(v2);
+
+    if      (f1 < f2) return -1;
+    else if (f1 > f2) return  1;
+    else              return  0;
+}
+
+/* TODO: This is so stupid, we shouldn't need to do this sorting ... it
+ * should be done automatically, sort of.  Or be done lazily, if data gets
+ * added to rvar and it isn't "optimized."
+ * - Omid 1/22/2019
+ *
+ * Ack got this removed in most places so at least we can make it static.
+ * */
+static void _rvar_sample_finalize(struct rvar_sample_t *rv, uint32_t nsteps) {
+    /* TODO: This is so stupid, we shouldn't need to do this */
+    rv->num_samples = nsteps;
+    qsort(rv->vals, nsteps, sizeof(rvar_type_t), _float_comp);
+    rv->low = rv->vals[0];
+    rv->high = rv->vals[nsteps-1];
+}
+
 static
 void rvar_sample_init(struct rvar_sample_t *ret) {
     ret->expected = _sample_expected;
@@ -257,7 +282,7 @@ struct rvar_t *rvar_sample_create_with_vals(
     ret->vals = vals;
     ret->num_samples = nsize;
     rvar_sample_init(ret);
-    rvar_sample_finalize(ret, nsize);
+    _rvar_sample_finalize(ret, nsize);
     
     return (struct rvar_t*)ret;
 }
@@ -367,29 +392,6 @@ struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_size, uint
     return (struct rvar_t *)output;
 }
 
-static int
-_float_comp(const void *v1, const void *v2) {
-    rvar_type_t f1 = *(rvar_type_t*)(v1);
-    rvar_type_t f2 = *(rvar_type_t*)(v2);
-
-    if      (f1 < f2) return -1;
-    else if (f1 > f2) return  1;
-    else              return  0;
-}
-
-/* TODO: This is so stupid, we shouldn't need to do this sorting ... it
- * should be done automatically, sort of.  Or be done lazily, if data gets
- * added to rvar and it isn't "optimized."
- * - Omid 1/22/2019
- * */
-void rvar_sample_finalize(struct rvar_sample_t *rv, uint32_t nsteps) {
-    /* TODO: This is so stupid, we shouldn't need to do this */
-    rv->num_samples = nsteps;
-    qsort(rv->vals, nsteps, sizeof(rvar_type_t), _float_comp);
-    rv->low = rv->vals[0];
-    rv->high = rv->vals[nsteps-1];
-}
-
 
 struct rvar_t *_rvar_deserialize_sample(char const *data) {
   char const *ptr = data;
@@ -404,7 +406,7 @@ struct rvar_t *_rvar_deserialize_sample(char const *data) {
   }
 
   rv->num_samples = nsamples;
-  rvar_sample_finalize(rv, nsamples);
+  _rvar_sample_finalize(rv, nsamples);
 
   return (struct rvar_t *)rv;
 }

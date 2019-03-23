@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "algo/array.h"
 #include "util/common.h"
 #include "util/log.h"
 
@@ -23,15 +24,21 @@ struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *
   if (rvar->_type == SAMPLED) {
     /* If sampled ... do value to value translation */
     struct rvar_sample_t *rs = (struct rvar_sample_t *)rvar;
-    ret = rvar_sample_create(rs->num_samples);
-    struct rvar_sample_t *rss = (struct rvar_sample_t *)ret;
+    struct array_t *arr = array_create(sizeof(rvar_type_t), rs->num_samples);
 
     for (uint32_t i = 0; i < rs->num_samples; ++i) {
-      rss->vals[i] = f->cost(f, rs->vals[i]);
+      rvar_type_t val = f->cost(f, rs->vals[i]);
+      array_append(arr, &val);
     }
-    rvar_sample_finalize((struct rvar_sample_t *)ret, rs->num_samples);
+
+    rvar_type_t *vals = 0;
+    array_transfer_ownership(arr, (void**)&vals);
+    array_free(arr);
+
+    ret = rvar_sample_create_with_vals(vals, rs->num_samples);
   } else if (rvar->_type == BUCKETED){
-    /* If bucket, create a new bucket variable where low = min(cost) and num buckets = (max(cost) - min(cost))/100?? */
+    /* If bucket, create a new bucket variable where:
+     * low = min(cost) and num_buckets = (max(cost) - min(cost))/100?? */
     struct rvar_bucket_t *rs = (struct rvar_bucket_t *)rvar;
     rvar_type_t low = INFINITY;
     rvar_type_t high = -INFINITY;
