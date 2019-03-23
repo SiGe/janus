@@ -32,14 +32,15 @@ static void
 _exec_ltg_validate(struct exec_t *exec, struct expr_t const *expr) {
   TO_LTG(exec);
 
-  unsigned subplan_count = 0;
   ltg->trace = traffic_matrix_trace_load(400, expr->traffic_test);
   if (ltg->trace == 0)
     panic("Couldn't load the traffic matrix file: %s", expr->traffic_test);
 
+  /*
   ltg->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
   if (ltg->steady_packet_loss == 0)
     panic_txt("Couldn't load the long-term RVAR cache.");
+  */
 
   if (expr->criteria_time == 0)
     panic_txt("Time criteria not set.");
@@ -50,8 +51,8 @@ _exec_ltg_validate(struct exec_t *exec, struct expr_t const *expr) {
   ltg->plan = exec_critical_path_analysis(exec, expr, iter, iter->length(iter));
 }
 
-// Creates fixed plans by distributing the upgrade as best as it can over the
-// upgrade interval.
+/* Creates fixed plans by distributing the upgrade as evenly as it can over the
+ * upgrade interval. */
 static risk_cost_t _exec_ltg_best_plan_at(
     struct exec_t *exec,
     struct expr_t const *expr,
@@ -62,7 +63,6 @@ static risk_cost_t _exec_ltg_best_plan_at(
 
   struct exec_critical_path_stats_t *plan = ltg->plan;
   qsort(plan->paths, plan->num_paths, sizeof(struct exec_critical_path_t), _cp_cmp);
-
 
   struct jupiter_located_switch_t **sws = malloc(
       sizeof(struct jupiter_located_switch_t *) * expr->nlocated_switches);

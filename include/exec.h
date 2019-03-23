@@ -129,22 +129,28 @@ void exec_traffic_stats(
     struct traffic_stats_t **ret_core_stats);
 
 
-// Critical path analysis structure
+/* Critical path analysis data structure */
 struct exec_critical_path_t {
+  /* List of located switches in this critical path */
   struct jupiter_located_switch_t **sws;
+
+  /* Pod id for this critical path */
   unsigned pod;
+
+  /* Type of the switches in this critical path */
   enum   JUPITER_SWITCH_TYPE type;
 
-  // Num switches in this critical path
+  /* Num switches in this critical path (i.e., pod/core group in Jupiter topology) */
   unsigned num_switches;
 
-  // Num switches left in the critical path
+  /* Num switches left in the critical path (i.e., num switches not touched in a
+   * pod/core group in Jupiter topology */
   unsigned num_switches_left;
 
-  // Steady state bandwidth
+  /* Steady state bandwidth */
   bw_t   bandwidth;
 
-  // Current bandwidth of the critical path
+  /* Current bandwidth of the critical path */
   bw_t   cur_bandwidth;
 };
 

@@ -137,8 +137,8 @@ _plans_remaining_subplans(struct exec_t *exec) {
 }
 
 /* Returns the list of plans matching the exec->criteria_time requirements
- * TODO: Make the criteria more streamlined.  Right now it's hidden here and we
- * only deal with time criteria.
+ * TODO: Make the criteria more streamlined.  Right now it's hidden here and
+ * only deals with time criteria.
  *
  * Omid - 1/25/2019
  * */
@@ -159,7 +159,7 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
     max_plan_size += en->multigroup.groups[i].group_size;
   }
 
-  size_t plan_size_in_bytes = sizeof(int) * max_plan_size;
+  size_t plan_size_in_bytes = sizeof(unsigned) * max_plan_size;
   unsigned *plans = malloc(cap * plan_size_in_bytes);
   unsigned *subplans = 0; unsigned subplan_count;
   unsigned *plan_ptr = plans;
@@ -173,7 +173,7 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
     }
 
     memset(plan_ptr, 0, plan_size_in_bytes);
-    memcpy(plan_ptr, subplans, sizeof(int) * subplan_count);
+    memcpy(plan_ptr, subplans, sizeof(unsigned) * subplan_count);
     plan_ptr += max_plan_size;
 
     plan_count++;

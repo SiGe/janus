@@ -3,6 +3,11 @@
 
 #include "exec.h"
 
+/* TODO: OBSOLETE FOR NOW
+ *
+ * - Omid 03/23/2019
+ */
+
 struct stg_critical_path_t {
   struct jupiter_located_switch_t **sws;
 
@@ -16,7 +21,6 @@ struct stg_upgrade_plan_t {
   struct stg_critical_path_t *paths;
   unsigned num_paths;
 };
-
 
 struct exec_stg_t {
   struct exec_t;
