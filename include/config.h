@@ -102,7 +102,7 @@ struct expr_t {
 
   // Function to clone the experiment network---used for monte-carlo
   // simulations later on.
-  struct network_t * (*clone_network)(struct expr_t *);
+  struct network_t * (*clone_network)(struct expr_t const *);
 
   // Simulation points
   uint32_t *at;

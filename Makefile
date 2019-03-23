@@ -12,21 +12,10 @@ else
     ifeq ($(UNAME_S),Darwin)
 				OSCFLAGS+=-pthread
     endif
-    UNAME_P := $(shell uname -p)
-    ifeq ($(UNAME_P),x86_64)
-        CCFLAGS += -D AMD64
-    endif
-    ifneq ($(filter %86,$(UNAME_P)),)
-        CCFLAGS += -D IA32
-    endif
-    ifneq ($(filter arm%,$(UNAME_P)),)
-        CCFLAGS += -D ARM
-    endif
 endif
 
 BUILD_DIR = build
 BIN_DIR = bin
-BENCH_DIR = tests/benchmarks
 TARGET = main
 BINARY = netre
 
@@ -95,14 +84,6 @@ traffic_compressor: $(TRAFFIC_COMPRESSOR_OBJ)
 	@>&2 echo Building $@
 	@mkdir -p $(BIN_DIR)
 	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
-
-$(BENCH_TARGET): $(BENCH_OBJ)
-	@>&2 echo Building $@
-	@mkdir -p $(BIN_DIR)
-	@$(CC) -o $(BIN_DIR)/$@ $^ $(LDFLAGS)
-
-bench: $(BENCH_OBJ)
-	@>&2 echo $(MAKECMDGOALS)
 
 .PHONY: clean
 clean:

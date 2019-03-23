@@ -22,13 +22,30 @@ struct exec_output_t {
   struct array_t *result;     // An array_t of exec_result_t
 };
 
+/* Exec is the context in which we run the experiments in */
 struct exec_t {
-  void (*explain)  (struct exec_t *);
+  /* Explain what this exec does---this should be presented on the screen in
+   * whatever form the exec thinks it's appropriate. */
+  void (*explain)  (struct exec_t const *);
+
+  /* Validate and prepare the experiment environment */
   void (*validate) (struct exec_t *, struct expr_t const *expr);
-  struct exec_output_t * (*run) (struct exec_t *, struct expr_t *expr);
+
+  /* Run the experiment */
+  struct exec_output_t * (*run) (struct exec_t *, struct expr_t const *expr);
 
   struct traffic_matrix_trace_t *trace;
   struct traffic_matrix_trace_t *trace_training;
+
+  /* A list holding network/dataplane instances.
+   * This is mainly used in concurrent execution of monte-carlo simulations
+   * across different cores.
+   *
+   * The main reason for having this class is that both dataplane and network
+   * are heavy to build and initiate (less so true about dataplane, but network
+   * can be rather heavy).  So instead of release and creating new instances
+   * we just pass ownership to each simulation instances.
+   */
   struct freelist_repo_t *net_dp;
 };
 
@@ -43,8 +60,15 @@ struct traffic_stats_t {
   unsigned pod_id;
 };
 
-#define EXEC_VALIDATE_PTR_SET(e, p)    { if (e->p == 0) {panic_txt("Need to set "#p);} }
-#define EXEC_VALIDATE_STRING_SET(e, p) { if (e->p == 0 || strlen(e->p) == 0) {panic_txt("Need to set string value "#p);} }
+#define EXEC_VALIDATE_PTR_SET(e, p) {\
+  if (e->p == 0) {\
+    panic_txt("Need to set "#p);\
+  }}
+
+#define EXEC_VALIDATE_STRING_SET(e, p) {\
+  if (e->p == 0 || strlen(e->p) == 0) {\
+    panic_txt("Need to set string value "#p);\
+  }}
 
 #define EXEC_EWMA_PREFIX "traffic"
 
@@ -58,29 +82,29 @@ struct predictor_t *exec_predictor_create(struct exec_t *exec, struct expr_t con
 
 /* Returns the cost of a plan 
  *
- * expr_t is the setting of the experiment.
- * mops is the list of management operations, aka, the plan.
- * nmops is the number of mops,
- * start is the time of the start of the experiment.
+ * @expr_t: the setting/config of the experiment.
+ * @mops: the list of management operations, aka, the plan.
+ * @nmops: the number of mops,
+ * @start: the time of the start of the experiment.
  *
  * Should also probably pass other criteria to this to ensure we are within the
  * bound.
  */
 risk_cost_t exec_plan_cost(
-    struct exec_t *exec, struct expr_t *expr, struct mop_t **mops,
+    struct exec_t *exec, struct expr_t const *expr, struct mop_t **mops,
     uint32_t nmops, trace_time_t start);
 
 rvar_type_t *
 exec_simulate_mlu(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     struct traffic_matrix_t **tms,
     uint32_t trace_length);
 
 rvar_type_t *
 exec_simulate_ordered(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     struct mop_t *mop,
     struct traffic_matrix_t **tms,
     uint32_t trace_length);
@@ -88,7 +112,7 @@ exec_simulate_ordered(
 struct rvar_t *
 exec_simulate(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     struct mop_t *mop,
     struct traffic_matrix_t **tms,
     uint32_t trace_length);

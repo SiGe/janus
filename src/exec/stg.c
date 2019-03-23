@@ -111,7 +111,7 @@ _exec_stg_validate(struct exec_t *exec, struct expr_t const *expr) {
 
 static risk_cost_t _exec_stg_best_subplan_at(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     trace_time_t at) {
   // STG doesn't really care about the best_plan_cost
   TO_STG(exec);
@@ -150,7 +150,7 @@ static risk_cost_t _exec_stg_best_subplan_at(
 }
 
 static struct exec_output_t *
-_exec_stg_runner(struct exec_t *exec, struct expr_t *expr) {
+_exec_stg_runner(struct exec_t *exec, struct expr_t const *expr) {
   for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
     risk_cost_t actual_cost = _exec_stg_best_subplan_at(exec, expr, at);

@@ -19,7 +19,7 @@
 struct _rvar_cache_builder_parallel {
   struct traffic_matrix_t **tms;
   uint32_t index;
-  struct expr_t *expr;
+  struct expr_t const *expr;
   struct freelist_repo_t *network_freelist;
   pthread_mutex_t *lock;
 };
@@ -185,7 +185,7 @@ static rvar_type_t _sim_network_for_mlu(void *data) {
 static void
 _exec_net_dp_create(
     struct exec_t *exec,
-    struct expr_t *expr) {
+    struct expr_t const *expr) {
 
   unsigned nthreads = get_ncores() - 1;
   exec->net_dp = freelist_create(nthreads);
@@ -212,7 +212,7 @@ _exec_net_dp_free(
 rvar_type_t *
 exec_simulate_ordered(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     struct mop_t *mop,
     struct traffic_matrix_t **tms,
     uint32_t trace_length) {
@@ -275,7 +275,7 @@ exec_simulate_ordered(
 rvar_type_t *
 exec_simulate_mlu(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     struct traffic_matrix_t **tms,
     uint32_t trace_length) {
   pthread_mutex_t mut;
@@ -327,7 +327,7 @@ exec_simulate_mlu(
 struct rvar_t *
 exec_simulate(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     struct mop_t *mop,
     struct traffic_matrix_t **tms,
     uint32_t trace_length) {
@@ -337,7 +337,7 @@ exec_simulate(
 
 risk_cost_t exec_plan_cost(
     struct exec_t *exec,
-    struct expr_t *expr, struct mop_t **mops,
+    struct expr_t const *expr, struct mop_t **mops,
     uint32_t nmops, trace_time_t start) {
   if (!exec->net_dp)
     _exec_net_dp_create(exec, expr);

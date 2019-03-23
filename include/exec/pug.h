@@ -33,10 +33,10 @@ struct exec_pug_t {
   struct rvar_t      **steady_packet_loss;
   struct rvar_t      **steady_cost;
 
-  struct rvar_t * (*short_term_risk) (struct exec_t *exec, struct expr_t *expr, unsigned subplan, trace_time_t);
+  struct rvar_t * (*short_term_risk) (struct exec_t *exec, struct expr_t const *expr, unsigned subplan, trace_time_t);
 
-  void (*prepare_steady_cost) (struct exec_t *exec, struct expr_t *expr, trace_time_t);
-  void (*release_steady_cost) (struct exec_t *exec, struct expr_t *expr, trace_time_t);
+  void (*prepare_steady_cost) (struct exec_t *exec, struct expr_t const *expr, trace_time_t);
+  void (*release_steady_cost) (struct exec_t *exec, struct expr_t const *expr, trace_time_t);
 };
 
 struct exec_t *exec_pug_create_short_and_long_term(void);

@@ -108,7 +108,8 @@ inline void array_append(struct array_t *arr, void *data) {
     arr->capacity *= 2;
     arr->data = realloc(arr->data, arr->capacity * arr->data_size);
     if (!arr->data)
-      panic("Could not reallocate the data to make space for array: %d, %d", arr->capacity, arr->data_size);
+      panic("Could not reallocate the data to make space for array: %d, %d",
+          arr->capacity, arr->data_size);
   }
 
   arr->count += 1;

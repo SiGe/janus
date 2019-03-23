@@ -17,7 +17,7 @@ static int _pod_sort(void const *v1, void const *v2) {
 
 static void _exec_stats_validator(struct exec_t *exec, struct expr_t const *expr) {}
 
-static void _calc_mlu(struct exec_t *exec, struct expr_t *expr) {
+static void _calc_mlu(struct exec_t *exec, struct expr_t const *expr) {
   struct traffic_matrix_trace_iter_t *iter = exec->trace->iter(exec->trace);
   unsigned tm_count = iter->length(iter);
 
@@ -54,8 +54,9 @@ static void _calc_mlu(struct exec_t *exec, struct expr_t *expr) {
 }
 
 static struct exec_output_t *
-_exec_stats_runner(struct exec_t *exec, struct expr_t *expr) {
-  struct traffic_matrix_trace_t *trace = traffic_matrix_trace_load(50, expr->traffic_test);
+_exec_stats_runner(struct exec_t *exec, struct expr_t const *expr) {
+  struct traffic_matrix_trace_t *trace = traffic_matrix_trace_load(
+      50, expr->traffic_test);
   struct traffic_matrix_trace_iter_t *iter = trace->iter(trace);
   struct traffic_stats_t *pods = 0;
   struct traffic_stats_t *core = 0;
@@ -96,7 +97,7 @@ _exec_stats_runner(struct exec_t *exec, struct expr_t *expr) {
 }
 
 static void
-_exec_stats_explain(struct exec_t *exec) {
+_exec_stats_explain(struct exec_t const *exec) {
   text_block_txt("Stats prints traffic statistics for the pods and core groups.");
 }
 

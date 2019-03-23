@@ -54,7 +54,7 @@ _exec_ltg_validate(struct exec_t *exec, struct expr_t const *expr) {
 // upgrade interval.
 static risk_cost_t _exec_ltg_best_plan_at(
     struct exec_t *exec,
-    struct expr_t *expr,
+    struct expr_t const *expr,
     trace_time_t at) {
   // LTG doesn't really care about the best_plan_cost
   // Pack as many subplans as you can 
@@ -96,7 +96,7 @@ static risk_cost_t _exec_ltg_best_plan_at(
 }
 
 static struct exec_output_t *
-_exec_ltg_runner(struct exec_t *exec, struct expr_t *expr) {
+_exec_ltg_runner(struct exec_t *exec, struct expr_t const *expr) {
   struct exec_output_t *res = malloc(sizeof(struct exec_output_t));
   struct exec_result_t result = {0};
   res->result = array_create(sizeof(struct exec_result_t), 10);
@@ -119,7 +119,7 @@ _exec_ltg_runner(struct exec_t *exec, struct expr_t *expr) {
 }
 
 static void
-_exec_ltg_explain(struct exec_t *exec) {
+_exec_ltg_explain(struct exec_t const *exec) {
   text_block_txt(
        "LTG divides an upgrade plan over the available planning intervals.\n"
        "The length of the planning interval is set through the criteria-time\n"

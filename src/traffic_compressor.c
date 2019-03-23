@@ -13,7 +13,7 @@
 #include "khash.h"
 #define NET_MAX 64
 
-KHASH_MAP_INIT_STR(net_entity, char *);
+KHASH_MAP_INIT_STR(net_entity, char *)
 
 void usage(char const *arg) {
   warn("\n  usage: %s [TM PATH] [OUTPUT]\n\n"
@@ -46,7 +46,7 @@ uint32_t load_keys(char const *fdir) {
   char tor1[NET_MAX], tor2[NET_MAX], pod1[NET_MAX], pod2[NET_MAX];
   khash_t(net_entity) *h = kh_init(net_entity);
 
-  info("Loading keys.");
+  info_txt("Loading keys.");
   while (!feof(keys)) {
     fscanf(keys, "%s\t%s\t%s\t%s\t0\t0 ", tor1, tor2, pod1, pod2);
     insert_tor_pod(h, tor1, pod1);
@@ -66,7 +66,7 @@ uint32_t load_keys(char const *fdir) {
     free(val);
     free((char*) key);
   }
-  info("Finished loading keys.");
+  info_txt("Finished loading keys.");
 
   kh_destroy(net_entity, h);
   return tor_count;

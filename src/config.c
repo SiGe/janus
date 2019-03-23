@@ -119,7 +119,7 @@ static criteria_length_t risk_length_name_to_func(char const *name) {
   return 0;
 }
 
-static struct network_t *jupiter_string_to_network(struct expr_t *expr, char const *string) {
+static struct network_t *jupiter_string_to_network(struct expr_t const *expr, char const *string) {
   uint32_t core, pod, app, tpp; bw_t bw;
   int tot_read;
 
@@ -131,19 +131,22 @@ static struct network_t *jupiter_string_to_network(struct expr_t *expr, char con
     panic("Bad format specifier for jupiter: %s", string);
   }
 
-  expr->network_type = NET_JUPITER;
-  expr->num_cores = core;
-  expr->num_pods = pod;
-  expr->num_tors_per_pod = tpp;
-  expr->num_aggs_per_pod = app;
-
   //info("Creating a jupiter network with: %d, %d, %d, %d, %f", core, pod, app, tpp, bw);
 
   return (struct network_t *)jupiter_network_create(core, pod, app, tpp, bw);
 }
 
+static void _expr_network_set_variables(struct expr_t *expr) {
+  struct jupiter_network_t *jup = (struct jupiter_network_t *)expr->network;
+  expr->network_type = NET_JUPITER;
+  expr->num_cores = jup->core;
+  expr->num_pods = jup->pod;
+  expr->num_tors_per_pod = jup->tor;
+  expr->num_aggs_per_pod = jup->agg;
+}
 
-static struct network_t *expr_clone_network(struct expr_t *expr) {
+
+static struct network_t *expr_clone_network(struct expr_t const *expr) {
   return jupiter_string_to_network(expr, expr->network_string);
 }
 
@@ -243,8 +246,9 @@ static int config_handler(void *data,
     }
   } else if (MATCH("general", "network")) {
     info("Parsing jupiter config: %s", value);
-    expr->network = jupiter_string_to_network(expr, value);
     expr->network_string = strdup(value);
+    expr->network = jupiter_string_to_network(expr, value);
+    _expr_network_set_variables(expr);
   } else if (MATCH_SECTION("upgrade")) {
     if (MATCH_NAME("switch-group")) {
       jupiter_add_upgrade_group(value, &expr->upgrade_list);

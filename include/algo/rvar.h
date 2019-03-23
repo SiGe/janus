@@ -31,7 +31,8 @@ enum RVAR_TYPE {
 struct rvar_t {
   rvar_type_t     (*expected)  (struct rvar_t const*);
   rvar_type_t     (*percentile)(struct rvar_t const*, float);
-  struct rvar_t * (*convolve)  (struct rvar_t const*, struct rvar_t const*, rvar_type_t bucket_size);
+  struct rvar_t * (*convolve)  (struct rvar_t const*, 
+      struct rvar_t const*, rvar_type_t bucket_size);
   struct rvar_bucket_t * (*to_bucket) (struct rvar_t const*, rvar_type_t);
 
   void (*free)(struct rvar_t *);

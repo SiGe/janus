@@ -34,7 +34,7 @@
 // - Omid 1/25/2019
 static inline int
 _best_plan_criteria(
-    struct expr_t *expr,
+    struct expr_t const *expr,
     risk_cost_t p1_cost, unsigned p1_length, double p1_perf,
     risk_cost_t p2_cost, unsigned p2_length, double p2_perf) {
 
@@ -202,7 +202,7 @@ _plans_get(struct exec_t *exec, struct expr_t const *expr) {
 
 static struct rvar_t *
 _short_term_risk_using_long_term_cache(struct exec_t *exec, 
-    struct expr_t *expr, unsigned subplan, trace_time_t now) {
+    struct expr_t const *expr, unsigned subplan, trace_time_t now) {
   TO_PUG(exec);
   struct rvar_t *rv = pug->steady_cost[subplan];
   struct rvar_t *ret = rv->copy(rv);
@@ -210,7 +210,7 @@ _short_term_risk_using_long_term_cache(struct exec_t *exec,
 }
 
 static struct rvar_t *
-_short_term_risk_using_predictor(struct exec_t *exec, struct expr_t *expr,
+_short_term_risk_using_predictor(struct exec_t *exec, struct expr_t const *expr,
     unsigned subplan, trace_time_t now) {
   TO_PUG(exec);
   struct mop_t *mop = pug->iter->mop_for(pug->iter, subplan);
@@ -266,7 +266,7 @@ _short_term_risk_using_predictor(struct exec_t *exec, struct expr_t *expr,
 
 
 static risk_cost_t
-_term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr, 
+_term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr, 
     struct rvar_t *rvar, unsigned idx, unsigned *ret_plan_idx, unsigned *ret_plan_length,
     unsigned cur_step) {
   TO_PUG(exec);
@@ -346,7 +346,7 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t *expr,
 
 static int
 _exec_pug_find_best_next_subplan(struct exec_t *exec,
-    struct expr_t *expr, trace_time_t at, risk_cost_t *ret_cost,
+    struct expr_t const *expr, trace_time_t at, risk_cost_t *ret_cost,
     unsigned *ret_plan_len, unsigned *ret_plan, unsigned cur_step) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
@@ -471,8 +471,9 @@ _print_freedom_plan(struct exec_t *exec, struct expr_t *expr,
 }
 
 static risk_cost_t
-_exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at,
-    risk_cost_t *best_plan_cost, unsigned *best_plan_len, unsigned *best_plan_subplans) {
+_exec_pug_best_plan_at(struct exec_t *exec, struct expr_t const *expr,
+    trace_time_t at, risk_cost_t *best_plan_cost, unsigned *best_plan_len,
+    unsigned *best_plan_subplans) {
   TO_PUG(exec);
 
   int finished = 0;
@@ -507,7 +508,7 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t *expr, trace_time_t at
 }
 
 static struct mop_t **
-_exec_mops_for_create(struct exec_t *exec, struct expr_t *expr,
+_exec_mops_for_create(struct exec_t *exec, struct expr_t const *expr,
     unsigned *subplans, unsigned nsubplan) {
   TO_PUG(exec);
   struct mop_t **mops = malloc(sizeof(struct mop_t *) * nsubplan);
@@ -527,7 +528,7 @@ _exec_mops_for_create(struct exec_t *exec, struct expr_t *expr,
 }
 
 static void
-_exec_mops_for_free(struct exec_t *exec, struct expr_t *expr,
+_exec_mops_for_free(struct exec_t *exec, struct expr_t const *expr,
     struct mop_t **mops, unsigned nsubplan) {
   for (uint32_t i = 0; i < nsubplan; ++i) {
     mops[i]->free(mops[i]);
@@ -572,7 +573,7 @@ _exec_pug_validate(struct exec_t *exec, struct expr_t const *expr) {
 }
 
 static struct exec_output_t *
-_exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
+_exec_pug_runner(struct exec_t *exec, struct expr_t const *expr) {
   TO_PUG(exec);
 
   struct exec_output_t *res = malloc(sizeof(struct exec_output_t));
@@ -614,20 +615,20 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t *expr) {
 }
 
 static void
-_exec_pug_long_explain(struct exec_t *exec) {
+_exec_pug_long_explain(struct exec_t const *exec) {
   text_block_txt(
 			 "Pug long uses long-term traffic estimates to find plans.");
 }
 
 static void
-_exec_pug_short_and_long_explain(struct exec_t *exec) {
+_exec_pug_short_and_long_explain(struct exec_t const *exec) {
   text_block_txt(
       "Pug uses short-term + long-term traffic estimates to find plans.\n"
       "You can set the predictor that pug uses through the .ini file.");
 }
 
 static void
-prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+prepare_steady_cost_static(struct exec_t *exec, struct expr_t const *expr, trace_time_t time) {
   TO_PUG(exec);
   // We have already loaded the steady_packet_loss
   if (pug->steady_packet_loss != 0)
@@ -684,13 +685,13 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_
 }
 
 static void
-release_steady_cost_static(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+release_steady_cost_static(struct exec_t *exec, struct expr_t const *expr, trace_time_t time) {
   // Does nothing
   return;
 }
 
 static void
-prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t const *expr, trace_time_t time) {
   TO_PUG(exec);
 
   unsigned subplan_count = 0;
@@ -762,7 +763,7 @@ prepare_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time
 }
 
 static void
-release_steady_cost_dynamic(struct exec_t *exec, struct expr_t *expr, trace_time_t time) {
+release_steady_cost_dynamic(struct exec_t *exec, struct expr_t const *expr, trace_time_t time) {
   TO_PUG(exec);
   // Things are already released no need to do anything about them.
   if (!pug->steady_packet_loss)

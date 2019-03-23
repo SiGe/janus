@@ -688,9 +688,12 @@ void test_planner(void) {
     struct plan_iterator_t *iter = planner->iter((struct plan_t *)planner);
 
     int size = 0;
-    for (iter->begin(iter); !iter->end(iter); size = iter->next(iter)) {
-        info("%d\n", size);
+    for (iter->begin(iter); !iter->end(iter); iter->next(iter)) {
+      size += 1;
     }
+
+    // Number of plans for 5,5,5,5
+    assert(size == 62813);
 }
 
 void test_array() {
@@ -734,12 +737,12 @@ void test_twiddle() {
   int count = 0;
 
   for (t->begin(t); !t->end(t); t->next(t)) {
-    unsigned *tuple = t->tuple(t);
+    //unsigned *tuple = t->tuple(t);
     count ++;
     for (unsigned i = 0; i < t->tuple_size(t); ++i) {
-      printf("%d, ", tuple[i]);
+      //printf("%d, ", tuple[i]);
     }
-    printf("\n");
+    //printf("\n");
   }
   assert(count == 15);
 }
@@ -822,16 +825,16 @@ void test_independent_failure_probability() {
 }
 
 int main(int argc, char **argv) {
-  // TEST(jupiter_cluster);
-  // TEST(tm_read_load);
-  // TEST(tm_trace);
+  TEST(jupiter_cluster);
+  TEST(tm_read_load);
+  TEST(tm_trace);
   // TEST(ewma);
   TEST(group_state);
   TEST(dual_state);
   TEST(tri_state);
   // TEST(rvar_bucket);
-  // TEST(planner);
-  // TEST(array);
+  TEST(planner);
+  TEST(array);
   TEST(twiddle);
   //TEST(independent_failure_probability);
 

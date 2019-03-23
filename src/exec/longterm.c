@@ -21,7 +21,7 @@
 struct _rvar_cache_builder_parallel {
   struct traffic_matrix_trace_t *trace;
   uint32_t index;
-  struct expr_t *expr;
+  struct expr_t const *expr;
   struct freelist_repo_t *network_freelist;
   pthread_mutex_t *lock;
 };
@@ -68,7 +68,7 @@ static rvar_type_t _sim_network_for_trace_parallel(void *data) {
 }
 
 
-static void _build_rvar_cache_parallel(struct expr_t *expr) {
+static void _build_rvar_cache_parallel(struct expr_t const *expr) {
   struct jupiter_switch_plan_enumerator_t *en = 
     jupiter_switch_plan_enumerator_create(
         expr->upgrade_list.num_switches,
@@ -170,7 +170,7 @@ static void _build_rvar_cache_parallel(struct expr_t *expr) {
 }
 
 static struct exec_output_t*
-_exec_longterm_runner(struct exec_t *exec, struct expr_t *expr) {
+_exec_longterm_runner(struct exec_t *exec, struct expr_t const *expr) {
   _build_rvar_cache_parallel(expr);
   return 0;
 }
@@ -191,7 +191,7 @@ _exec_longterm_validate(struct exec_t *exec, struct expr_t const *expr) {
 }
 
 static void
-_exec_longterm_explain(struct exec_t *exec) {
+_exec_longterm_explain(struct exec_t const *exec) {
   text_block_txt("Longterm generates cache files for pug and lpug planners.\n");
 }
 
