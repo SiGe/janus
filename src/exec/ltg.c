@@ -10,11 +10,7 @@
 
 #define TO_LTG(e) struct exec_ltg_t *ltg = (struct exec_ltg_t *)(e);
 
-struct mop_t *_ltg_next_mop(
-    struct exec_t *exec, struct expr_t *expr) {
-  return 0;
-}
-
+/* Comparison function for sorting critical paths from longest to shortest */
 static int _cp_cmp(void const *v1, void const *v2) {
   struct exec_critical_path_t *t1 = (struct exec_critical_path_t *)v1;
   struct exec_critical_path_t *t2 = (struct exec_critical_path_t *)v2;
@@ -36,12 +32,6 @@ _exec_ltg_validate(struct exec_t *exec, struct expr_t const *expr) {
   if (ltg->trace == 0)
     panic("Couldn't load the traffic matrix file: %s", expr->traffic_test);
 
-  /*
-  ltg->steady_packet_loss = exec_rvar_cache_load(expr, &subplan_count);
-  if (ltg->steady_packet_loss == 0)
-    panic_txt("Couldn't load the long-term RVAR cache.");
-  */
-
   if (expr->criteria_time == 0)
     panic_txt("Time criteria not set.");
 
@@ -51,27 +41,29 @@ _exec_ltg_validate(struct exec_t *exec, struct expr_t const *expr) {
   ltg->plan = exec_critical_path_analysis(exec, expr, iter, iter->length(iter));
 }
 
-/* Creates fixed plans by distributing the upgrade as evenly as it can over the
+/* Creates fixed plans by distributing the change as evenly as it can over the
  * upgrade interval. */
 static risk_cost_t _exec_ltg_best_plan_at(
     struct exec_t *exec,
     struct expr_t const *expr,
     trace_time_t at) {
-  // LTG doesn't really care about the best_plan_cost
-  // Pack as many subplans as you can 
-  TO_LTG(exec);
 
+  TO_LTG(exec);
   struct exec_critical_path_stats_t *plan = ltg->plan;
-  qsort(plan->paths, plan->num_paths, sizeof(struct exec_critical_path_t), _cp_cmp);
+  /* Sort the pods/core change so that the longest critical path comes first */
+  /* TODO: This is useless in the current iteration of pug, you just spread the
+   * change as evenly as possible so the critical path analysis is close to
+   * useless */
+  // qsort(plan->paths, plan->num_paths, sizeof(struct exec_critical_path_t), _cp_cmp); */
 
   struct jupiter_located_switch_t **sws = malloc(
       sizeof(struct jupiter_located_switch_t *) * expr->nlocated_switches);
 
   unsigned nsteps = expr->criteria_time->steps;
-  struct mop_t **mops = malloc(
-      sizeof(struct mop_t *) * nsteps);
+  struct mop_t **mops = malloc(sizeof(struct mop_t *) * nsteps);
 
-  // TODO: This should somehow use expr->criteria_time->acceptable
+  /* TODO: This should somehow use expr->criteria_time->acceptable but right now
+   * it relies on criteria_time->steps */
   for (uint32_t i = 0; i < nsteps; ++i) {
     unsigned idx = 0;
     for (uint32_t j = 0; j < plan->num_paths; ++j) {

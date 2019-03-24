@@ -17,10 +17,13 @@
  * topology during each stage.  This maximizes the residual capcaity for JUPITER
  * and JUPITER only.  I have not verified nor tested this for other topologies,
  * and I'd leave this part to future work.
+ *
+ * XXX: We just have to make sure that n divides the number of switches that are
+ * getting upgraded in each pod/core so that we are fair to LTG.
  */
 struct exec_ltg_t {
-  struct exec_t;                      /* LTG is an executor */
-  struct exec_critical_path_stats_t *plan;
+  struct exec_t;                            /* LTG is an executor */
+  struct exec_critical_path_stats_t *plan;  /* Critical path information for a change plan */
 };
 
 struct exec_t *exec_ltg_create(void);
