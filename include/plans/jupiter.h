@@ -5,18 +5,26 @@
 #include "plan.h"
 
 /* Jupiter network MOP planner  */
+/* TODO: Debatable whether I should merge MOp with switch_id_t methods in
+ * networks/jupiter.h.
+ *
+ * - Omid 3/29/2019 */
 enum JUPITER_SWITCH_TYPE {
   JST_CORE, JST_AGG, JST_TOR
 };
 
 /* Properties that we care about in a jupiter topology for iterating through the plans are:
- * The color, the pod, and the type of the switch.
- */
+ * The color, the pod, and the type of the switch. */
 struct jupiter_located_switch_t {
-  uint32_t                 sid;
-  enum JUPITER_SWITCH_TYPE type;
-  uint16_t                 color;  // For traffic similarity
-  uint16_t                 pod;    // Pod number for this switch
+  uint32_t                 sid;    /* Switch ID ... this is MOP specific and
+                                      does not map to switch_id_t in
+                                      networks/jupiter.h */
+  enum JUPITER_SWITCH_TYPE type;   /* Type of the switch */
+  uint16_t                 color;  /* Color of the switch---this should be
+                                      assigned based on the routing algorithm
+                                      and traffic volume (at the edge, i.e.,
+                                      ToRs) */
+  uint16_t                 pod;    /* Pod number for this switch */
 };
 
 struct jupiter_class_t {

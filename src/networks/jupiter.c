@@ -187,8 +187,6 @@ jupiter_network_create(
   ret->link_bw  = link_bw;
 
   /* Set the functions */
-  ret->apply           = jupiter_apply_mops;
-  ret->step            = jupiter_step;
   ret->set_traffic     = jupiter_set_traffic;
   ret->get_traffic     = jupiter_get_traffic;
   ret->get_dataplane   = jupiter_get_dataplane;
@@ -206,20 +204,6 @@ jupiter_network_create(
 
   /* Set functions */
   return (struct network_t *)ret;
-}
-
-int jupiter_apply_mops(struct network_t *net, struct mop_t *mop) {
-  TO_J(net);
-  (void)(jup);
-
-  return 0;
-}
-
-int jupiter_step(struct network_t *net) {
-  TO_J(net);
-  (void)(jup);
-
-  return 0;
 }
 
 void jupiter_drain_switch(struct network_t *net, switch_id_t id) {

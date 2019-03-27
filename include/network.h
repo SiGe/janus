@@ -17,12 +17,6 @@ typedef int (*get_traffic_t) (struct network_t *, struct traffic_matrix_t const*
 typedef int (*get_dataplane_t) (struct network_t *, struct dataplane_t *);
 
 struct network_t {
-  /* Apply a list of mops to the network */
-  apply_mops_t            apply;
-
-  /* Run a step of the network */
-  step_t                  step;
-
   /* Set the traffic of the network (for that specific step) */
   set_traffic_t           set_traffic;
 

@@ -54,6 +54,11 @@ struct stats_t {
   bw_t min, max, mean, sum;
 };
 
+/* TODO: I can probably change this to blocks.  mop_block_stats_t and
+ * mop_block_id_t.
+ *
+ * - Omid 3/26/2019
+ * */
 struct traffic_stats_t {
   struct stats_t in;
   struct stats_t out;
@@ -72,28 +77,44 @@ struct traffic_stats_t {
 
 #define EXEC_EWMA_PREFIX "traffic"
 
+/* Loads the rvar cache (long-term data) specified in the expr */
 struct rvar_t **exec_rvar_cache_load(struct expr_t const *expr, unsigned *size);
+
+/* Loads the long-term data cache, built using -a long-term, specified in the
+ * expr.  The cached data is in-order so i'th entry maps to the i'th traffic
+ * matrix in the trace.  */
 struct array_t **exec_rvar_cache_load_into_array(struct expr_t const *expr, unsigned *count);
 
 /* Returns or builds the EWMA cache for the expr_t. */
+/* TODO: Useless for now.  The EWMA predictor is pretty lackluster */
 struct predictor_t *exec_ewma_cache_build_or_load(struct exec_t *, struct expr_t const *expr);
+
+/* Load the perfect predictor data into the cache. */
+/* TODO: Does nothing right now, maybe I can remove it? */
 struct predictor_t *exec_perfect_cache_build_or_load(struct exec_t *, struct expr_t const *expr);
+
+/* Creates a predictor depending on the value passed.
+ * TODO: This is different than the way we create/load the rvar_cache.  Is this
+ * really ok?  This accepts a string (which should be available? in expr) and
+ * outputs a predictor.  Whereas the rvar_cache gets the string from the expr
+ * */
 struct predictor_t *exec_predictor_create(struct exec_t *exec, struct expr_t const *expr, char const *value);
 
 /* Returns the cost of a plan 
  *
- * @expr_t: the setting/config of the experiment.
- * @mops: the list of management operations, aka, the plan.
- * @nmops: the number of mops,
- * @start: the time of the start of the experiment.
+ * expr_t: the setting/config of the experiment.
+ * mops: the list of management operations, aka, the plan.
+ * nmops: the number of mops,
+ * start: the time of the start of the experiment.
  *
  * Should also probably pass other criteria to this to ensure we are within the
- * bound.
+ * criteria bounds?
  */
 risk_cost_t exec_plan_cost(
     struct exec_t *exec, struct expr_t const *expr, struct mop_t **mops,
     uint32_t nmops, trace_time_t start);
 
+/* Returns the MLU of the network for each interval */
 rvar_type_t *
 exec_simulate_mlu(
     struct exec_t *exec,
@@ -101,6 +122,8 @@ exec_simulate_mlu(
     struct traffic_matrix_t **tms,
     uint32_t trace_length);
 
+/* Simulates the network and uses the dataplane_count_violations to count the
+ * number of violations in the network in each interval */
 rvar_type_t *
 exec_simulate_ordered(
     struct exec_t *exec,
@@ -109,6 +132,7 @@ exec_simulate_ordered(
     struct traffic_matrix_t **tms,
     uint32_t trace_length);
 
+/* Similar to simulate_ordered but returns a random variable */
 struct rvar_t *
 exec_simulate(
     struct exec_t *exec,
@@ -118,7 +142,10 @@ exec_simulate(
     uint32_t trace_length);
 
 
+/* Returns traffic stats of each pods */
 // TODO: This requires the pod information, that's why we are passing expr.
+// Probably the more interesting fact about the stats is to return the BLOCK
+// information, not core and pods.
 void exec_traffic_stats(
     struct exec_t const *exec,
     struct expr_t const *expr,
@@ -156,6 +183,9 @@ struct exec_critical_path_t {
 
 struct exec_critical_path_stats_t {
   struct exec_critical_path_t *paths;
+
+  /* Number of paths, aka, number of pods/cores getting upgraded in jupiter
+   * topology */
   unsigned num_paths;
 };
 
