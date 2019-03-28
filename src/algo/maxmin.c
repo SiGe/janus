@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "dataplane.h"
-#include "util/error.h"
 #include "util/log.h"
 
 #include "algo/maxmin.h"

@@ -336,26 +336,6 @@ parse_action(char const *arg) {
   return RUN_UNKNOWN;
 }
 
-static void
-parse_duration(char const *arg, uint32_t *start, uint32_t *end) {
-  char *ptr = strdup(arg);
-  char *sbegin = ptr;
-
-  while (*ptr != DURATION_SEPARATOR && *ptr != 0)
-    ptr++;
-
-  if (*ptr == 0)
-    panic("Error parsing the duration: %s", arg);
-  *ptr = 0;
-  char *send = ptr + 1;
-
-  *start = strtoul(sbegin, 0, 0);
-  *end = strtoul(send, 0, 0);
-  free(sbegin);
-
-  info("Parsing duration: %d to %d", *start, *end);
-}
-
 static int
 cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
   int opt = 0;
@@ -365,11 +345,6 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
     switch (opt) {
       case 'a':
         expr->action = parse_action(optarg);
-        break;
-      case 'd':
-        parse_duration(optarg, 
-            &expr->cache.subplan_start,
-            &expr->cache.subplan_end);
         break;
       case 'x':
         expr->explain = 1;

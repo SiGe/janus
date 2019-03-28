@@ -97,11 +97,13 @@ static void _build_rvar_cache_parallel(struct expr_t const *expr) {
   }
 
   /* Get the range of subplans we are going through */
-  unsigned subplan_start = MIN(subplan_count-1, expr->cache.subplan_start);
-  unsigned subplan_end = MIN(subplan_count-1, expr->cache.subplan_end);
-  if (subplan_start == subplan_end && subplan_end == 0) {
-    subplan_end = subplan_count - 1;
-  }
+  // unsigned subplan_start = MIN(subplan_count-1, expr->cache.subplan_start);
+  //unsigned subplan_end = MIN(subplan_count-1, expr->cache.subplan_end);
+  // if (subplan_start == subplan_end && subplan_end == 0) {
+  // subplan_end = subplan_count - 1;
+  //}
+  unsigned subplan_start = 0;
+  unsigned subplan_end = subplan_count - 1;
 
   for (unsigned i = subplan_start; i <= subplan_end; ++i) {
     // Apply the mop on the network

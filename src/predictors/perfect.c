@@ -75,10 +75,6 @@ predictor_perfect_predict(struct predictor_t *pre, trace_time_t s, trace_time_t 
   return (struct predictor_iterator_t *)iter;
 }
 
-void predictor_perfect_save(struct predictor_t *predictor) {
-  (void)predictor;
-}
-
 void predictor_perfect_free(struct predictor_t *predictor) {
   TO_P(predictor);
   free(pp);
@@ -101,10 +97,3 @@ struct predictor_perfect_t *predictor_perfect_load(struct traffic_matrix_trace_t
 
   return perfect;
 }
-
-struct predictor_perfect_t *predictor_perfect_create(char const *name) {
-  panic_txt("There is no need to create a perfect predictor. "
-            "Just use the _load functions.");
-  return 0;
-}
-

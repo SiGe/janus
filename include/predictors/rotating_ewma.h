@@ -3,15 +3,21 @@
 
 #include "predictor.h"
 
+/* TODO: Fix the EWMA implementation.  Right now EWMA calculation is messed up
+ * (it is correct under the framework that it's defined) however it does not
+ * match the previous implementation the framework.
+ *
+ * - Omid 03/27/2019
+ * */
 struct predictor_rotating_ewma_iterator_t {
-  struct predictor_iterator_t;
+  struct predictor_iterator_t; /* ewma_iterator is a predictor iterator */
 
   // Book keeping
-  trace_time_t pos;
-  struct traffic_matrix_t *tm_now;
-  struct traffic_matrix_trace_iter_t *iter;
+  trace_time_t pos; /* Internal variable keeping track of number of samples returned so far. */
+  struct traffic_matrix_t *tm_now; /* Keeps a copy of the last TM observed */
+  struct traffic_matrix_trace_iter_t *iter; /* A "sample" */
 
-  unsigned num_samples;
+  unsigned num_samples; /* Number of samples requested */
 };
 
 struct predictor_rotating_ewma_t {

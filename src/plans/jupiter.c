@@ -8,6 +8,10 @@
 #include "plan.h"
 #include "plans/jupiter.h"
 
+ 
+static struct plan_iterator_t* jupiter_switch_plan_enumerator_iterator(
+    struct plan_t *planner);
+
 static struct jupiter_group_t *
 _jupiter_get_group_for(struct jupiter_multigroup_t *mg,
     struct jupiter_located_switch_t *sw) {
@@ -47,7 +51,6 @@ _jupiter_build_groups(struct jupiter_switch_plan_enumerator_t *planner) {
       struct jupiter_class_t *class = &group->classes[group->nclasses-1];
       class->nswitches = 0;
       class->switches = 0;
-      class->color = sw->color;
       class->pod = sw->pod;
       class->type = sw->type;
       _jupiter_add_switch_to_class(class, sw);
@@ -467,7 +470,7 @@ struct jupiter_switch_plan_enumerator_iterator_t *_sup_init(
   return iter;
 }
 
-struct plan_iterator_t*
+static struct plan_iterator_t*
 jupiter_switch_plan_enumerator_iterator(
     struct plan_t *planner) {
   return (struct plan_iterator_t *)_sup_init(

@@ -43,12 +43,10 @@ int dir_exists(char const *dname) {
   return stat(dname, &st) != -1;
 }
 
-int dir_mk(char const *dname) {
-  struct stat st = {0};
-  if (stat(dname, &st) == -1) {
-    mkdir(dname, 0700);
-  }
-  return 1;
+void dir_mk(char const *dname) {
+  if (dir_exists(dname))
+    return;
+  mkdir(dname, 0700);
 }
 
 uint32_t dir_num_files(char const *dname) {
