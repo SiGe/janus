@@ -40,35 +40,24 @@ struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *
     /* If bucket, create a new bucket variable where:
      * low = min(cost) and num_buckets = (max(cost) - min(cost))/100?? */
     struct rvar_bucket_t *rs = (struct rvar_bucket_t *)rvar;
-    rvar_type_t low = INFINITY;
-    rvar_type_t high = -INFINITY;
-    rvar_type_t bucket = rs->low;
 
+    struct array_t *arr = array_create(sizeof(struct bucket_t), rs->nbuckets);
+    struct bucket_t bucket;
+    struct bucket_t *ptr = rs->buckets;
     for (uint32_t i = 0; i < rs->nbuckets; ++i) {
-      if (rs->buckets[i] != 0) {
-        risk_cost_t bucket_cost =  f->cost(f, bucket);
-        high = MAX(high, bucket_cost);
-        low = MIN(low, bucket_cost);
-        bucket += rs->bucket_size;
-      }
+      bucket.val = f->cost(f, ptr->val);
+      bucket.prob = ptr->prob;
+      array_append(arr, &bucket);
+      ptr++;
     }
 
-    if (low == high)
-      high = low + 1;
+    struct bucket_t *buckets = 0;
+    array_transfer_ownership(arr, (void**)&buckets);
+    array_free(arr);
 
-    unsigned nbuckets = ceil((high - low) / bucket_size);
-    ret = rvar_bucket_create(low, bucket_size, nbuckets);
-    bucket = rs->low;
-    for (uint32_t i = 0; i < rs->nbuckets; ++i) {
-      if (rs->buckets[i] != 0) {
-        risk_cost_t bucket_cost =  f->cost(f, bucket);
-        int bidx = (int)((bucket_cost - low) / bucket_size);
-        ((struct rvar_bucket_t *)ret)->buckets[bidx] += rs->buckets[i];
-        bucket += rs->bucket_size;
-      }
-    }
-
+    ret = rvar_from_buckets(buckets, rs->nbuckets, bucket_size);
   }
+
   return ret;
 }
 

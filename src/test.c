@@ -618,14 +618,19 @@ rvar_type_t _mc_run(void *data) {
 }
 
 void test_rvar_bucket(void) {
+  #define EPS 1e-3
+  #define AEQ(q, z) (abs(q - z) < EPS)
+
   int index = 0;
   struct rvar_t *r = (struct rvar_t*)monte_carlo_rvar(_mc_run, 2, &index);
 
-  info_txt("Convolve RR");
-  struct rvar_t *rr = r->convolve(r, r, 1);
+  info("rr expected: %lf", r->expected(r));
 
-  #define EPS 1e-3
-  #define AEQ(q, z) (abs(q - z) < EPS)
+  info_txt("Convolve RR");
+  struct rvar_t *rb = (struct rvar_t *)r->to_bucket(r, 1);
+  assert(AEQ(rb->expected(rb), 0.5));
+
+  struct rvar_t *rr = r->convolve(r, r, 1);
 
   assert(AEQ(rr->expected(rr), 1));
   assert(AEQ(rr->percentile(rr, 0)   , 0));
@@ -838,12 +843,12 @@ int main(int argc, char **argv) {
   //TEST(group_state);
   //TEST(dual_state);
   //TEST(tri_state);
-  //TEST(rvar_bucket);
+  TEST(rvar_bucket);
   //TEST(planner);
   //TEST(array);
   //TEST(twiddle);
   //TEST(independent_failure_probability);
-  TEST(choose);
+  //TEST(choose);
 
   //test_tri_state();
   return 0;

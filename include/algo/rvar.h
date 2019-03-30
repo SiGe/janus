@@ -63,13 +63,6 @@ struct rvar_t {
   enum RVAR_TYPE _type;
 };
 
-/* Create a bucketized random variable with the specified bucket size,
- * low_value and initial number of buckets. */
-struct rvar_t *rvar_bucket_create(rvar_type_t, rvar_type_t, uint32_t);
-
-/* Create a sampled random variable */
-struct rvar_t *rvar_sample_create(unsigned);
-
 /* A random variable that uses "sampled" values for its calculations. */
 struct rvar_sample_t {
   struct rvar_t;
@@ -78,22 +71,30 @@ struct rvar_sample_t {
   rvar_type_t *vals;
 };
 
-/* A random variable that keeps a histogram of the data for its calculations */
-struct rvar_bucket_t {
-  struct rvar_t;
-  rvar_type_t bucket_size;
-  rvar_type_t low;
-
-  uint32_t    nbuckets;
-  rvar_type_t *buckets;
+struct bucket_t {
+  rvar_type_t val;
+  rvar_type_t prob;
 };
 
+/* A random variable that keeps a histogram of the data for its calculations */
+struct rvar_bucket_t {
+  struct rvar_t;            /* Bucketed rvar is a rvar_t */
+  struct bucket_t *buckets; /* Histogram buckets: the buckets are all sorted */
+  unsigned nbuckets;        /* Number of buckets */
+  rvar_type_t bucket_size;  /* Size of each bucket */
+};
 
 /* Deserialize the string into a random variable */
 struct rvar_t *rvar_deserialize(char const *data);
 struct rvar_t *rvar_sample_create_with_vals(rvar_type_t *vals, uint32_t nvals);
 struct rvar_t *rvar_zero(void);
 struct rvar_t *rvar_fixed(rvar_type_t value);
+
+/* Create a sampled random variable */
+struct rvar_t *rvar_sample_create(unsigned);
+
+/* Create an empty bucketized random variable---typically shouldn't be needed or used */
+struct rvar_t *rvar_bucket_create(rvar_type_t);
 
 /* Combines a bunch of rvars with corresponding distributions.
  *
@@ -105,6 +106,12 @@ struct rvar_t *rvar_compose_with_distributions(
     struct rvar_t **rvars,
     double *dists,
     unsigned len);
+
+/* Creates a new rvar from a list of buckets */
+struct rvar_t *rvar_from_buckets(
+    struct bucket_t *buckets,
+    unsigned nbuckets,
+    rvar_type_t bucket_size);
 
 //rvar_bucket_t *rvar_to_bucket(struct
 

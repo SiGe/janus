@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "algo/array.h"
 #include "gnuplot_i/gnuplot_i.h"
 #include "thpool/thpool.h"
 #include "util/common.h"
@@ -55,41 +56,36 @@ static struct rvar_t *_sample_copy(struct rvar_t const *rvar) {
 
 static struct rvar_t *_bucket_copy(struct rvar_t const *rvar) {
   struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvar;
-// Create a bucketized RVar value
-  struct rvar_bucket_t *ret = (struct rvar_bucket_t *)rvar_bucket_create(rv->low, rv->bucket_size, rv->nbuckets);
-  size_t size = sizeof(rvar_type_t) * rv->nbuckets;
+
+  // Create the copy
+  struct rvar_bucket_t *ret = (struct rvar_bucket_t *)rvar_bucket_create(rv->bucket_size);
+  size_t size = sizeof(struct bucket_t) * rv->nbuckets;
+  ret->buckets = malloc(size);
+  ret->nbuckets = rv->nbuckets;
   memcpy(ret->buckets, rv->buckets, size);
   return (struct rvar_t *)ret;
 }
 
 static char *_bucket_serialize(struct rvar_t *rvar, size_t *size) {
   struct rvar_bucket_t *rv = (struct rvar_bucket_t*)rvar;
-  *size = HEADER_SIZE + sizeof(rvar_type_t) /* bucket_size */
+  *size = HEADER_SIZE + 
     + sizeof(uint32_t) /* nbuckets */
-    + sizeof(rvar_type_t) /* low */
-    + rv->nbuckets * sizeof(rvar_type_t);
+    + sizeof(rvar_type_t) /* bucket_size */
+    + (rv->nbuckets * sizeof(struct bucket_t)) /* buckets */;
 
   char *buffer = malloc(*size);
   char *ptr = _rvar_header(rv->_type, buffer);
 
-  // save bucket_size
-  *(rvar_type_t*)ptr = rv->bucket_size;
-  ptr += sizeof(rvar_type_t);
-
-  // save nbuckets
+  // Save nbuckets
   *(uint32_t*)ptr = rv->nbuckets;
   ptr += sizeof(uint32_t);
 
-  // save nbuckets
-  *(rvar_type_t*)ptr = rv->low;
+  // Save bucket_size
+  *(rvar_type_t*)ptr = rv->bucket_size;
   ptr += sizeof(rvar_type_t);
 
-
-  for (uint32_t i = 0; i < rv->nbuckets ; ++i) {
-    // save data
-    *(rvar_type_t *)ptr = rv->buckets[i];
-    ptr += sizeof(rvar_type_t);
-  }
+  // Copy the buckets
+  memcpy(ptr, rv->buckets, sizeof(struct bucket_t) * rv->nbuckets);
 
   return buffer;
 }
@@ -174,23 +170,43 @@ static struct rvar_bucket_t *
 _sample_to_bucket(struct rvar_t const *rs, rvar_type_t bucket_size) {
     struct rvar_sample_t *r = (struct rvar_sample_t *)rs;
 
-    int num_buckets = (int)(ceil((r->high - r->low)/bucket_size)) + 1;
-    struct rvar_t *ret = rvar_bucket_create(r->low, bucket_size, (unsigned)num_buckets);
-    struct rvar_bucket_t *rb = (struct rvar_bucket_t *)ret;
+    // Maximum number of buckets required
+    unsigned max_num_buckets = (unsigned)(ceil((r->high - r->low)/bucket_size)) + 1;
+    struct array_t *buckets = array_create(sizeof(struct bucket_t), max_num_buckets);
+
+    struct bucket_t bucket;
+    bucket.prob = 0; bucket.val = r->low;
+    unsigned num_samples = r->num_samples;
 
     rvar_type_t *val = r->vals;
-    rvar_type_t low = r->low;
-
     for (int i = 0; i < r->num_samples; ++i) {
-      rb->buckets[(int)((*val - low)/bucket_size)]++;
+      if (*val >= bucket.val + bucket_size) {
+        bucket.prob /= (double)(num_samples);
+        array_append(buckets, &bucket);
+        bucket.prob = 1; bucket.val = *val;
+      } else {
+        bucket.prob += 1;
+      }
+
       val++;
     }
 
-    for (int i = 0; i < num_buckets; ++i) {
-        rb->buckets[i] /= r->num_samples;
+    // Append the last bit to the bucket
+    if (bucket.prob != 0) {
+      bucket.prob /= (double)(num_samples);
+      array_append(buckets, &bucket);
     }
 
-    return rb;
+    struct rvar_bucket_t *ret = (struct rvar_bucket_t *)rvar_bucket_create(bucket_size);
+    ret->nbuckets = array_size(buckets);
+
+    // Transfer ownership of buckets and return
+    array_transfer_ownership(buckets, (void**)(&ret->buckets));
+    array_free(buckets);
+
+    // Resize the bucket size
+    ret->buckets = realloc(ret->buckets, sizeof(struct bucket_t) * ret->nbuckets);
+    return ret;
 }
 
 
@@ -210,20 +226,13 @@ struct rvar_t *_sample_convolve(struct rvar_t const *left, struct rvar_t const *
     if (right->_type == SAMPLED)
         rr = right->to_bucket(right, bucket_size);
     struct rvar_bucket_t *ll = left->to_bucket(left, bucket_size);
-    struct rvar_bucket_t *output = (struct rvar_bucket_t *)rvar_bucket_create(
-            ll->low + rr->low, bucket_size, (ll->nbuckets + rr->nbuckets - 1));
-
-    // We are gonna have an rvar_bucket_t of size ll->nbuckets + rr->nbuckets - 1
-    for (uint32_t i = 0; i < ll->nbuckets; ++i) {
-        double ll_pdf = ll->buckets[i];
-        for (uint32_t j = 0; j < rr->nbuckets; ++j) {
-            //TODO: Error can accumulate here ... need to do it another way,
-            //e.g., keep integers and round up/down at some point
-            output->buckets[i + j] += ll_pdf * rr->buckets[j];
-        }
-    }
+    struct rvar_t *ret = ll->convolve(
+        (struct rvar_t const *)ll, 
+        (struct rvar_t const *)rr, 
+        bucket_size);
     ll->free((struct rvar_t *)ll);
-    return (struct rvar_t *)output;
+    return ret;
+
 }
 
 static int
@@ -293,26 +302,32 @@ _bucket_percentile(struct rvar_t const *rs, float percentile) {
     rvar_type_t cdf = 0;
 
     for (uint32_t i = 0; i < r->nbuckets; ++i) {
-        rvar_type_t pdf = r->buckets[i];
+        struct bucket_t *bucket = &r->buckets[i];
+        rvar_type_t pdf = bucket->prob;
         if (cdf + pdf > percentile) {
             // TODO: can scale the return value to consider what portion of
             // percentile comes from i and what portion comes from i+1
-            return (r->low + r->bucket_size * i + ((percentile - cdf)) / pdf * r->bucket_size);
+            // Interpolate between bucket->val and bucket->val + bucket_size
+            rvar_type_t low = bucket->val;
+            // info("Low is: %lf, %lf, %lf, %lf, %lf", low, (percentile - cdf)/pdf, cdf, percentile, pdf);
+            return low + r->bucket_size * (percentile - cdf) / pdf;
         }
         cdf += pdf;
     }
-    return r->low + r->bucket_size * r->nbuckets;
+
+    // Just return the last bucket's end as the result
+    return r->bucket_size + r->buckets[r->nbuckets-1].val;
 }
 
 static rvar_type_t
 _bucket_expected(struct rvar_t const *rs) {
     struct rvar_bucket_t *r = (struct rvar_bucket_t *)rs;
     rvar_type_t exp = 0;
-    rvar_type_t delta = r->low;
+    struct bucket_t *bucket = r->buckets;
 
     for (uint32_t i = 0; i < r->nbuckets; ++i) {
-        exp += r->buckets[i] * delta;
-        delta += r->bucket_size;
+        exp += bucket->prob * bucket->val;
+        bucket += 1;
     }
 
     return exp;
@@ -326,9 +341,12 @@ static void _bucket_plot(struct rvar_t const *rs) {
     panic_txt("Couldn't create the file for plotting :(");
 
   char line[1024] = {0};
-  rvar_type_t x = buck->low;
+  // TODO: Not sure what this is doing.  Have to fix the plotting later on.
+  //
+  // - Omid 03/29/2019
+  rvar_type_t x = buck->buckets->val;
   for (int i = 0; i < buck->nbuckets; ++i) {
-    snprintf(line, 1024, "%lf\t%lf\n", (double)buck->buckets[i]/(double)buck->nbuckets, x);
+    snprintf(line, 1024, "%lf\t%lf\n", (double)buck->buckets[i].val/(double)buck->nbuckets, x);
     write(fd, line, strlen(line));
     x += buck->bucket_size;
   }
@@ -347,7 +365,9 @@ static void _bucket_free(struct rvar_t *rs) {
     struct rvar_bucket_t *r = (struct rvar_bucket_t *)rs;
     if (!r) return;
 
-    free(r->buckets);
+    if (r->buckets)
+      free(r->buckets);
+
     free(r);
 }
 
@@ -357,28 +377,91 @@ static struct rvar_t *_bucket_convolve(struct rvar_t const *left, struct rvar_t 
     if (right->_type == SAMPLED)
         rr = right->to_bucket(right, bucket_size);
     struct rvar_bucket_t const *ll = (struct rvar_bucket_t *)left;
-    struct rvar_bucket_t *output = (struct rvar_bucket_t *)rvar_bucket_create(
-            ll->low + rr->low, bucket_size, (ll->nbuckets + rr->nbuckets - 1));
+
+    struct array_t *arr = array_create(
+        sizeof(struct bucket_t), 
+        ll->nbuckets + 10 /* Deal with close to empty samples */
+        );
 
     // We are gonna have an rvar_bucket_t of size ll->nbuckets + rr->nbuckets - 1
-    for (uint32_t i = 0; i < ll->nbuckets; ++i) {
-        double ll_pdf = ll->buckets[i];
-        for (uint32_t j = 0; j < rr->nbuckets; ++j) {
-            //TODO: Error can accumulate here ... need to do it another way,
-            //e.g., keep integers and round up/down at some point
-            output->buckets[i + j] += ll_pdf * rr->buckets[j];
-        }
+    struct bucket_t bucket;
+
+    for (unsigned i = 0; i < ll->nbuckets; ++i) {
+      for (unsigned j = 0; j < rr->nbuckets; ++j) {
+        bucket.val = ll->buckets[i].val + rr->buckets[j].val;
+        bucket.prob = ll->buckets[i].prob * rr->buckets[j].prob;
+        array_append(arr, &bucket);
+      }
     }
+
+    struct bucket_t *buckets = 0;
+    array_transfer_ownership(arr, (void**)&buckets);
+    array_free(arr);
+
+    return rvar_from_buckets(buckets, ll->nbuckets * rr->nbuckets, bucket_size);
+
+    /* This clearly is incorrect ... */
+    /*
+    unsigned lidx = 0, ridx = 0;
+    struct bucket_t *lb = ll->buckets, *lr = rr->buckets;
+
+    while (lidx < ll->nbuckets && ridx < rr->nbuckets) {
+      bucket.val  = lb->val + lr->val;
+      bucket.prob = lb->prob * lr->prob;
+      array_append(buckets, &bucket);
+
+      if (lidx + 1 >= ll->nbuckets) {
+        // Finished with the left side
+        ridx += 1; lr++;
+        break;
+      }
+
+      if (ridx + 1 >= rr->nbuckets) {
+        lidx += 1; lb++;
+        break;
+      }
+
+      // Choose to either increment left or right hand side
+      if ((lb + 1)->val + lr->val < lb->val + (lr + 1)->val) {
+        lb += 1; lidx += 1;
+      } else {
+        lr += 1; ridx += 1;
+      }
+    }
+
+    while (lidx < ll->nbuckets) {
+      bucket.val  = lb->val + lr->val;
+      bucket.prob = lb->prob * lr->prob;
+      array_append(buckets, &bucket);
+      lidx += 1;
+      lb += 1;
+    }
+
+    while (ridx < rr->nbuckets) {
+      bucket.val  = lb->val + lr->val;
+      bucket.prob = lb->prob * lr->prob;
+      array_append(buckets, &bucket);
+      ridx += 1;
+      lr += 1;
+    }
+
+    struct rvar_bucket_t *output = (struct rvar_bucket_t *)rvar_bucket_create(bucket_size);
+    output->nbuckets = array_size(buckets);
+    array_transfer_ownership(buckets, (void**)&output->buckets);
+    array_free(buckets);
+
+    // Resize the bucket array appropriately
+    output->buckets = realloc(output->buckets, sizeof(struct bucket_t) * output->nbuckets);
     return (struct rvar_t *)output;
+    */
 }
 
-struct rvar_t *rvar_bucket_create(rvar_type_t low, rvar_type_t bucket_size, uint32_t nbuckets) {
+struct rvar_t *rvar_bucket_create(rvar_type_t bucket_size) {
     struct rvar_bucket_t *output = malloc(sizeof(struct rvar_bucket_t));
-    output->buckets = malloc(sizeof(rvar_type_t) * nbuckets);
-    memset(output->buckets, 0, sizeof(rvar_type_t) * nbuckets);
-    output->low = low;
+    memset(output, 0, sizeof(struct rvar_bucket_t));
+    output->buckets = 0; //malloc(sizeof(rvar_type_t) * nbuckets);
+    output->nbuckets = 0;
     output->bucket_size = bucket_size;
-    output->nbuckets = nbuckets;
 
     output->_type = BUCKETED;
     output->expected = _bucket_expected;
@@ -414,22 +497,16 @@ struct rvar_t *_rvar_deserialize_sample(char const *data) {
 struct rvar_t *_rvar_deserialize_bucket(char const *data) {
   char const *ptr = data;
 
-  rvar_type_t bucket_size = *(rvar_type_t*)ptr;
-  ptr += sizeof(rvar_type_t);
-
   uint32_t nbuckets = *(uint32_t*)ptr;
   ptr += sizeof(uint32_t);
 
-  rvar_type_t low = *(rvar_type_t*)ptr;
+  rvar_type_t bucket_size = *(rvar_type_t*)ptr;
   ptr += sizeof(rvar_type_t);
 
-  struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvar_bucket_create(low, bucket_size, nbuckets);
-
-  for (uint32_t i = 0; i < nbuckets ; ++i) {
-    // load data
-    rv->buckets[i] = *(rvar_type_t*)ptr;
-    ptr += sizeof(rvar_type_t);
-  }
+  struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvar_bucket_create(bucket_size);
+  size_t size = sizeof(struct bucket_t) * nbuckets;
+  rv->buckets = malloc(size);
+  memcpy(rv->buckets, ptr, size);
 
   return (struct rvar_t *)rv;
 }
@@ -460,6 +537,15 @@ struct rvar_t *rvar_fixed(rvar_type_t value) {
   return rvar_sample_create_with_vals(vals, 1);
 }
 
+int _sort_buckets(void const *p1, void const *p2) {
+  struct bucket_t *b1 = (struct bucket_t *)p1;
+  struct bucket_t *b2 = (struct bucket_t *)p2;
+
+  if (b1->val < b2->val)      { return -1; }
+  else if (b1->val > b2->val) { return  1; }
+  else { return 0; }
+}
+
 struct rvar_t *rvar_compose_with_distributions(
     struct rvar_t **rvars,
     double *dists,
@@ -467,36 +553,65 @@ struct rvar_t *rvar_compose_with_distributions(
   if (len == 0 || dists == 0 || rvars == 0)
     panic_txt("Passing nulls to rvar_compose_with_distribution");
 
-  double lowest = INFINITY; double highest = -INFINITY;
   double bucket_size = INFINITY;
+  // Get the total number of buckets and create a large enough space to hold
+  // them all
+  unsigned nbuckets = 0;
   for (int i = 0; i < len; ++i) {
-    assert(rvars[i]->_type == BUCKETED);
     struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvars[i];
-    lowest  = MIN(rv->low, lowest);
-    highest = MAX(rv->low + rv->nbuckets * rv->bucket_size, highest);
-    bucket_size = MIN(rv->bucket_size, bucket_size);
+    nbuckets += rv->nbuckets;
+    bucket_size = MIN(bucket_size, rv->bucket_size);
   }
 
-  uint32_t nbuckets = (uint32_t)(ceil((highest - lowest)/bucket_size));
-  struct rvar_bucket_t *res = (struct rvar_bucket_t *)
-    rvar_bucket_create(lowest, bucket_size, nbuckets);
+  if (nbuckets == 0) {
+    panic_txt("Number of buckets in the composition is zero.");
+  }
 
+  struct bucket_t *buckets = malloc(sizeof(struct bucket_t) * nbuckets);
+  struct bucket_t *ptr = buckets;
   for (int i = 0; i < len; ++i) {
     struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvars[i];
-    double dist = dists[i];
-    rvar_type_t *bucket_value = rv->buckets;
-
-    int base_offset = (int)ceil((rv->low - res->low)/res->bucket_size);
-    double cur_bucket = 0;
+    rvar_type_t scale = dists[i];
     for (int j = 0; j < rv->nbuckets; ++j) {
-      rvar_type_t bucket_increment = *bucket_value * dist;
-      int offset = (int)(floor(cur_bucket / bucket_size));
-
-      res->buckets[base_offset + offset] += bucket_increment;
-      cur_bucket += rv->bucket_size;
-      bucket_value++;
+      ptr[j].val = rv->buckets[j].val;
+      ptr[j].prob = rv->buckets[j].prob * scale;
     }
+    ptr += rv->nbuckets;
   }
 
-  return (struct rvar_t *)res;
+  return rvar_from_buckets(buckets, nbuckets, bucket_size);
 }
+
+struct rvar_t *rvar_from_buckets(
+    struct bucket_t *buckets,
+    unsigned nbuckets, rvar_type_t bucket_size) {
+  qsort(buckets, nbuckets, sizeof(struct bucket_t), _sort_buckets);
+  struct array_t *arr = array_create(sizeof(struct bucket_t), nbuckets);
+  struct bucket_t bucket;
+  bucket.val = buckets[0].val;
+  bucket.prob = buckets[0].prob;
+
+  for (int i = 1; i < nbuckets; ++i) {
+    /* Merge buckets that overlap */
+    if (buckets[i].val == bucket.val) {
+      // Accumulate
+      bucket.prob += buckets[i].prob;
+      continue;
+    }
+
+    array_append(arr, &bucket);
+    bucket.val = buckets[i].val;
+    bucket.prob = buckets[i].prob;
+  }
+
+  // append the last bit
+  array_append(arr, &bucket);
+
+  struct rvar_bucket_t *ret = (struct rvar_bucket_t *)rvar_bucket_create(bucket_size);
+  ret->nbuckets = array_size(arr);
+  array_transfer_ownership(arr, (void**)&ret->buckets);
+  array_free(arr);
+  
+  return (struct rvar_t *)ret;
+}
+
