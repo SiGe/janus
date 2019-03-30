@@ -1,23 +1,7 @@
 #ifndef _FAILURES_JUPITER_H_
-#define _FAILURES_JUPITER_H_
+#define  _FAILURES_JUPITER_H_
 
-#include <stdint.h>
+#include "failures/jupiter/independent.h"
+#include "failures/jupiter/warm.h"
 
-#include "failure.h"
-
-/* Independent failure model for jupiter:
- *
- * The independent failure model randomly fails any switch with equal
- * probability---there are no correlated failures.  We use automorphism of the
- * failure space to reduce the number of states that we need to explore.  
- * */
-struct jupiter_failure_model_independent_t {
-  struct failure_model_independent_t;
-};
-
-/* Creates an independent switch failure model for Jupiter */
-struct jupiter_failure_model_independent_t *
-  jupiter_failure_model_independent_create(unsigned max_conc_failure, double prob);
-
-#endif
-
+#endif /* _FAILURES_JUPITER_H_ */

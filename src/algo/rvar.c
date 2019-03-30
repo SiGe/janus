@@ -451,8 +451,12 @@ struct rvar_t *rvar_deserialize(char const *data) {
 }
 
 struct rvar_t *rvar_zero(void) {
+  return rvar_fixed(0);
+}
+
+struct rvar_t *rvar_fixed(rvar_type_t value) {
   rvar_type_t *vals = malloc(sizeof(rvar_type_t));
-  *vals = 0;
+  *vals = value;
   return rvar_sample_create_with_vals(vals, 1);
 }
 

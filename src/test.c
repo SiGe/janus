@@ -14,6 +14,7 @@
 #include "networks/jupiter.h"
 #include "predictors/rotating_ewma.h"
 #include "util/monte_carlo.h"
+#include "util/common.h"
 #include "util/log.h"
 
 #include "plan.h"
@@ -747,6 +748,12 @@ void test_twiddle() {
   assert(count == 15);
 }
 
+void test_choose() {
+  assert(choose(40, 5) == 658008);
+  assert(choose(10, 1) == 10);
+  assert(choose(10, 0) == 1);
+}
+
 void test_independent_failure_probability() {
   uint32_t num_pods = 8; //32
   uint32_t num_aggs = 8;  //24
@@ -808,7 +815,6 @@ void test_independent_failure_probability() {
               sizeof(switches)/sizeof(struct jupiter_located_switch_t), 
               switches, freedom_degree, ndegree);
   struct plan_iterator_t *iter = planner->iter((struct plan_t *)planner);
-  info("Num subplans: %d", iter->subplan_count(iter));
   bw_t bw = 10;
 
   struct network_t *net = jupiter_network_create(
@@ -825,18 +831,19 @@ void test_independent_failure_probability() {
 }
 
 int main(int argc, char **argv) {
-  TEST(jupiter_cluster);
-  TEST(tm_read_load);
-  TEST(tm_trace);
-  // TEST(ewma);
-  TEST(group_state);
-  TEST(dual_state);
-  TEST(tri_state);
-  // TEST(rvar_bucket);
-  TEST(planner);
-  TEST(array);
-  TEST(twiddle);
+  //TEST(jupiter_cluster);
+  //TEST(tm_read_load);
+  //TEST(tm_trace);
+  //TEST(ewma);
+  //TEST(group_state);
+  //TEST(dual_state);
+  //TEST(tri_state);
+  //TEST(rvar_bucket);
+  //TEST(planner);
+  //TEST(array);
+  //TEST(twiddle);
   //TEST(independent_failure_probability);
+  TEST(choose);
 
   //test_tri_state();
   return 0;

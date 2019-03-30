@@ -26,9 +26,8 @@ STD=gnu11
 #OPT = -O3 -pg -g
 OPT = -O3
 
-SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, $(wildcard src/*.c))
-SRC+=$(wildcard src/*/*.c)
-SRC+=$(wildcard lib/*/*.c)
+SRC:=$(filter-out src/traffic_compressor.c src/main.c src/test.c, \
+	$(wildcard src/*.c src/*/*.c src/*/*/*.c lib/*/*.c))
 
 MAIN_SRC:=$(SRC)
 MAIN_SRC+=src/main.c

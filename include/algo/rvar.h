@@ -93,6 +93,7 @@ struct rvar_bucket_t {
 struct rvar_t *rvar_deserialize(char const *data);
 struct rvar_t *rvar_sample_create_with_vals(rvar_type_t *vals, uint32_t nvals);
 struct rvar_t *rvar_zero(void);
+struct rvar_t *rvar_fixed(rvar_type_t value);
 
 /* Combines a bunch of rvars with corresponding distributions.
  *

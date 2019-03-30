@@ -130,3 +130,19 @@ int fd_path(int fd, char **buf) {
   *buf = ret;
 	return 0;
 }
+
+uint64_t choose(uint64_t n, uint64_t k) {
+  uint64_t ret = 1;
+  // Speed up : C(n k) = C(n n-k)
+  if (k > n - k) {
+    k = n - k;
+  }
+
+  for (uint64_t i = 1; i <= k; ++i) {
+    ret *= (n - (k - i));
+    ret /= (i); 
+  }
+
+  return ret;
+}
+

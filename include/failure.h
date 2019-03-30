@@ -6,7 +6,7 @@
 struct plan_iterator_t;
 struct exec_t;
 struct network_t;
-
+struct mop_block_stats_t;
 
 /* TODO: Should guarantee that failure_model_t can be used concurrently from
  * multiple threads.  In reality, this should not be a problem since most
@@ -31,6 +31,39 @@ struct failure_model_t {
     struct rvar_t **,          // List of packet-loss variables for subplan XX
     unsigned subplan_id
   );
+
+  /* Returns an iterator that goes over all the failure scenarios */
+  struct failure_scenario_iterator_t * (*iter) (
+      struct failure_model_t const *,
+      struct mop_block_stats_t *,
+      uint32_t nblocks,
+      struct plan_iterator_t *iter,
+      struct rvar_t **rcache);
+};
+
+struct failure_scenario_iterator_t {
+  /* Starting block stats */
+  struct   mop_block_stats_t *blocks;  /* Block stats for the current mop operation */
+  uint32_t nblocks;                    /* Number of blocks in the topology */
+  struct   plan_iterator_t *pi;        /* Plan iterator, used for getting the least-dominative-subplan id */
+  struct   rvar_t **rcache;             /* Cache of rvars */
+
+  /* Iterator functions */
+  void (*begin) (struct failure_scenario_iterator_t *);
+  void (*next) (struct failure_scenario_iterator_t *);
+  int  (*end) (struct failure_scenario_iterator_t *);
+
+  /* TODO: weird interface for freeing */
+  void (*free) (struct failure_scenario_iterator_t *, struct rvar_t **, int);
+
+  /* Returns the probability of the current scenario */
+  rvar_type_t     (*prob) (struct failure_scenario_iterator_t *);
+
+  /* Returns the cost of the current scenario */
+  struct rvar_t * (*cost) (struct failure_scenario_iterator_t *);
+
+  /* Original failure model */
+  struct failure_model_t const *model;
 };
 
 /* Combine multiple failure models
@@ -122,5 +155,37 @@ struct failure_model_independent_t {
    */
   double  switch_failure_probability;
 };
+
+/* TODO: .... */
+/* This is very similar to independent failure model at least in structure */
+struct failure_model_warm_t {
+  struct failure_model_t;
+
+  /* Maximum number of concurrent switch failures
+   *
+   * In general, we shouldn't need to supply this and the program should be able
+   * to identify the optimal maximum number of concurrent switches.
+   * */
+  unsigned max_concurrent_switch_failure;
+
+  /* The probability of a single switch failure.
+   *
+   * We assume that switches fail independently from each other.  For concurrent
+   * dependent switch failure, we need a different model of operation.
+   */
+  double  switch_failure_probability;
+
+  /* Cost of a warm switch failure, e.g., due to ASIC failures, etc. */
+  double failure_cost;
+};
+
+/* A default apply function that should theoretically work for most failures
+ * (maybe except composite) if the failure implements the iterator function */
+struct rvar_t *failure_default_apply(
+    struct failure_model_t const *fm,
+    struct network_t *net,
+    struct plan_iterator_t *pi,
+    struct rvar_t **rcache,
+    unsigned subplan_id);
 
 #endif

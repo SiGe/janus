@@ -168,6 +168,7 @@ int _jupiter_mop_pre(struct mop_t *mop, struct network_t *net) {
 
   for (uint32_t i = 0; i < jop->nswitches; ++i) {
     struct jupiter_located_switch_t *sw = jop->switches[i];
+    (void)(sw);
     jup->drain_switch((struct network_t *)jup, sw->sid);
   }
 

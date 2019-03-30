@@ -68,4 +68,6 @@ int fd_path(int, char **);
 /* Read a file in one go and put the results in the char ** */
 size_t file_read(FILE *, char **);
 
+/* Choose k from n function */
+uint64_t choose(uint64_t n, uint64_t k);
 #endif

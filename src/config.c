@@ -226,6 +226,10 @@ static int config_handler(void *data,
     expr->risk_violation_cost = risk_violation_name_to_func(value);
   } else if (MATCH("criteria", "criteria-time")) {
     expr->criteria_time = risk_delay_name_to_func(value);
+  } else if (MATCH("failure", "failure-mode")) {
+    expr->failure_mode = strdup(value);
+  } else if (MATCH("failure", "failure-warm-cost")) {
+    expr->failure_warm_cost = atof(value);
   } else if (MATCH("failure", "concurrent-switch-failure")) {
     expr->failure_max_concurrent = strtoul(value, 0, 0);
   } else if (MATCH("failure", "concurrent-switch-probability")) {
@@ -356,18 +360,31 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
 }
 
 static void _jupiter_build_failure_model(struct expr_t *expr) {
-  expr->failure = (struct failure_model_t *)
-    jupiter_failure_model_independent_create(
-      expr->failure_max_concurrent,
-      expr->failure_switch_probability);
+  if (strcmp(expr->failure_mode, "warm") == 0) {
+    expr->failure = (struct failure_model_t *)
+      jupiter_failure_model_warm_create(
+        expr->failure_max_concurrent,
+        expr->failure_switch_probability,
+        expr->failure_warm_cost);
+  } else if (strcmp(expr->failure_mode, "independent") == 0) {
+    expr->failure = (struct failure_model_t *)
+      jupiter_failure_model_independent_create(
+        expr->failure_max_concurrent,
+        expr->failure_switch_probability);
+  } else {
+    panic("Invalid failure model: %s.", expr->failure_mode);
+  }
 }
 
+/* Set some sensible defaults for experiments */
 static void _expr_set_default_values(struct expr_t *expr) {
   expr->verbose = 0;
   expr->pug_is_backtrack = 1;
   expr->pug_backtrack_traffic_count = 10;
   expr->failure_max_concurrent = 0;
   expr->failure_switch_probability = 0;
+  expr->failure_mode = 0;
+  expr->failure_warm_cost = 0;
 }
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char *const *argv) {

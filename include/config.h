@@ -131,9 +131,11 @@ struct expr_t {
   int          pug_is_backtrack;
 
   // Failure configuration
+  char *   failure_mode;
   unsigned failure_max_concurrent;
   double   failure_switch_probability;
   struct   failure_model_t *failure;
+  double   failure_warm_cost;
 };
 
 void config_parse(char const *ini_file, struct expr_t *expr, int argc, char * const * argv);
