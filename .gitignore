@@ -13,6 +13,19 @@ scripts/paper-plots/*
 scripts/paper-plots-backup/*
 logs/
 
+# Debugging scripts
+FlameGraph/
+flame-graph.sh
+out.perf-folded
+perf.data
+perf.data.old
+scripts/plot.sh
+trace/traffic_tools/gen-static-traffic.sh
+trace/traffic_tools/gnuplot/
+trace/traffic_tools/raw-trace/
+trace/traffic_tools/test.png
+trace/traffic_tools/test.sh
+
 # Python files
 *.pyc
 

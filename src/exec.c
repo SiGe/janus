@@ -358,6 +358,7 @@ risk_cost_t exec_plan_cost(
   uint32_t num_tor_pairs = num_tors * num_tors;
 
   int violations = 0;
+  uint32_t running_time = 0;
   for (uint32_t i = 0; i < nmops; ++i) {
     mops[i]->pre(mops[i], net);
     bw_t subplan_cost = 0;
@@ -373,6 +374,7 @@ risk_cost_t exec_plan_cost(
       net->get_dataplane(net, dp);
       maxmin(dp);
 
+      running_time += 1;
       violations = dataplane_count_violations(dp, 0);
       subplan_cost += expr->risk_violation_cost->cost( expr->risk_violation_cost,
           ((rvar_type_t)violations/(rvar_type_t)(num_tor_pairs)));
@@ -382,12 +384,6 @@ risk_cost_t exec_plan_cost(
       traffic_matrix_free(tm);
     }
 
-    /*
-    char *out = mops[i]->explain(mops[i], expr->network);
-    info("%s", out);
-    free(out);
-    */
-
     info("%d(th) subplan (%d switches) cost is: %f", 
         i, mops[i]->size(mops[i]), subplan_cost);
     cost += subplan_cost;
@@ -395,8 +391,30 @@ risk_cost_t exec_plan_cost(
     mops[i]->post(mops[i], net);
   }
 
+  // Include the rest of the idol time as part of the cost of the mop
+  for (uint32_t i = running_time; i < expr->criteria_time->steps; ++i) {
+      iter->get(iter, &tm);
+      if (!tm)
+        panic("Traffic matrix is nil.  Possibly reached the end of the trace: %d", i);
+
+      /* Network traffic */
+      net->set_traffic(net, tm);
+      net->get_dataplane(net, dp);
+      maxmin(dp);
+
+      running_time += 1;
+      violations = dataplane_count_violations(dp, 0);
+      cost += expr->risk_violation_cost->cost( expr->risk_violation_cost,
+          ((rvar_type_t)violations/(rvar_type_t)(num_tor_pairs)));
+      dataplane_free_resources(dp);
+
+      iter->next(iter);
+      traffic_matrix_free(tm);
+  }
+
   freelist_return(exec->net_dp, net_dp);
 
+  // Include the number of mops as time cost criteria
   risk_cost_t time_cost = expr->criteria_time->cost(expr->criteria_time, nmops);
   return cost + time_cost;
 }

@@ -21,7 +21,7 @@
 #define EXP(p) ((p)->expected((struct rvar_t *)(p)))
 
 #if DEBUG_MODE == 1
-#define DEBUG(txt, ...) info(txt, ##__VA_ARGS__);
+#define DEBUG(txt, ...) info(txt, __VA_ARGS__);
 #else 
 #define DEBUG(txt, ...) {}
 #endif
@@ -290,10 +290,6 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
 
     // Build the cost of the remainder of the plan, aka, long-term
     for (uint32_t j = idx; j < plans->max_plan_size; ++j) {
-      // If there are no subplans left just return.
-      if (ptr[j] == 0)
-        break;
-
       for (uint32_t dur = 0; dur < expr->mop_duration; ++dur) {
         cost_rvar_tmp = pug->steady_cost[ptr[j]];
         cost_rvar_tmp = cost_rvar_tmp->convolve(cost_rvar_tmp, cost_rvar, BUCKET_SIZE);
@@ -301,6 +297,11 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
         cost_rvar = cost_rvar_tmp;
       }
 
+      // If there are no subplans left don't count it towards the length of the plan.
+      if (ptr[j] == 0)
+        continue;
+
+      // We should also consider the "rest" of the empty timeline in the calculations.
       plan_len++;
     }
     
@@ -339,8 +340,6 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
   *ret_plan_length = best_plan_len;
 
   zero_rvar->free(zero_rvar);
-  //DEBUG("BEST LONG TERM COST: %f", best_term_cost);
-  //DEBUG("BEST SHORT TERM COST: %f", best_short_term_cost);
   return best_cost;
 }
 
@@ -392,7 +391,6 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     _plan_invalidate_not_equal(plans, i, plans->_cur_index);
 
 #if DEBUG_MODE
-    /* TODO: Can remove */
     struct mop_t *mop = pug->iter->mop_for(pug->iter, i);
     char *ret = mop->explain(mop, expr->network);
     DEBUG("Short Term Subplan %s", ret);
@@ -403,7 +401,6 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     // Use the failure model to assess the short-term risk for subplan[i]
     struct rvar_t *st_risk = expr->failure->apply(
         expr->failure, expr->network, pug->iter, rcache, i);
-    //info("%d, after: %f", i, st_risk->expected(st_risk));
 
     risk_cost_t cost = _term_best_plan_to_finish(exec, expr, 
         st_risk, plans->_cur_index + 1, &plan_idx, &plan_length, cur_step);
@@ -451,7 +448,7 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
 }
 
 static void __attribute__((unused))
-_print_freedom_plan(struct exec_t *exec, struct expr_t *expr, 
+_print_freedom_plan(struct exec_t *exec, struct expr_t const *expr, 
     unsigned best_subplan_len, unsigned *best_plan_subplans) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
@@ -483,6 +480,14 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t const *expr,
   plans->_cur_index = 0;
   plans->plan_count = plans->initial_plan_count;
 
+  /* TODO: PUG continously assess the risk of each plan
+   * so there is no single "best" plan.  We just return the first cost as the
+   * estimated cost of the best plan.
+   *
+   * - Omid 3/31/2019
+   * */
+  int first_estimate = 0;
+
   while (1) {
     finished = _exec_pug_find_best_next_subplan(
         exec, expr, at, best_plan_cost, best_plan_len, best_plan_subplans,
@@ -495,12 +500,16 @@ _exec_pug_best_plan_at(struct exec_t *exec, struct expr_t const *expr,
     if (finished)
       break;
 
-    DEBUG("Estimated cost of %d(th) subplan is: %f", plans->_cur_index, *best_plan_cost);
+    DEBUG("Estimated cost of %d(th) subplan is: %f with %d steps",
+        plans->_cur_index, *best_plan_cost, *best_plan_len);
     _plan_invalidate_not_equal(
         plans, best_plan_subplans[plans->_cur_index], plans->_cur_index);
     plans->_cur_index += 1;
 
-    running_cost += *best_plan_cost;
+    if (!first_estimate) {
+      running_cost = *best_plan_cost;
+      first_estimate = 1;
+    }
     at += expr->mop_duration;
   }
   *best_plan_len = plans->_cur_index;
@@ -657,23 +666,19 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t const *expr, trace
 
   // Create the actual steady cost values
   pug->steady_cost = malloc(sizeof(struct rvar_t *) * subplan_count);
+  info_txt("Adjusting subplan costs to consider the failure model.");
+
   struct plan_iterator_t *iter = pug->planner->iter(pug->planner);
   for (uint32_t i = 0; i < subplan_count; ++i) {
     pug->steady_cost[i] = expr->failure->apply(expr->failure, expr->network, iter, rcache, i);
-
-    /*
-    struct mop_t *mop = pug->iter->mop_for(pug->iter, i);
-    char *out = mop->explain(mop, expr->network);
-    info("%s", out);
-    free(out);
-    free(mop);
-    */
-
-    info("Expected cost before failure considerations %d: %f, after: %f", 
-        i, rcache[i]->expected(rcache[i]), 
-        pug->steady_cost[i]->expected(pug->steady_cost[i]));
+    if (expr->verbose >= VERBOSE_MORE_INFO) {
+      info("Expected cost before failure considerations %d: %f, after: %f", 
+          i, rcache[i]->expected(rcache[i]), 
+          pug->steady_cost[i]->expected(pug->steady_cost[i]));
+    }
   }
   iter->free(iter);
+  info_txt("Finished applying the failure model.");
 
   // Free the cost resources
   for (uint32_t i = 0; i < subplan_count; ++i) {
