@@ -360,6 +360,9 @@ cmd_parse(int argc, char *const *argv, struct expr_t *expr) {
 }
 
 static void _jupiter_build_failure_model(struct expr_t *expr) {
+  if (!expr->failure_mode)
+    panic_txt("Please select a failure mode in the ini file.");
+
   if (strcmp(expr->failure_mode, "warm") == 0) {
     expr->failure = (struct failure_model_t *)
       jupiter_failure_model_warm_create(
