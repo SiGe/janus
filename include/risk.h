@@ -63,12 +63,22 @@ struct risk_cost_func_linear_t {
   double slope;
 };
 
-struct risk_cost_func_concave_t {
+struct risk_cost_func_poly_t {
   struct risk_cost_func_t;
+  double power;
+  double ratio;
 };
 
-struct risk_cost_func_convex_t {
+struct risk_cost_func_exponential_t {
   struct risk_cost_func_t;
+  double power;
+  double ratio;
+};
+
+struct risk_cost_func_logarithmic_t {
+  struct risk_cost_func_t;
+  double power;
+  double ratio;
 };
 
 struct risk_cost_func_t *

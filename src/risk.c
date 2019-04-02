@@ -41,11 +41,13 @@ struct rvar_t *_default_rvar_to_rvar(struct risk_cost_func_t *f, struct rvar_t *
      * low = min(cost) and num_buckets = (max(cost) - min(cost))/100?? */
     struct rvar_bucket_t *rs = (struct rvar_bucket_t *)rvar;
 
+#define ROUND_TO_BUCKET(val, bs) (floor((val) * (bs))/(bs))
+
     struct array_t *arr = array_create(sizeof(struct bucket_t), rs->nbuckets);
     struct bucket_t bucket;
     struct bucket_t *ptr = rs->buckets;
     for (uint32_t i = 0; i < rs->nbuckets; ++i) {
-      bucket.val = f->cost(f, ptr->val);
+      bucket.val = ROUND_TO_BUCKET(f->cost(f, ptr->val), bucket_size);
       bucket.prob = ptr->prob;
       array_append(arr, &bucket);
       ptr++;
@@ -84,6 +86,24 @@ linear_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   return (val) * r->slope;
 }
 
+risk_cost_t
+poly_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
+  struct risk_cost_func_poly_t *r = (struct risk_cost_func_poly_t *)t;
+  return pow(val, r->power) * r->ratio;
+}
+
+risk_cost_t
+exponential_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
+  struct risk_cost_func_exponential_t *r = (struct risk_cost_func_exponential_t *)t;
+  return (exp(val * r->power) - 1) * r->ratio;
+}
+
+risk_cost_t
+logarithmic_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
+  struct risk_cost_func_logarithmic_t *r = (struct risk_cost_func_logarithmic_t *)t;
+  return log(val * r->power + 1) * r->ratio;
+}
+
 int _rcf_cmp(
     void const *v1, void const *v2) {
   struct _rcf_pair_t *p1 = (struct _rcf_pair_t *)v1;
@@ -106,6 +126,42 @@ risk_cost_linear_from_string(char const *string) {
   return (struct risk_cost_func_t *)ret;
 }
 
+static struct risk_cost_func_t *
+risk_cost_poly_from_string(char const *string) {
+  struct risk_cost_func_poly_t *ret = malloc(sizeof(struct risk_cost_func_poly_t));
+  ret->cost = poly_func_cost;
+  ret->rvar_to_rvar = _default_rvar_to_rvar;
+  ret->rvar_to_cost = _default_rvar_to_cost;
+
+  info_txt(string);
+  sscanf(string, "%lf-%lf", &ret->power, &ret->ratio);
+  info("Creating a poly function for the risk: %lf x (X ^ %lf)", ret->ratio, ret->power);
+  return (struct risk_cost_func_t *)ret;
+}
+
+static struct risk_cost_func_t *
+risk_cost_exponential_from_string(char const *string) {
+  struct risk_cost_func_exponential_t *ret = malloc(sizeof(struct risk_cost_func_exponential_t));
+  ret->cost = exponential_func_cost;
+  ret->rvar_to_rvar = _default_rvar_to_rvar;
+  ret->rvar_to_cost = _default_rvar_to_cost;
+
+  sscanf(string, "%lf-%lf", &ret->power, &ret->ratio);
+  info_txt("Creating an exponential function for the risk.");
+  return (struct risk_cost_func_t *)ret;
+}
+
+static struct risk_cost_func_t *
+risk_cost_logarithmic_from_string(char const *string) {
+  struct risk_cost_func_logarithmic_t *ret = malloc(sizeof(struct risk_cost_func_logarithmic_t));
+  ret->cost = logarithmic_func_cost;
+  ret->rvar_to_rvar = _default_rvar_to_rvar;
+  ret->rvar_to_cost = _default_rvar_to_cost;
+
+  sscanf(string, "%lf-%lf", &ret->power, &ret->ratio);
+  info_txt("Creating a logarithmic function for the risk.");
+  return (struct risk_cost_func_t *)ret;
+}
 
 static struct risk_cost_func_t *
 risk_cost_stepped_from_string(char const *string) {
@@ -158,6 +214,12 @@ risk_cost_string_to_func(char const *value) {
     ret = risk_cost_stepped_from_string(rest);
   } else if (strcmp(func_name, "linear") == 0) {
     ret = risk_cost_linear_from_string(rest);
+  } else if (strcmp(func_name, "exponential") == 0) {
+    ret = risk_cost_exponential_from_string(rest);
+  } else if (strcmp(func_name, "poly") == 0) {
+    ret = risk_cost_poly_from_string(rest);
+  } else if (strcmp(func_name, "logarithmic") == 0) {
+    ret = risk_cost_logarithmic_from_string(rest);
   } else {
     panic("Couldn't find the function: %s", value);
   }

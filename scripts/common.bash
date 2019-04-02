@@ -148,7 +148,16 @@ executor() {
 
 export -f executor
 
-LINEAR_COST="linear-200"
+# The power and ratios ensure that we get to 100 cost if the ToR loss gets to
+# 100.  
+# LOGARITHMIC_COST='logarithmic-1.7183-100'
+LOGARITHMIC_COST='logarithmic-6.8732-100'
+# EXPONENTIAL_COST='exponential-0.693147-100'
+EXPONENTIAL_COST='exponential-2.772588-100'
+#QUADRATIC_COST='poly-2-100'
+QUADRATIC_COST='poly-2-1500'
+#LINEAR_COST="linear-100"
+LINEAR_COST="linear-400"
 AZURE_COST='stepped-0\/100-95\/25-99\/10-99.95\/0-100\/0'
 AMAZON_COST='stepped-0\/30-99\/10-99.99\/0-100\/0'
 GOOGLE_COST='stepped-0\/50-95\/25-99.0\/10-99.99\/0-100\/0'

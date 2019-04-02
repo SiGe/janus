@@ -174,8 +174,10 @@ _sample_to_bucket(struct rvar_t const *rs, rvar_type_t bucket_size) {
     unsigned max_num_buckets = (unsigned)(ceil((r->high - r->low)/bucket_size)) + 1;
     struct array_t *buckets = array_create(sizeof(struct bucket_t), max_num_buckets);
 
+#define ROUND_TO_BUCKET(val, bs) (floor((val) * (bs))/(bs))
+
     struct bucket_t bucket;
-    bucket.prob = 0; bucket.val = r->low;
+    bucket.prob = 0; bucket.val = ROUND_TO_BUCKET(r->low, bucket_size);
     unsigned num_samples = r->num_samples;
 
     rvar_type_t *val = r->vals;
@@ -183,7 +185,7 @@ _sample_to_bucket(struct rvar_t const *rs, rvar_type_t bucket_size) {
       if (*val >= bucket.val + bucket_size) {
         bucket.prob /= (double)(num_samples);
         array_append(buckets, &bucket);
-        bucket.prob = 1; bucket.val = *val;
+        bucket.prob = 1; bucket.val = ROUND_TO_BUCKET(*val, bucket_size);
       } else {
         bucket.prob += 1;
       }
@@ -390,15 +392,20 @@ static struct rvar_t *_bucket_convolve(struct rvar_t const *left, struct rvar_t 
       for (unsigned j = 0; j < rr->nbuckets; ++j) {
         bucket.val = ll->buckets[i].val + rr->buckets[j].val;
         bucket.prob = ll->buckets[i].prob * rr->buckets[j].prob;
-        array_append(arr, &bucket);
+
+        if (bucket.prob > 1e-5)
+          array_append(arr, &bucket);
       }
     }
 
     struct bucket_t *buckets = 0;
+    unsigned size = array_size(arr);
     array_transfer_ownership(arr, (void**)&buckets);
     array_free(arr);
 
-    return rvar_from_buckets(buckets, ll->nbuckets * rr->nbuckets, bucket_size);
+    struct rvar_t *ret = rvar_from_buckets(buckets, size, bucket_size);
+    free(buckets);
+    return ret;
 
     /* This clearly is incorrect ... */
     /*
