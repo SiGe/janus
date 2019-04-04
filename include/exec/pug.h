@@ -4,6 +4,12 @@
 
 struct plan_repo_t;
 
+enum PUG_TYPE {
+  PUG_LONG,
+  PUG_LOOKBACK,
+  PUG_PUG,
+};
+
 /*
  * Ah the good ol' pug (or Janus or LaLa).
  *
@@ -48,6 +54,13 @@ struct exec_pug_t {
    * pug, this translates to the whole history of the traffic. */
   void (*prepare_steady_cost) (struct exec_t *exec, struct expr_t const *expr, trace_time_t);
   void (*release_steady_cost) (struct exec_t *exec, struct expr_t const *expr, trace_time_t);
+
+  /* On going mop---only used for pug-long*/
+  struct mop_t **mops;
+  unsigned nmops;
+
+  /* Pug type */
+  enum PUG_TYPE type;
 };
 
 /* TODO: Probably can add a factory method for generating different pug planners

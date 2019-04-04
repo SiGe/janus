@@ -9,6 +9,8 @@
 
 #include "risk.h"
 
+#define ROUND_AND_CLAMP(val, round, max) MIN((floor((val)/round)*round), max)
+
 risk_cost_t _default_rvar_to_cost (struct risk_cost_func_t *f, struct rvar_t *rvar) {
   //return rvar->percentile(rvar, 0.10);
   //return rvar->percentile(rvar, 0.999);
@@ -83,25 +85,25 @@ step_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
 risk_cost_t
 linear_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   struct risk_cost_func_linear_t *r = (struct risk_cost_func_linear_t *)t;
-  return (val) * r->slope;
+  return ROUND_AND_CLAMP((val) * r->slope, r->round, r->max);
 }
 
 risk_cost_t
 poly_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   struct risk_cost_func_poly_t *r = (struct risk_cost_func_poly_t *)t;
-  return pow(val, r->power) * r->ratio;
+  return ROUND_AND_CLAMP(pow(val, r->power) * r->ratio, r->round, r->max);
 }
 
 risk_cost_t
 exponential_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   struct risk_cost_func_exponential_t *r = (struct risk_cost_func_exponential_t *)t;
-  return (exp(val * r->power) - 1) * r->ratio;
+  return ROUND_AND_CLAMP((exp(val * r->power) - 1) * r->ratio, r->round, r->max);
 }
 
 risk_cost_t
 logarithmic_func_cost(struct risk_cost_func_t *t, rvar_type_t val) {
   struct risk_cost_func_logarithmic_t *r = (struct risk_cost_func_logarithmic_t *)t;
-  return log(val * r->power + 1) * r->ratio;
+  return ROUND_AND_CLAMP(log(val * r->power + 1) * r->ratio, r->round, r->max);
 }
 
 int _rcf_cmp(
@@ -121,7 +123,7 @@ risk_cost_linear_from_string(char const *string) {
   ret->rvar_to_rvar = _default_rvar_to_rvar;
   ret->rvar_to_cost = _default_rvar_to_cost;
 
-  ret->slope = atof(string);
+  sscanf(string, "%lf-%lf-%lf", &ret->slope, &ret->round, &ret->max);
   info_txt("Creating a linear function for the risk.");
   return (struct risk_cost_func_t *)ret;
 }
@@ -134,7 +136,7 @@ risk_cost_poly_from_string(char const *string) {
   ret->rvar_to_cost = _default_rvar_to_cost;
 
   info_txt(string);
-  sscanf(string, "%lf-%lf", &ret->power, &ret->ratio);
+  sscanf(string, "%lf-%lf-%lf-%lf", &ret->power, &ret->ratio, &ret->round, &ret->max);
   info("Creating a poly function for the risk: %lf x (X ^ %lf)", ret->ratio, ret->power);
   return (struct risk_cost_func_t *)ret;
 }
@@ -146,7 +148,7 @@ risk_cost_exponential_from_string(char const *string) {
   ret->rvar_to_rvar = _default_rvar_to_rvar;
   ret->rvar_to_cost = _default_rvar_to_cost;
 
-  sscanf(string, "%lf-%lf", &ret->power, &ret->ratio);
+  sscanf(string, "%lf-%lf-%lf-%lf", &ret->power, &ret->ratio, &ret->round, &ret->max);
   info_txt("Creating an exponential function for the risk.");
   return (struct risk_cost_func_t *)ret;
 }
@@ -158,7 +160,7 @@ risk_cost_logarithmic_from_string(char const *string) {
   ret->rvar_to_rvar = _default_rvar_to_rvar;
   ret->rvar_to_cost = _default_rvar_to_cost;
 
-  sscanf(string, "%lf-%lf", &ret->power, &ret->ratio);
+  sscanf(string, "%lf-%lf-%lf-%lf", &ret->power, &ret->ratio, &ret->round, &ret->max);
   info_txt("Creating a logarithmic function for the risk.");
   return (struct risk_cost_func_t *)ret;
 }

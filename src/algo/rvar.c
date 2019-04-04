@@ -17,7 +17,9 @@
 #define BUCKET_N(r) (r->nbuckets);
 #define BUCKET_H(r) (r->low + r->bucket_size * r->nbuckets);
 #define HEADER_SIZE (sizeof(enum RVAR_TYPE))
-
+#define PROB_ERR 1e-3
+#define ASSERT_DIST(p) assert( ((p) < 1 + PROB_ERR) && ((p) > 1 - PROB_ERR))
+#define ROUND_TO_BUCKET(val, bs) (floor((val) * (bs))/(bs))
 #define RVAR_PLOT_PATH "/tmp/planner.rvar.XXXXXX"
 
 
@@ -173,8 +175,6 @@ _sample_to_bucket(struct rvar_t const *rs, rvar_type_t bucket_size) {
     // Maximum number of buckets required
     unsigned max_num_buckets = (unsigned)(ceil((r->high - r->low)/bucket_size)) + 1;
     struct array_t *buckets = array_create(sizeof(struct bucket_t), max_num_buckets);
-
-#define ROUND_TO_BUCKET(val, bs) (floor((val) * (bs))/(bs))
 
     struct bucket_t bucket;
     bucket.prob = 0; bucket.val = ROUND_TO_BUCKET(r->low, bucket_size);
@@ -388,13 +388,17 @@ static struct rvar_t *_bucket_convolve(struct rvar_t const *left, struct rvar_t 
     // We are gonna have an rvar_bucket_t of size ll->nbuckets + rr->nbuckets - 1
     struct bucket_t bucket;
 
+    // keep a rolling prob
+    rvar_type_t cdf = 0;
     for (unsigned i = 0; i < ll->nbuckets; ++i) {
       for (unsigned j = 0; j < rr->nbuckets; ++j) {
         bucket.val = ll->buckets[i].val + rr->buckets[j].val;
         bucket.prob = ll->buckets[i].prob * rr->buckets[j].prob;
 
-        if (bucket.prob > 1e-5)
-          array_append(arr, &bucket);
+        //if (bucket.prob > PROB_ERR) {
+        array_append(arr, &bucket);
+        cdf += bucket.prob;
+        //}
       }
     }
 
@@ -403,64 +407,19 @@ static struct rvar_t *_bucket_convolve(struct rvar_t const *left, struct rvar_t 
     array_transfer_ownership(arr, (void**)&buckets);
     array_free(arr);
 
+    if (cdf < 1 - PROB_ERR || cdf > 1 + PROB_ERR) {
+      rvar_type_t sum = 0;
+      rvar_type_t ratio = 1/cdf;
+      for (unsigned i = 0; i < size; i++) {
+        buckets[i].prob *= ratio;
+        sum += buckets[i].prob;
+      }
+      ASSERT_DIST(sum);
+    }
+
     struct rvar_t *ret = rvar_from_buckets(buckets, size, bucket_size);
     free(buckets);
     return ret;
-
-    /* This clearly is incorrect ... */
-    /*
-    unsigned lidx = 0, ridx = 0;
-    struct bucket_t *lb = ll->buckets, *lr = rr->buckets;
-
-    while (lidx < ll->nbuckets && ridx < rr->nbuckets) {
-      bucket.val  = lb->val + lr->val;
-      bucket.prob = lb->prob * lr->prob;
-      array_append(buckets, &bucket);
-
-      if (lidx + 1 >= ll->nbuckets) {
-        // Finished with the left side
-        ridx += 1; lr++;
-        break;
-      }
-
-      if (ridx + 1 >= rr->nbuckets) {
-        lidx += 1; lb++;
-        break;
-      }
-
-      // Choose to either increment left or right hand side
-      if ((lb + 1)->val + lr->val < lb->val + (lr + 1)->val) {
-        lb += 1; lidx += 1;
-      } else {
-        lr += 1; ridx += 1;
-      }
-    }
-
-    while (lidx < ll->nbuckets) {
-      bucket.val  = lb->val + lr->val;
-      bucket.prob = lb->prob * lr->prob;
-      array_append(buckets, &bucket);
-      lidx += 1;
-      lb += 1;
-    }
-
-    while (ridx < rr->nbuckets) {
-      bucket.val  = lb->val + lr->val;
-      bucket.prob = lb->prob * lr->prob;
-      array_append(buckets, &bucket);
-      ridx += 1;
-      lr += 1;
-    }
-
-    struct rvar_bucket_t *output = (struct rvar_bucket_t *)rvar_bucket_create(bucket_size);
-    output->nbuckets = array_size(buckets);
-    array_transfer_ownership(buckets, (void**)&output->buckets);
-    array_free(buckets);
-
-    // Resize the bucket array appropriately
-    output->buckets = realloc(output->buckets, sizeof(struct bucket_t) * output->nbuckets);
-    return (struct rvar_t *)output;
-    */
 }
 
 struct rvar_t *rvar_bucket_create(rvar_type_t bucket_size) {
@@ -564,11 +523,15 @@ struct rvar_t *rvar_compose_with_distributions(
   // Get the total number of buckets and create a large enough space to hold
   // them all
   unsigned nbuckets = 0;
+  rvar_type_t scale_sum = 0;
   for (int i = 0; i < len; ++i) {
     struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvars[i];
     nbuckets += rv->nbuckets;
     bucket_size = MIN(bucket_size, rv->bucket_size);
+    scale_sum += dists[i];
   }
+
+  scale_sum = 1/scale_sum;
 
   if (nbuckets == 0) {
     panic_txt("Number of buckets in the composition is zero.");
@@ -578,7 +541,7 @@ struct rvar_t *rvar_compose_with_distributions(
   struct bucket_t *ptr = buckets;
   for (int i = 0; i < len; ++i) {
     struct rvar_bucket_t *rv = (struct rvar_bucket_t *)rvars[i];
-    rvar_type_t scale = dists[i];
+    rvar_type_t scale = dists[i] * scale_sum;
     for (int j = 0; j < rv->nbuckets; ++j) {
       ptr[j].val = rv->buckets[j].val;
       ptr[j].prob = rv->buckets[j].prob * scale;
@@ -595,8 +558,9 @@ struct rvar_t *rvar_from_buckets(
   qsort(buckets, nbuckets, sizeof(struct bucket_t), _sort_buckets);
   struct array_t *arr = array_create(sizeof(struct bucket_t), nbuckets);
   struct bucket_t bucket;
-  bucket.val = buckets[0].val;
+  bucket.val = buckets[0].val * buckets[0].prob;
   bucket.prob = buckets[0].prob;
+  rvar_type_t acc = 0;
 
   for (int i = 1; i < nbuckets; ++i) {
     /* Merge buckets that overlap */
@@ -606,12 +570,27 @@ struct rvar_t *rvar_from_buckets(
       continue;
     }
 
+    /* Compression of RVAR: If we haven't added up enough entries, mash up a
+     * few entries together */
+    if (bucket.prob <= PROB_ERR) {
+      bucket.prob += buckets[i].prob;
+      bucket.val += buckets[i].val * buckets[i].prob;
+      continue;
+    }
+
+    acc += bucket.prob;
+    bucket.val /= bucket.prob;
+    bucket.val = ROUND_TO_BUCKET(bucket.val, bucket_size);
     array_append(arr, &bucket);
-    bucket.val = buckets[i].val;
+    bucket.val = buckets[i].val * buckets[i].prob;
     bucket.prob = buckets[i].prob;
   }
+  acc += bucket.prob;
+  ASSERT_DIST(acc);
 
   // append the last bit
+  bucket.val /= bucket.prob;
+  bucket.val = ROUND_TO_BUCKET(bucket.val, bucket_size);
   array_append(arr, &bucket);
 
   struct rvar_bucket_t *ret = (struct rvar_bucket_t *)rvar_bucket_create(bucket_size);

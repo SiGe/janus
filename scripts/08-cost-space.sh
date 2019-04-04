@@ -33,7 +33,7 @@ export -f config
  # ::: 0.8 1 1.2 1.4\
  # ::: AZURE_COST AMAZON_COST GOOGLE_COST LINEAR_COST  |\
 
-parallel --eta --progress --bar\
+parallel --eta --progress\
   executor experiments/02-paper-dynamic-traffic.ini\
   config planners\
   ::: 8\

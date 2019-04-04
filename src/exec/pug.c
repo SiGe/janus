@@ -283,13 +283,15 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
 
   // Create a zeroed rvar for initial cost
   struct rvar_t *zero_rvar = rvar_zero();
+  unsigned max_plan_length = MIN(plans->max_plan_size, expr->criteria_time->steps);
 
   for (uint32_t i = 0; i < plans->plan_count; ++i) {
     unsigned plan_len = 0;
     cost_rvar = (struct rvar_t *)zero_rvar->to_bucket(zero_rvar, BUCKET_SIZE);
 
+
     // Build the cost of the remainder of the plan, aka, long-term
-    for (uint32_t j = idx; j < plans->max_plan_size; ++j) {
+    for (uint32_t j = idx; j < max_plan_length; ++j) {
       for (uint32_t dur = 0; dur < expr->mop_duration; ++dur) {
         cost_rvar_tmp = pug->steady_cost[ptr[j]];
         cost_rvar_tmp = cost_rvar_tmp->convolve(cost_rvar_tmp, cost_rvar, BUCKET_SIZE);
@@ -310,11 +312,17 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
 
     struct rvar_t *sum = cost_rvar->convolve(cost_rvar, rvar, BUCKET_SIZE);
     risk_cost_t cost = viol_cost->rvar_to_cost(viol_cost, sum);
-
-    // TODO: Do I need to change the cost anywhere else?
     cost += expr->criteria_time->cost(expr->criteria_time, cur_step + plan_len + 1); 
 
     sum->free(sum);
+
+    /*
+    printf("Cost of: (");
+    for (uint32_t i = 0; i < max_plan_length; ++i) {
+      printf("% 3d, ", ptr[i]);
+    }
+    printf(")  -> %6.2lf\n", cost);
+    */
 
     if  (_best_plan_criteria(expr, cost, plan_len, 10, 
                                    best_cost, best_plan_len, 10)) {
@@ -333,6 +341,24 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
     if (best_risk)
       best_risk->plot(best_risk);
   }
+
+  /*
+  printf("Choosing (");
+  ptr = plans->plans + (best_plan_idx * plans->max_plan_size);
+  for (uint32_t i = 0; i < best_plan_len + 1 ; ++i) {
+    printf("% 3d, ", ptr[i]);
+  }
+  printf(") = (");
+
+  struct rvar_t *rv = rvar_zero();
+  for (uint32_t i = 0; i < best_plan_len + 1 ; ++i) {
+    rv = rv->convolve(rv, pug->steady_cost[ptr[i]], 1);
+    printf("% 6.2lf (% 6.2lf), ", 
+        pug->steady_cost[ptr[i]]->expected(pug->steady_cost[ptr[i]]),
+        rv->expected(rv));
+  }
+  printf(")  -> %6.2lf, %6.2lf\n", best_cost, rv->expected(rv));
+  */
 
   if (best_risk)
     best_risk->free(best_risk);
@@ -594,30 +620,45 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t const *expr) {
   unsigned     best_plan_len = UINT_MAX;
   unsigned     *best_plan_subplans  = malloc(sizeof(int) * plans->max_plan_size);
 
+  /* TODO: Refactorthe PUG_LONG out of this loop
+   *
+   * -Omid 04/03/2019 */
+
   for (uint32_t i = expr->scenario.time_begin; i < expr->scenario.time_end; i += expr->scenario.time_step) {
     trace_time_t at = i;
 
     pug->prepare_steady_cost(exec, expr, at);
+    risk_cost_t estimated_cost = 0;
 
-    risk_cost_t estimated_cost = _exec_pug_best_plan_at(
-        exec, expr, at, &best_plan_cost, &best_plan_len, best_plan_subplans);
-    struct mop_t **mops = _exec_mops_for_create(
-        exec, expr, best_plan_subplans, best_plan_len);
+    if (!(pug->type == PUG_LONG && pug->mops)) {
+      estimated_cost = _exec_pug_best_plan_at(
+          exec, expr, at, &best_plan_cost, &best_plan_len, best_plan_subplans);
+      pug->mops = _exec_mops_for_create(
+          exec, expr, best_plan_subplans, best_plan_len);
+      pug->nmops = best_plan_len;
+    }
+
     risk_cost_t actual_cost = exec_plan_cost(
-        exec, expr, mops, best_plan_len, at);
-    _exec_mops_for_free(exec, expr, mops, best_plan_len);
+        exec, expr, pug->mops, pug->nmops, at);
+
+    if (pug->type != PUG_LONG) 
+      _exec_mops_for_free(exec, expr, pug->mops, pug->nmops);
 
     info("[%4d] Actual cost of the best plan (%02d) is: %4.3f : %4.3f",
-        at, best_plan_len, actual_cost, estimated_cost);
+        at, pug->nmops, actual_cost, estimated_cost);
 
     result.at = i;
-    result.num_steps = best_plan_len;
+    result.num_steps = pug->nmops;
     result.description = 0;
     result.cost = actual_cost;
 
     array_append(res->result, &result);
     pug->release_steady_cost(exec, expr, at);
   }
+
+  if (pug->type == PUG_LONG) 
+    _exec_mops_for_free(exec, expr, pug->mops, best_plan_len);
+  pug->mops = 0;
   free(best_plan_subplans);
 
   return res;
@@ -658,9 +699,12 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t const *expr, trace
   for (uint32_t i = 0; i < subplan_count; ++i) {
     struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
-    //rv->plot(rv);
+    /* info("Cost of subplan %d is %lf", i, rv->expected(rv));
+    char *explanation = pug->iter->explain(pug->iter, i);
+    info_txt(explanation);
+    free(explanation);
+    */
     rcache[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
-    //pug->steady_cost[i]->plot(pug->steady_cost[i]);
     rv->free(rv);
   }
 
@@ -803,6 +847,8 @@ struct exec_t *exec_pug_create_short_and_long_term(void) {
   pug->short_term_risk = _short_term_risk_using_predictor;
   pug->prepare_steady_cost = prepare_steady_cost_static;
   pug->release_steady_cost = release_steady_cost_static;
+  pug->type = PUG_PUG;
+  pug->mops = 0;
 
   return exec;
 }
@@ -821,6 +867,9 @@ struct exec_t *exec_pug_create_long_term_only(void) {
   pug->short_term_risk = _short_term_risk_using_long_term_cache;
   pug->prepare_steady_cost = prepare_steady_cost_static;
   pug->release_steady_cost = release_steady_cost_static;
+  pug->type = PUG_LONG;
+  pug->mops = 0;
+
   return exec;
 }
 
@@ -838,6 +887,8 @@ struct exec_t *exec_pug_create_lookback(void) {
   pug->short_term_risk = _short_term_risk_using_predictor;
   pug->prepare_steady_cost = prepare_steady_cost_dynamic;
   pug->release_steady_cost = release_steady_cost_dynamic;
+  pug->type = PUG_LOOKBACK;
+  pug->mops = 0;
 
   return exec;
 }

@@ -31,7 +31,7 @@ export -f config
 parallel --eta --progress \
   executor experiments/02-paper-dynamic-traffic.ini\
   config planners\
-  ::: 8\
+  ::: 4\
   ::: 0.8 0.9 1 1.1 1.2 1.3\
   ::: AZURE_COST AMAZON_COST GOOGLE_COST LINEAR_COST LOGARITHMIC_COST EXPONENTIAL_COST QUADRATIC_COST  |\
   column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/07-cost-cloud.log

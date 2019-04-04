@@ -24,7 +24,7 @@ planners() {
 export -f planners
 export -f config
 
-parallel\
+parallel --eta --progress\
   executor experiments/01-paper-static-traffic.ini\
   config planners\
   ::: 4 8\

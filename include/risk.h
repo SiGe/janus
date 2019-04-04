@@ -61,24 +61,32 @@ struct risk_cost_func_step_t {
 struct risk_cost_func_linear_t {
   struct risk_cost_func_t;
   double slope;
+  double round;
+  double max;
 };
 
 struct risk_cost_func_poly_t {
   struct risk_cost_func_t;
   double power;
   double ratio;
+  double round;
+  double max;
 };
 
 struct risk_cost_func_exponential_t {
   struct risk_cost_func_t;
   double power;
   double ratio;
+  double round;
+  double max;
 };
 
 struct risk_cost_func_logarithmic_t {
   struct risk_cost_func_t;
   double power;
   double ratio;
+  double round;
+  double max;
 };
 
 struct risk_cost_func_t *
