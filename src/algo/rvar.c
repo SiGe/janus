@@ -22,10 +22,25 @@
 #define ROUND_TO_BUCKET(val, bs) (floor((val) * (bs))/(bs))
 #define RVAR_PLOT_PATH "/tmp/planner.rvar.XXXXXX"
 
-/* TODO: Can use http://people.ece.umn.edu/users/parhi/SLIDES/chap8.pdf to
- * improve the convolution speed.  Right now, it's so so ... bad.
+/* TODO: Maybe can use http://people.ece.umn.edu/users/parhi/SLIDES/chap8.pdf
+ * to improve the convolution speed.  Right now, it's so so ... bad.
+ *
+ * The idea is that IFFT(FFT(Rv1) * FFT(Rv2)) is faster than Rv1 (convolve) Rv2.
+ * Can use: http://fftw.org/download.html
+ *
+ * The reasoning being that convolution in the "time" domain is equivalent to
+ * multiplication in the "frequency" domain.  Meaning that N^2 operation
+ * becomes N in the frequency domain.  Going from the time domain to the
+ * frequency domain itself is Nlog(N).
+ *
+ * So overall it's a win.
  *
  * - Omid 04/04/2019 */
+
+/* TODO: Another idea is to revert back to bounded RVars.  By doing so, we can use
+ * array index to navigate the Rvar as opposed to a sorted linked list.
+ *
+ * - Omid 04/05/2019 */
 
 static char *_rvar_header(enum RVAR_TYPE type, char *buffer) {
   *(enum RVAR_TYPE*)buffer = type;
