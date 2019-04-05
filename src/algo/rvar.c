@@ -17,11 +17,15 @@
 #define BUCKET_N(r) (r->nbuckets);
 #define BUCKET_H(r) (r->low + r->bucket_size * r->nbuckets);
 #define HEADER_SIZE (sizeof(enum RVAR_TYPE))
-#define PROB_ERR 1e-3
+#define PROB_ERR 5e-2
 #define ASSERT_DIST(p) assert( ((p) < 1 + PROB_ERR) && ((p) > 1 - PROB_ERR))
 #define ROUND_TO_BUCKET(val, bs) (floor((val) * (bs))/(bs))
 #define RVAR_PLOT_PATH "/tmp/planner.rvar.XXXXXX"
 
+/* TODO: Can use http://people.ece.umn.edu/users/parhi/SLIDES/chap8.pdf to
+ * improve the convolution speed.  Right now, it's so so ... bad.
+ *
+ * - Omid 04/04/2019 */
 
 static char *_rvar_header(enum RVAR_TYPE type, char *buffer) {
   *(enum RVAR_TYPE*)buffer = type;
@@ -395,10 +399,8 @@ static struct rvar_t *_bucket_convolve(struct rvar_t const *left, struct rvar_t 
         bucket.val = ll->buckets[i].val + rr->buckets[j].val;
         bucket.prob = ll->buckets[i].prob * rr->buckets[j].prob;
 
-        //if (bucket.prob > PROB_ERR) {
         array_append(arr, &bucket);
         cdf += bucket.prob;
-        //}
       }
     }
 
