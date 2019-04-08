@@ -13,6 +13,8 @@ config() {
 
   set_kv ${file} risk-violation "${AZURE_COST}"
   set_kv ${file} criteria-time "cutoff-at-${cutoff}"
+  set_kv ${file} concurrent-switch-failure 0
+  set_kv ${file} concurrent-switch-probability 0.001
   set_bw ${file} $(mult_int $(get_bw $file) $scale)
 
   echo ${cutoff}
