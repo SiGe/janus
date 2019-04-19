@@ -17,6 +17,7 @@ endif
 BUILD_DIR = build
 BIN_DIR = bin
 TARGET = main
+#BINARY = netre-debug
 BINARY = netre
 
 CC = clang

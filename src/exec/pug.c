@@ -268,7 +268,7 @@ _short_term_risk_using_predictor(struct exec_t *exec, struct expr_t const *expr,
 static risk_cost_t
 _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr, 
     struct rvar_t *rvar, unsigned idx, unsigned *ret_plan_idx, unsigned *ret_plan_length,
-    unsigned cur_step) {
+    unsigned cur_step, unsigned subplan_id) {
   TO_PUG(exec);
   struct plan_repo_t *plans = pug->plans;
   unsigned *ptr = plans->plans;
@@ -306,23 +306,24 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
       // We should also consider the "rest" of the empty timeline in the calculations.
       plan_len++;
     }
-    
-    // Move to the next plan
-    ptr += plans->max_plan_size;
 
+    /* Calculate the cost of the plan */
     struct rvar_t *sum = cost_rvar->convolve(cost_rvar, rvar, BUCKET_SIZE);
     risk_cost_t cost = viol_cost->rvar_to_cost(viol_cost, sum);
     cost += expr->criteria_time->cost(expr->criteria_time, cur_step + plan_len + 1); 
-
     sum->free(sum);
 
-    /*
+#if DEBUG_MODE==1
     printf("Cost of: (");
     for (uint32_t i = 0; i < max_plan_length; ++i) {
       printf("% 3d, ", ptr[i]);
     }
     printf(")  -> %6.2lf\n", cost);
-    */
+#endif
+    
+    // Move to the next plan
+    ptr += plans->max_plan_size;
+
 
     if  (_best_plan_criteria(expr, cost, plan_len, 10, 
                                    best_cost, best_plan_len, 10)) {
@@ -342,23 +343,23 @@ _term_best_plan_to_finish(struct exec_t *exec, struct expr_t const *expr,
       best_risk->plot(best_risk);
   }
 
-  /*
-  printf("Choosing (");
+#if DEBUG_MODE==1
+  printf("Best plan to finish: (");//, subplan_id);
   ptr = plans->plans + (best_plan_idx * plans->max_plan_size);
-  for (uint32_t i = 0; i < best_plan_len + 1 ; ++i) {
+  for (uint32_t i = 0; i < best_plan_len + idx; ++i) {
     printf("% 3d, ", ptr[i]);
   }
-  printf(") = (");
+  printf(") = (");//%6.2lf, ", rvar->expected(rvar));
 
-  struct rvar_t *rv = rvar_zero();
-  for (uint32_t i = 0; i < best_plan_len + 1 ; ++i) {
+  struct rvar_t *rv = rvar;
+  for (uint32_t i = 0; i < best_plan_len + idx; ++i) {
     rv = rv->convolve(rv, pug->steady_cost[ptr[i]], 1);
     printf("% 6.2lf (% 6.2lf), ", 
         pug->steady_cost[ptr[i]]->expected(pug->steady_cost[ptr[i]]),
         rv->expected(rv));
   }
   printf(")  -> %6.2lf, %6.2lf\n", best_cost, rv->expected(rv));
-  */
+#endif
 
   if (best_risk)
     best_risk->free(best_risk);
@@ -429,7 +430,7 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
         expr->failure, expr->network, pug->iter, rcache, i);
 
     risk_cost_t cost = _term_best_plan_to_finish(exec, expr, 
-        st_risk, plans->_cur_index + 1, &plan_idx, &plan_length, cur_step);
+        st_risk, plans->_cur_index + 1, &plan_idx, &plan_length, cur_step, i);
 
 #if DEBUG_MODE
     DEBUG("Short Term Cost: %lf", expr->risk_violation_cost->rvar_to_cost(expr->risk_violation_cost, st_risk));
@@ -468,7 +469,9 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
   }
 
   (void)(best_subplan);
-  DEBUG(">>>> Choosing subplan %d with cost %lf", best_subplan, best_plan_cost);
+#if DEBUG_MODE==1
+  info(">>>> Choosing subplan %d with cost %lf", best_subplan, best_plan_cost);
+#endif
 
   return finished;
 }
@@ -699,11 +702,13 @@ prepare_steady_cost_static(struct exec_t *exec, struct expr_t const *expr, trace
   for (uint32_t i = 0; i < subplan_count; ++i) {
     struct rvar_t *rv = expr->risk_violation_cost->rvar_to_rvar(
         expr->risk_violation_cost, pug->steady_packet_loss[i], 0);
-    /* info("Cost of subplan %d is %lf", i, rv->expected(rv));
+#if DEBUG_MODE==1
+    info("Cost of subplan %d is %lf", i, rv->expected(rv));
     char *explanation = pug->iter->explain(pug->iter, i);
     info_txt(explanation);
     free(explanation);
-    */
+#endif
+    
     rcache[i] = (struct rvar_t *)rv->to_bucket(rv, BUCKET_SIZE);
     rv->free(rv);
   }

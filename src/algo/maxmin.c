@@ -388,6 +388,9 @@ static void dataplane_prepare(struct dataplane_t *dataplane) {
 /* calculate the max-min fairness of the dataplane flows. This is a destructive
    operation---i.e., the dataplane structure will change */
 int maxmin(struct dataplane_t *dataplane) {
+  if (dataplane->num_flows == 0 || dataplane->num_links == 0)
+    return 1;
+
   dataplane_prepare(dataplane);
 
   while (1) {

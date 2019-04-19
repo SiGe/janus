@@ -31,7 +31,7 @@ export -f config
 parallel --eta --progress\
   executor experiments/02-paper-dynamic-traffic.ini\
   config planners\
-  ::: 8\
+  ::: 4\
   ::: 0.01 0.02 0.03 0.04 0.05\
-  ::: 0.8 1 1.2 |\
+  ::: 1 |\
   column -t | sort -k1,1 -nk2,2 -nk3,3 | tee data/09-failure-sweep.log

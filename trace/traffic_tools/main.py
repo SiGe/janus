@@ -4,6 +4,7 @@ import os
 import random
 import sys
 
+import numpy.random as npr
 import gnuplot as Gnuplot
 
 random.seed(10)
@@ -638,6 +639,12 @@ class Config(object):
         self.TRACE_LENGTH = int(args[4])
         self.WEBSERVER_TRACE = args[5]
         self.HADOOP_TRACE = args[6]
+        self.WEBSERVER_TRACE_WEIGHT = 0.5
+        self.HADOOP_TRACE_WEIGHT = 0.5
+
+        if (len(args) > 7):
+            self.WEBSERVER_TRACE_WEIGHT = float(args[7])
+            self.HADOOP_TRACE_WEIGHT = float(args[8])
 
         # Possibly don't want to change these
         self.MIN_USER_SIZE = self.MAX_USER_SIZE / 5
@@ -700,6 +707,10 @@ class Config(object):
         return self._hadoop_trace
 
     @property
+    def hadoop_trace_prob(self):
+        return self.HADOOP_TRACE_WEIGHT
+
+    @property
     def webserver_trace_path(self):
         return self.WEBSERVER_TRACE
 
@@ -708,6 +719,10 @@ class Config(object):
         if not self._webserver_trace:
             self._webserver_trace = load_trace(self.webserver_trace_path, self.trace_length)
         return self._webserver_trace
+
+    @property
+    def webserver_trace_prob(self):
+        return self.WEBSERVER_TRACE_WEIGHT
 
 def traffic_summary_tunable(intra_to_inter_pod_flow_count, 
                             intra_to_inter_pod_flow_volume,
@@ -803,7 +818,9 @@ def traffic_summary_default(traffic_low_mult, traffic_high_mult, config):
 
     hadoop_gen    = fb_gen(config.hadoop_trace)
     webserver_gen = fb_gen(config.webserver_trace)
-    generator = random.choice([hadoop_gen, webserver_gen])
+    generator = npr.choice(
+            [hadoop_gen, webserver_gen], 1, 
+            p=[config.hadoop_trace_prob, config.webserver_trace_prob]).tolist()[0]
 
     return TrafficSummary(generator)
 
@@ -899,7 +916,7 @@ def main():
         os.makedirs(config.dir)
 
     iterator = TraceBuilder(
-                    *traffic_scenario_default(config)
+                    *traffic_scenario_bad_scheduler(config)
                ).build(ticks=config.trace_length, interval=1)
 
     for tick, data in enumerate(iterator):
@@ -912,7 +929,7 @@ def main():
     save_key(config.num_pods, config.num_tors_per_pod, os.path.join(config.dir, "key.tsv"))
 
 if __name__ == '__main__':
-    if len(sys.argv) != 8:
+    if len(sys.argv) < 8:
         usage()
     main()
 
