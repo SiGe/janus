@@ -123,7 +123,7 @@ static struct network_t *jupiter_string_to_network(struct expr_t const *expr, ch
   uint32_t core, pod, app, tpp; bw_t bw;
   int tot_read;
 
-  if (sscanf(string, "jupiter-%d-%d-%d-%d-"BWF"%n", &core, &pod, &app, &tpp, &bw, &tot_read) <= 0) {
+  if (sscanf(string, "jupiter-%u-%u-%u-%u-"BWF"%n", &core, &pod, &app, &tpp, &bw, &tot_read) <= 0) {
     panic("Bad format specifier for jupiter: %s", string);
   }
 
@@ -131,7 +131,7 @@ static struct network_t *jupiter_string_to_network(struct expr_t const *expr, ch
     panic("Bad format specifier for jupiter: %s", string);
   }
 
-  //info("Creating a jupiter network with: %d, %d, %d, %d, %f", core, pod, app, tpp, bw);
+  //info("Creating a jupiter network with: %u, %u, %u, %u, %f", core, pod, app, tpp, bw);
 
   return (struct network_t *)jupiter_network_create(core, pod, app, tpp, bw);
 }
@@ -155,7 +155,7 @@ static void jupiter_add_upgrade_group(char const *string, struct jupiter_sw_up_l
   char sw_type[256] = {0};
   unsigned location, count, color;
 
-  if (sscanf(string, "%[^-]-%d-%d-%d%n", sw_type, &location, &count, &color, &tot_read) <= 0) {
+  if (sscanf(string, "%[^-]-%u-%u-%u%n", sw_type, &location, &count, &color, &tot_read) <= 0) {
     panic("Bad format specifier for jupiter: %s", string);
   }
 

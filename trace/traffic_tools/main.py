@@ -818,6 +818,8 @@ def traffic_summary_default(traffic_low_mult, traffic_high_mult, config):
 
     hadoop_gen    = fb_gen(config.hadoop_trace)
     webserver_gen = fb_gen(config.webserver_trace)
+
+    #generator = random.choose([hadoop_gen, webserver_gen])
     generator = npr.choice(
             [hadoop_gen, webserver_gen], 1, 
             p=[config.hadoop_trace_prob, config.webserver_trace_prob]).tolist()[0]

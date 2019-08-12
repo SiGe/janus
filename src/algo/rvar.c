@@ -129,7 +129,7 @@ _sample_plot(struct rvar_t const *rs) {
   rvar_type_t index = 0;
   rvar_type_t prev = sample->vals[0];
 
-  write(fd, "0\t0\n", 4);
+  (void) !write(fd, "0\t0\n", 4);
   for (int i = 0; i < sample->num_samples; ++i) {
     if (sample->vals[i] == prev) {
       index++;
@@ -137,7 +137,7 @@ _sample_plot(struct rvar_t const *rs) {
     }
 
     snprintf(line, 1024, "%lf\t%lf\n", prev, index / sample->num_samples);
-    write(fd, line, strlen(line));
+    (void) !write(fd, line, strlen(line));
 
     index = 0;
     prev = sample->vals[i];
@@ -146,7 +146,7 @@ _sample_plot(struct rvar_t const *rs) {
 
   if (index != 0) {
     snprintf(line, 1024, "%lf\t%lf\n", prev, index / sample->num_samples);
-    write(fd, line, strlen(line));
+    (void) !write(fd, line, strlen(line));
   }
 
   fsync(fd);
@@ -368,7 +368,7 @@ static void _bucket_plot(struct rvar_t const *rs) {
   rvar_type_t x = buck->buckets->val;
   for (int i = 0; i < buck->nbuckets; ++i) {
     snprintf(line, 1024, "%lf\t%lf\n", (double)buck->buckets[i].val/(double)buck->nbuckets, x);
-    write(fd, line, strlen(line));
+    (void) !write(fd, line, strlen(line));
     x += buck->bucket_size;
   }
   fsync(fd);

@@ -20,7 +20,8 @@ TARGET = main
 #BINARY = netre-debug
 BINARY = netre
 
-CC = clang
+#CC = clang
+CC = gcc
 STD=gnu11
 
 #OPT = -O0 -pg -g
@@ -47,19 +48,22 @@ OPT = -O0 -pg -g
 endif
 
 CFLAGS=$(OPT) $(DEFINE) -Wall -Werror \
-			-pedantic -Wsign-conversion -Wold-style-cast\
-			-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro\
+			-pedantic -Wsign-conversion\
+			-Wno-unused-function\
 			-Iinclude/ -std=$(STD) -Ilib/ \
-			-fms-extensions  -Wno-microsoft-anon-tag \
+			-fms-extensions \
 			-mtune=native $(OSCFLAGS)
 
 LDFLAGS=-lm $(OPT) $(DEFINE) -Wall -Werror\
-				-pedantic -Wsign-conversion -Wold-style-cast\
+				-pedantic -Wsign-conversion\
 				-Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro\
 			 	-Iinclude/ -Ilib/ -std=$(STD) -flto \
 				-mtune=native $(OSLDFLAGS)
-ifneq (clang, $(CC))
+
+ifeq (gcc, $(CC))
 	LDFLAGS += -pthread
+else ifeq (clang, $(CC))
+	CFLAGS += -Wno-nested-anon-types -Wno-keyword-macro -Wno-microsoft-anon-tag
 endif
 
 

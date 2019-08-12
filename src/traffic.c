@@ -374,7 +374,7 @@ uint64_t _traffic_matrix_trace_index_count(FILE *index) {
   fseek(index, 0, SEEK_SET);
   // XXX: Bad idea: if the data-structures change we cannot just "read" the files anymore
   //      Better way is to properly read and write the relevant parts by "hand."
-  (void) fread(&size, sizeof(size), 1, index);
+  (void) !fread(&size, sizeof(size), 1, index);
   return size;
 }
 

@@ -231,11 +231,12 @@ static int fix_link(struct dataplane_t *dataplane, struct link_t *link) {
         // we can honestly set the l used to be equal to l capacity ...
         l->used = l->capacity;
         // dataplane_smallest(dataplane);
-        // panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
-        //     (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
-        //       flows left) %d, (Remaining demand on flow) %.2f",
-        //     l->id, flow->id, l->used, l->capacity, l->nflows, l->nactive_flows,
-        //     remaining_demand(flow));
+        /* panic("Routing on a link that has no space left: (Link) %d, (Flow) %d,\
+             (Used cap) %.2f, (Total cap) %.2f, (Num flows on link) %d, (Num\
+               flows left) %d, (Remaining demand on flow) %.2f",
+             l->id, flow->id, l->used, l->capacity, l->nflows, l->nactive_flows,
+             remaining_demand(flow));
+        */
       }
 
       recycle_link_if_fixed(dataplane, l);

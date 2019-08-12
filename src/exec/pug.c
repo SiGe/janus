@@ -19,6 +19,7 @@
 
 #define TO_PUG(e) struct exec_pug_t *pug = (struct exec_pug_t *)e;
 #define EXP(p) ((p)->expected((struct rvar_t *)(p)))
+#define ROLLBACK_EXPERIMENT 1
 
 #if DEBUG_MODE == 1
 #define DEBUG(txt, ...) info(txt, __VA_ARGS__);
@@ -390,7 +391,11 @@ _exec_pug_find_best_next_subplan(struct exec_t *exec,
     rcache[i] = pug->short_term_risk(exec, expr, i, at);
   }
 
+#ifndef ROLLBACK_EXPERIMENT
   for (uint32_t i = 1; i < pug->plans->_subplan_count; ++i) {
+#else
+  for (uint32_t i = 4; i < MIN(22, pug->plans->_subplan_count); ++i) {
+#endif
     if (subplans[i] != 1)
       continue;
 
