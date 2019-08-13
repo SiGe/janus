@@ -68,8 +68,8 @@ Finally, -x option returns a short explanation of the execution mode
 ## Experiments
 
 To run the experiments, first run make, then go to the script folder and
-execute the relevant experiments.  Here we discuss a summary of each of the
-experiments:
+execute the relevant experiments.  Here are the mappings between the
+experiments and the figures in the paper:
 
 - Figure 7-a: 15-static-many.sh
 - Figure 7-b: 02-dynamic-experiment.sh
@@ -83,6 +83,18 @@ experiments:
 - Figure 10 : 04-cost-time.sh
 
 The scripts generate files in the scripts/data/ folder (most likely).
+
+To generate the plots, make sure you have run all the experiments (except rollback).  Go to the scripts/paper-plots folder and run:
+
+```
+% ./gen-data.sh
+```
+
+After, you can use gnuplot on plt files in the same folder to create the plots.
+
+```
+% gnuplot *plt
+```
 
 ## Authors
 
