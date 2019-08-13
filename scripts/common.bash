@@ -122,6 +122,8 @@ executor() {
   get_planners=$3
   shift 3
 
+  mkdir -p ./data
+
   . ./common.bash
   . ./names.bash
 
