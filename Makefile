@@ -20,8 +20,8 @@ TARGET = main
 #BINARY = netre-debug
 BINARY = netre
 
-#CC = clang
-CC = gcc
+#CC ?= gcc
+CC ?= clang
 STD=gnu11
 
 #OPT = -O0 -pg -g
