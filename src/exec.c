@@ -58,6 +58,15 @@ struct predictor_t *exec_ewma_cache_build_or_load(
   return (struct predictor_t *)ewma;
 }
 
+static uint32_t
+exec_degree_of_freedom(struct expr_t const *expr) {
+  uint32_t ret = 1;
+  for (uint32_t i = 0; i < expr->upgrade_nfreedom; ++i) {
+    ret *= (expr->upgrade_freedom[i] + 1);
+  }
+  return ret;
+}
+
 struct array_t **
 exec_rvar_cache_load_into_array(struct expr_t const *expr, unsigned *count) {
   char const *cache_dir = expr->cache.rvar_directory;
@@ -65,11 +74,19 @@ exec_rvar_cache_load_into_array(struct expr_t const *expr, unsigned *count) {
   DIR *dir = 0;
   struct dirent *ent = 0;
   unsigned nfiles = dir_num_files(cache_dir);
+
   if (nfiles == 0)
     return 0;
 
   struct array_t **ret = malloc(sizeof(struct array_t *) * nfiles);
   info("Total number of cache files: %d", nfiles);
+
+  uint32_t expected_nfiles = exec_degree_of_freedom(expr);
+  if (nfiles != expected_nfiles) {
+    panic("Cache files are probably corrupted.  Expected %u, got %u files.\n"
+          "Delete the cache folder (%s) and rerun long-term.",
+          expected_nfiles, nfiles, cache_dir);
+  }
 
   if ((dir = opendir(cache_dir)) != NULL) {
     /* print all the files and directories within directory */

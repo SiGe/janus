@@ -3,7 +3,7 @@
 
 #include "dataplane.h"
 
-#define MAX_FORMAT_LENGTH 256
+#define MAX_FORMAT_LENGTH 1024
 
 #define LOG_ERROR 1
 #define LOG_WARN 2

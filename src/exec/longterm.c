@@ -194,7 +194,7 @@ _exec_longterm_validate(struct exec_t *exec, struct expr_t const *expr) {
 
 static void
 _exec_longterm_explain(struct exec_t const *exec) {
-  text_block_txt("Longterm generates cache files for pug and lpug planners.\n");
+  text_block_txt("long-term generates SLO violation cache files for pug planners.\n");
 }
 
 struct exec_t *exec_longterm_create(void) {

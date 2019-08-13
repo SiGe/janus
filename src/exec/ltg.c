@@ -113,9 +113,9 @@ _exec_ltg_runner(struct exec_t *exec, struct expr_t const *expr) {
 static void
 _exec_ltg_explain(struct exec_t const *exec) {
   text_block_txt(
-       "LTG divides an upgrade plan over the available planning intervals.\n"
-       "The length of the planning interval is set through the criteria-time\n"
-       " in the .ini file.\n");
+       "LTG (MRC in the paper) divides an upgrade plan over the available\n"
+       "planning intervals.  The length of the planning interval is set \n"
+       "through the criteria-time in the .ini file.\n");
 }
 
 struct exec_t *exec_ltg_create(void) {

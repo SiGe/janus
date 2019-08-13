@@ -675,8 +675,19 @@ _exec_pug_runner(struct exec_t *exec, struct expr_t const *expr) {
 static void
 _exec_pug_long_explain(struct exec_t const *exec) {
   text_block_txt(
-			 "Pug long uses long-term traffic estimates to find plans.");
+       "Pug long only uses long-term traffic estimates to find plans.  It is\n"
+       "agnostic to current traffic matrices.  This is also called Janus Offline\n"
+       "in the paper.\n");
 }
+
+
+static void
+_exec_pug_lookback_explain(struct exec_t const *exec) {
+  text_block_txt(
+"Pug lookback uses the last pug:backtrack-traffic-counter number of traffic\n"
+"matrices as prediction of possible traffic matrices in the future.  It also\n"
+"uses the traffic matrices produced by the predictor:type to estimate the\n"
+"future SLO violation.  It then combines these results to find the optimal plan."); }
 
 static void
 _exec_pug_short_and_long_explain(struct exec_t const *exec) {
@@ -889,7 +900,7 @@ struct exec_t *exec_pug_create_lookback(void) {
 
   exec->validate = _exec_pug_validate;
   exec->run = _exec_pug_runner;
-  exec->explain = _exec_pug_long_explain;
+  exec->explain = _exec_pug_lookback_explain;
 
   TO_PUG(exec);
   pug->steady_packet_loss = 0;

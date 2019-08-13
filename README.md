@@ -9,81 +9,46 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-The repository should be self contained.  It has dependencies on pthread, 
-What things you need to install the software and how to install them
+The repository is self-contained.  It should successfully compile with gcc and clang on Linux (tested with Ubuntu 18.04, gcc 7.4, and Clang 6.0).
 
+### Compilation
+
+Compilation is a matter of invoking make:
 ```
-Give examples
-```
-
-### Installing
-
-A step by step series of examples that tell you how to get a development env running
-
-Say what the step will be
-
-```
-Give the example
+make -j\[number of threads\]
 ```
 
-And repeat
+This creates a binary file (netre) in the bin/ folder.
+
+## Usage
 
 ```
-until finished
+> ./bin/netre <experiment-setting ini file> [OPTIONS]
 ```
 
-End with an example of getting some data out of the system or using it for a little demo
+Only two options are available: -a \[planner\] and -x
 
-## Running the tests
+-a select the planner to use.  The available options are: long-term, pug,
+pug-lookback, pug-long, ltg.
 
-Explain how to run the automated tests for this system
+- long-term generates cache-files.
+- ltg is the MRC planner discussed in the paper.
+- pug-lookback is Janus.  Our traffic aware planner.
+- pug-long is Janus offline.  A traffic aware planner that only uses historical
+  traffic data for planning.
+- pug is Janus but instead of using recent historical traffic data it uses all
+  the available historical traffic data.  It can be useful when traffic
+  variations are high.  This is not discussed in the paper.
 
-### Break down into end to end tests
+## Experiments
 
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-## Deployment
-
-Add additional notes about how to deploy this on a live system
-
-## Built With
-
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
-
-## Contributing
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
+To run experiments, after running make, go to the script folder and execute the
+relevant experiments.
 
 ## Authors
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
-
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+* **Omid Alipourfard** - *Initial work* - [SiGe](https://omid.io)
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
-
-## Acknowledgments
-
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
