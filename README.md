@@ -12,6 +12,12 @@ These instructions will get you a copy of the project up and running on your loc
 
 The repository is self-contained.  It should successfully compile with gcc and clang on Linux (tested with Ubuntu 18.04, gcc 7.4, and Clang 6.0).
 
+To download the traffic data, please run the setup script:
+
+```
+% ./setup.sh
+```
+
 ### Compilation
 
 Compilation is a matter of invoking make:
@@ -65,7 +71,18 @@ To run the experiments, first run make, then go to the script folder and
 execute the relevant experiments.  Here we discuss a summary of each of the
 experiments:
 
-- 01
+- Figure 7-a: 15-static-many.sh
+- Figure 7-b: 02-dynamic-experiment.sh
+- Figure 7-c: 09-failure-sweep.sh
+- Figure 8-a: 07-cloud-cost.sh
+- Figure 8-b: 10-step-count.sh 
+- Figure 8-c: 11-scale.sh
+- Figure 8-d: 13-bursty.sh OR 14-bursty-more.sh
+- Table    4: 12-scale-time.sh
+- Figure 9  : Rollback experiment, requires modification to code.
+- Figure 10 : 04-cost-time.sh
+
+The scripts generate files in the scripts/data/ folder (most likely).
 
 ## Authors
 
