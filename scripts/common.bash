@@ -148,7 +148,21 @@ executor() {
   rm -r "${rv_dir}"
 }
 
+run_checks() {
+  # Check if the binary file for risk estimator does exist.
+  if [ ! -f ../bin/netre ]; then
+    >&2 echo -e "netre binary file does not exist.  Have you executed the make?  Are you running from the scripts/ folder?"
+    exit -1
+  fi
+
+  if [[ $EUID -eq 0 ]]; then
+    >&2 echo "This script must NOT be run as root." 1>&2
+    exit -1
+  fi
+}
+
 export -f executor
+run_checks
 
 # The power and ratios ensure that we get to 100 cost if the ToR loss gets to
 # 100.  
