@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 
+/* TODO: Could possible be a union? */
 struct freelist_t {
   struct freelist_t *next;
   void *data;
