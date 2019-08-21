@@ -61,12 +61,13 @@ uint32_t dir_num_files(char const *dname) {
   }
 
   while ((entry = readdir(dirp)) != NULL) {
-    if (entry->d_type == DT_REG) { /* If the entry is a regular file */
+    if (entry->d_type == DT_REG || entry->d_type == DT_UNKNOWN) { /* If the entry is a regular file */
       file_count++;
     }
   }
   closedir(dirp);
 
+  info("Found %d files in folder %s.", file_count, dname);
   return file_count;
 }
 
