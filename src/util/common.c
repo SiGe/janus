@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -61,6 +62,9 @@ uint32_t dir_num_files(char const *dname) {
   }
 
   while ((entry = readdir(dirp)) != NULL) {
+    if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+      continue;    /* skip self and parent */
+
     if (entry->d_type == DT_REG || entry->d_type == DT_UNKNOWN) { /* If the entry is a regular file */
       file_count++;
     }
