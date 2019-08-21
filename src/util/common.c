@@ -55,8 +55,10 @@ uint32_t dir_num_files(char const *dname) {
   struct dirent * entry;
 
   dirp = opendir(dname); /* There should be error handling after this */
-  if (!dirp)
+  if (!dirp) {
+    panic("Could not open the folder: %s", dname);
     return 0;
+  }
 
   while ((entry = readdir(dirp)) != NULL) {
     if (entry->d_type == DT_REG) { /* If the entry is a regular file */
