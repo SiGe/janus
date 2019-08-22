@@ -19,7 +19,8 @@
 
 #define TO_PUG(e) struct exec_pug_t *pug = (struct exec_pug_t *)e;
 #define EXP(p) ((p)->expected((struct rvar_t *)(p)))
-#define ROLLBACK_EXPERIMENT 1
+// #define ROLLBACK_EXPERIMENT 1
+#undef ROLLBACK_EXPERIMENT
 
 #if DEBUG_MODE == 1
 #define DEBUG(txt, ...) info(txt, __VA_ARGS__);
