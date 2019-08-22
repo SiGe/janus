@@ -96,6 +96,11 @@ After, you can use gnuplot on plt files in the same folder to create the plots.
 % gnuplot *plt
 ```
 
+## Running Custom Experiments
+
+Each experiment uses an experiment file.  The format of the experiment file is
+explained in [CONFIG](CONFIG.md).
+
 ## Authors
 
 * **Omid Alipourfard** - *Initial work* - [SiGe](https://omid.io)
