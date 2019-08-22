@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -55,16 +56,22 @@ uint32_t dir_num_files(char const *dname) {
   struct dirent * entry;
 
   dirp = opendir(dname); /* There should be error handling after this */
-  if (!dirp)
+  if (!dirp) {
+    panic("Could not open the folder: %s", dname);
     return 0;
+  }
 
   while ((entry = readdir(dirp)) != NULL) {
-    if (entry->d_type == DT_REG) { /* If the entry is a regular file */
+    if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+      continue;    /* skip self and parent */
+
+    if (entry->d_type == DT_REG || entry->d_type == DT_UNKNOWN) { /* If the entry is a regular file */
       file_count++;
     }
   }
   closedir(dirp);
 
+  info("Found %d files in folder %s.", file_count, dname);
   return file_count;
 }
 

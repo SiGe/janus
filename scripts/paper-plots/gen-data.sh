@@ -30,6 +30,10 @@ for grepExpr in '[[:space:]]0.7[0-4]' '[[:space:]]0.7[5-9]' '[[:space:]]0.8[0-4]
     awk "${staticAwkCommand}"
 done | tee static-many.data
 
+FILE=../data/09-failure-sweep.log
+paste <(cat $FILE | grep -i janusdynamic-4 | tr -s ' ') <(cat $FILE | grep -i ltg-4 | tr -s ' ') >failure.data
+paste <(cat $FILE | grep -i janusstatic-4 | tr -s ' ') <(cat $FILE | grep -i ltg-4 | tr -s ' ') >>failure.data
+sed -i -e 's/\t/ /g' failure.data
 
 for grepExpr in '0\.656477\|0\.6536\|0\.6[6-7]' '0\.7[4-6][0-9][0-9][1-9]' '0\.8[1-2]' '0\.8[9][0,3]\|0.902'; do
   cat ../data/13-bursty.log | grep "$grepExpr" |\
