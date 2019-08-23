@@ -74,7 +74,7 @@ experiments and the figures in the paper:
 - Figure 7-a: 15-static-many.sh
 - Figure 7-b: 02-dynamic-experiment.sh
 - Figure 7-c: 09-failure-sweep.sh
-- Figure 8-a: 07-cloud-cost.sh
+- Figure 8-a: 07-cost-cloud.sh
 - Figure 8-b: 10-step-count.sh 
 - Figure 8-c: 11-scale.sh
 - Figure 8-d: 13-bursty.sh OR 14-bursty-more.sh
