@@ -26,13 +26,13 @@ set yrange [0:]
 set yrange [0:1]
 set ytics 0,0.2,1
 set output "bursty-ratio-66.pdf"
-plot "<cat bursty-new.data | grep '0\.64[[:space:]]\\|0\\.66[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
+plot "<cat bursty.data | grep '0\.64[[:space:]]\\|0\\.66[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
 
 set output "bursty-ratio-74.pdf"
-plot "<cat bursty-new.data | grep '0\.74[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
+plot "<cat bursty.data | grep '0\.74[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
 
 set output "bursty-ratio-82.pdf"
-plot "<cat bursty-new.data | grep '0\.82[[:space:]]\\|0\.80[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
+plot "<cat bursty.data | grep '0\.82[[:space:]]\\|0\.80[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
 
 set output "bursty-ratio-90.pdf"
-plot "<cat bursty-new.data | grep '0\.90[[:space:]]\\|0\.88[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
+plot "<cat bursty.data | grep '0\.90[[:space:]]\\|0\.88[[:space:]]'" using ($3/$4) title "Janus/MRC" ls 2 lw 1
