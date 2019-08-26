@@ -99,7 +99,7 @@ After, you can use gnuplot on plt files in the same folder to create the plots.
 ## Running Custom Experiments
 
 Each experiment uses an experiment file.  The format of the experiment file is
-explained in [CONFIG](CONFIG.md).
+explained in [CONFIG](docs/CONFIG.md).
 
 ## Authors
 
