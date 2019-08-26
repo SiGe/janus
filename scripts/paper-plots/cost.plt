@@ -10,7 +10,7 @@ set datafile separator " "
 set format x "%.0f%%"
 set xlabel "Cost Function"
 
-set xtics  ("Staged-1" 0, "Staged-2" 1, "Staged-3" 2, "log" 3, "linear" 4, "quad." 5, "exp" 6) rotate by 30 center offset 1,-0.5
+set xtics  ("Staged-1" 1, "Staged-2" 3, "Staged-3" 0, "log" 5, "linear" 4, "quad." 6, "exp" 2) rotate by 30 center offset 1,-0.5
 
 df='../data/09-failure-sweep.log'
 
