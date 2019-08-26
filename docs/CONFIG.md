@@ -56,7 +56,7 @@ discussed in the previous attribute (mop-duration).
 ## [failure]
 `concurrent-switch-failure`: Maximum number of concurrent switch failures to
 consider.  Janus will throw an error if this number is too low (i.e., the
-total number of switches to consider result in less than [90% of scenarios](https://github.com/SiGe/janus/blob/master/src/failure.c).
+total number of switches to consider result in less than [90% of scenarios](https://github.com/SiGe/janus/blob/master/src/failure.c#54)).
 
 `concurrent-switch-probability`: Probability of concurrent independent switch failure.
 
