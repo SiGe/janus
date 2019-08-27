@@ -86,7 +86,7 @@ t4	t3	p2	p2	0	0
 ```
 
 And each trace file would have 12 lines.  E.g., `0001.tsv` would be:
-`
+```
 10.0
 1.0
 0.0
@@ -99,11 +99,12 @@ And each trace file would have 12 lines.  E.g., `0001.tsv` would be:
 0.0
 0.0
 10.0
-`
+```
 
 ## Running traffic compressor
 To run the traffic compressor on the above folder (e.g., trace/sample_trace), we could issue:
 ```bash
+% make traffic_compressor
 % mkdir trace/janus_trace
 
 # It is important NOT to forget the trailing slash, i.e.:
