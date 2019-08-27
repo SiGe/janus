@@ -18,6 +18,8 @@ To download the traffic data, please run the setup script:
 % ./setup.sh
 ```
 
+To run the evaluations, you need gnuplot 5.2+ and parallel installed.
+
 ### Compilation
 
 Compilation is a matter of invoking make:
@@ -100,6 +102,8 @@ After, you can use gnuplot on plt files in the same folder to create the plots.
 
 Each experiment uses an experiment file.  The format of the experiment file is
 explained in [CONFIG](docs/CONFIG.md).
+
+For generating custom traffic files please have a look at [TRAFFIC](docs/TRAFFIC.md).
 
 ## Authors
 
