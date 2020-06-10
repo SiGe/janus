@@ -73,7 +73,7 @@ static struct criteria_time_t *risk_delay_name_to_func(char const *name) {
   ret->steps = strtoul(tmp, 0, 0);
   ret->steps_cost = malloc(sizeof(risk_cost_t) * ret->steps);
 
-  // Read the rest of the 
+  // Read the rest of the
   int idx = 0; cur++;
   char *pch = strtok(cur, ",");
   risk_cost_t sum = 0;
@@ -164,7 +164,7 @@ static void jupiter_add_upgrade_group(char const *string, struct jupiter_sw_up_l
   }
 
   list->size += 1;
-  list->sw_list = realloc(list->sw_list, sizeof(struct jupiter_sw_up_list_t) * list->size);
+  list->sw_list = realloc(list->sw_list, sizeof(struct jupiter_sw_up_t) * list->size);
   list->num_switches += count;
 
   struct jupiter_sw_up_t *up = &list->sw_list[list->size-1];
@@ -194,7 +194,7 @@ jupiter_add_freedom_degree(char const *string,
   char const *ptr = strtok(str, "-");
   int degree = 0;
 
-  while (ptr != 0) { 
+  while (ptr != 0) {
     (*freedom)[degree++] = (uint32_t)atoi(ptr);
     ptr = strtok(0, "-");
   }
@@ -203,7 +203,7 @@ jupiter_add_freedom_degree(char const *string,
   return ndegree;
 }
 
-static int config_handler(void *data, 
+static int config_handler(void *data,
     char const *section, char const *name,
     char const *value) {
 #define MATCH_SECTION(s) strcmp(section, s) == 0
